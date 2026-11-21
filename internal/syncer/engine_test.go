@@ -315,3 +315,24 @@ func TestSync_OfflineKeepsMailQueued(t *testing.T) {
 		t.Errorf("waiting = %d", waiting)
 	}
 }
+
+func TestSearch_FetchesMatchesNotCached(t *testing.T) {
+	w := newWorld(t)
+	w.engine.MaxThreads = 1
+	old := msg("a1", "a", 0, "Label_1")
+	old.Body = "the quarterly invoice"
+	w.fake.Deliver(old, msg("b1", "b", 5, "INBOX"), msg("c1", "c", 1, "TRASH"))
+	w.sync(t) // caches only b, the newest
+
+	ids, err := w.engine.Search(ctx, "invoice", 10)
+
+	if err != nil || len(ids) != 1 || ids[0] != "a" {
+		t.Fatalf("ids %v, err %v", ids, err)
+	}
+	if w.local(t, "a1") == nil {
+		t.Error("the match wasn't cached")
+	}
+	if n := w.fake.Calls("Thread"); n != 2 {
+		t.Errorf("Thread called %d times, want once more for the one match not cached", n)
+	}
+}

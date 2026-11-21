@@ -20,7 +20,7 @@ import (
 type Remote interface {
 	Profile(ctx context.Context) (email string, historyID uint64, err error)
 	Labels(ctx context.Context) ([]model.Label, error)
-	ThreadIDs(ctx context.Context, max int) ([]string, error)
+	ThreadIDs(ctx context.Context, query string, max int) ([]string, error) // query "": newest, outside spam and trash
 	Thread(ctx context.Context, id string) ([]model.Message, error)
 	MessageLabels(ctx context.Context, id string) ([]string, error)
 	History(ctx context.Context, start uint64) (model.Changes, uint64, error)
@@ -217,7 +217,7 @@ func (e *Engine) fullPull(ctx context.Context) error {
 	if err := e.pullLabels(ctx); err != nil {
 		return err
 	}
-	ids, err := e.Remote.ThreadIDs(ctx, e.MaxThreads)
+	ids, err := e.Remote.ThreadIDs(ctx, "", e.MaxThreads)
 	if err != nil {
 		return err
 	}
@@ -273,6 +273,31 @@ func (e *Engine) keepPending(ctx context.Context, msgs []model.Message) ([]model
 		}
 	}
 	return msgs, nil
+}
+
+// Search asks Gmail for up to max conversations matching query (Gmail's
+// search syntax), fetches the ones not cached yet, and returns their IDs in
+// Gmail's order.
+func (e *Engine) Search(ctx context.Context, query string, max int) ([]string, error) {
+	ids, err := e.Remote.ThreadIDs(ctx, query, max)
+	if err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, id := range ids {
+		cached, err := e.Store.HasThread(ctx, e.Account, id)
+		if err != nil {
+			return nil, err
+		}
+		if !cached {
+			missing = append(missing, id)
+		}
+	}
+	msgs, err := e.fetchThreads(ctx, missing)
+	if err != nil {
+		return nil, err
+	}
+	return ids, e.save(ctx, msgs)
 }
 
 // fetchWorkers is how many threads are fetched at once: fast, and well

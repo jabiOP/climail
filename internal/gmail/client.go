@@ -62,10 +62,14 @@ func (c *Client) Labels(ctx context.Context) ([]model.Label, error) {
 	return out, nil
 }
 
-// ThreadIDs lists up to max thread IDs, newest first, outside spam and trash.
-func (c *Client) ThreadIDs(ctx context.Context, max int) ([]string, error) {
+// ThreadIDs lists up to max thread IDs matching query (Gmail's search
+// syntax), newest first; query "" lists all, outside spam and trash.
+func (c *Client) ThreadIDs(ctx context.Context, query string, max int) ([]string, error) {
 	var ids []string
 	call := c.svc.Users.Threads.List("me").Context(ctx)
+	if query != "" {
+		call.Q(query)
+	}
 	for page := ""; len(ids) < max; {
 		resp, err := call.MaxResults(int64(min(max-len(ids), 500))).PageToken(page).Do()
 		if err != nil {

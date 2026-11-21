@@ -124,7 +124,15 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.clearSearch()
 		}
 		m.focus = paneList
-		return m, nil
+		if m.deps.Search == nil || m.found != nil {
+			return m, nil
+		}
+		m.asking = true
+		search, ctx, account, query := m.deps.Search, m.ctx, m.account, m.search
+		return m, func() tea.Msg {
+			ids, err := search(ctx, account, query)
+			return searchedMsg{query: query, ids: ids, err: err}
+		}
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
@@ -134,7 +142,7 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.search == "" { // starting a search: remember where to come back to
 		m.before = m.box
 	}
-	m.search = m.input.Value()
+	m.search, m.found, m.asking = m.input.Value(), nil, false
 	m.box = service.Mailbox{ID: model.AllMail, Name: "All Mail"}
 	if m.search == "" {
 		m.box = m.before
@@ -147,7 +155,7 @@ func (m Model) clearSearch() (tea.Model, tea.Cmd) {
 	if m.search == "" {
 		return m, nil
 	}
-	m.search, m.box = "", m.before
+	m.search, m.box, m.found, m.asking = "", m.before, nil, false
 	m.cursor, m.offset, m.limit = 0, 0, pageSize
 	m.input.SetValue("")
 	return m, m.load()
@@ -467,7 +475,7 @@ func (m Model) openBox(id string) (tea.Model, tea.Cmd) {
 			box = b
 		}
 	}
-	m.box, m.search, m.focus = box, "", paneList
+	m.box, m.search, m.focus, m.found, m.asking = box, "", paneList, nil, false
 	m.input.SetValue("")
 	m.cursor, m.offset, m.limit, m.selected = 0, 0, pageSize, map[string]bool{}
 	m.side = m.boxRow()

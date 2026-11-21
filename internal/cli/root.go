@@ -111,7 +111,8 @@ func NewRootCmd(app *App) *cobra.Command {
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(newAuthCmd(app), newSyncCmd(app), newLabelsCmd(app), newListCmd(app), newShowCmd(app),
 		newDemoCmd(app), newDaemonCmd(app), newComposeCmd(app), newReplyCmd(app), newForwardCmd(app),
-		newSendCmd(app), newOutboxCmd(app), newAttachmentsCmd(app), newDownloadCmd(app))
+		newSendCmd(app), newOutboxCmd(app), newAttachmentsCmd(app), newDownloadCmd(app),
+		newSearchCmd(app))
 	root.AddCommand(newActionCmds(app)...)
 	return root
 }
@@ -132,6 +133,7 @@ func tuiDeps(app *App, svc *service.Service) tui.Deps {
 		Download:     app.Download,
 		DownloadDir:  app.Config.DownloadDir,
 		OpenDir:      app.Paths.OpenDir(),
+		Search:       app.Search,
 	}
 }
 

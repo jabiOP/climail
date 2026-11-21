@@ -10,6 +10,7 @@ import (
 	"mime"
 	"net/mail"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -134,7 +135,9 @@ func (f *Fake) Labels(ctx context.Context) ([]model.Label, error) {
 
 func hidden(m model.Message) bool { return m.Has(model.Trash) || m.Has(model.Spam) }
 
-func (f *Fake) ThreadIDs(ctx context.Context, max int) ([]string, error) {
+// ThreadIDs matches a query like a much simpler Gmail: every word must be in
+// a message's subject, body or sender, spam and trash included.
+func (f *Fake) ThreadIDs(ctx context.Context, query string, max int) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.begin("ThreadIDs"); err != nil {
@@ -142,7 +145,10 @@ func (f *Fake) ThreadIDs(ctx context.Context, max int) ([]string, error) {
 	}
 	latest := map[string]model.Message{}
 	for _, m := range f.msgs {
-		if l, ok := latest[m.ThreadID]; !hidden(m) && (!ok || m.Date.After(l.Date)) {
+		if query == "" && hidden(m) || !matches(m, query) {
+			continue
+		}
+		if l, ok := latest[m.ThreadID]; !ok || m.Date.After(l.Date) {
 			latest[m.ThreadID] = m
 		}
 	}
@@ -152,6 +158,16 @@ func (f *Fake) ThreadIDs(ctx context.Context, max int) ([]string, error) {
 	}
 	slices.SortFunc(ids, func(a, b string) int { return latest[b].Date.Compare(latest[a].Date) })
 	return ids[:min(max, len(ids))], nil
+}
+
+func matches(m model.Message, query string) bool {
+	text := strings.ToLower(m.Subject + " " + m.Body + " " + m.From.String())
+	for _, w := range strings.Fields(strings.ToLower(query)) {
+		if !strings.Contains(text, w) {
+			return false
+		}
+	}
+	return true
 }
 
 func (f *Fake) Thread(ctx context.Context, id string) ([]model.Message, error) {

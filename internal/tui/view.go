@@ -155,10 +155,18 @@ func (m Model) listTitle(w int) string {
 	}
 	left := m.box.Name
 	var notes []string
-	if m.search != "" {
+	switch {
+	case m.search != "" && m.asking:
+		left = fmt.Sprintf("Search “%s”", m.search)
+		notes = append(notes, "asking Gmail…")
+	case m.search != "" && m.found != nil:
+		left = fmt.Sprintf("Search “%s” on Gmail", m.search)
+		notes = append(notes, plural(len(m.threads), "conversation"))
+	case m.search != "":
 		left = fmt.Sprintf("Search “%s”", m.search)
 		notes = append(notes, plural(len(m.threads), "conversation"))
-	} else if m.box.Unread > 0 {
+	}
+	if m.search == "" && m.box.Unread > 0 {
 		notes = append(notes, fmt.Sprintf("%d unread", m.box.Unread))
 	}
 	if n := len(m.selected); n > 0 {
@@ -186,6 +194,10 @@ func (m Model) list(w, h int) []string {
 	switch {
 	case !m.loaded:
 		return append(lines, centered("Loading…", w, h-1)...)
+	case len(m.threads) == 0 && m.asking:
+		return append(lines, centered("Asking Gmail…", w, h-1)...)
+	case len(m.threads) == 0 && m.found != nil:
+		return append(lines, centered(fmt.Sprintf("Gmail found nothing for “%s”", m.search), w, h-1)...)
 	case len(m.threads) == 0 && m.search != "":
 		return append(lines, centered(fmt.Sprintf("Nothing matches “%s”", m.search), w, h-1)...)
 	case len(m.threads) == 0 && m.status.LastSync.IsZero() && m.syncing:

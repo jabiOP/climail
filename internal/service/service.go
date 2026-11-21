@@ -25,6 +25,11 @@ func (s *Service) Threads(ctx context.Context, account string, v store.View, lim
 	return s.store.Threads(ctx, account, v, limit, offset)
 }
 
+// ThreadsByID loads threads in the given order (search results).
+func (s *Service) ThreadsByID(ctx context.Context, account string, ids []string) ([]model.Thread, error) {
+	return s.store.ThreadsByID(ctx, account, ids)
+}
+
 func (s *Service) Thread(ctx context.Context, account, id, label string) (model.Thread, error) {
 	return s.store.Thread(ctx, account, id, label)
 }

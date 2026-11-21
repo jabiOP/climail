@@ -32,7 +32,7 @@ time. `?` lists every key.
 | `N`, `*` | mark read/unread, star/unstar |
 | `x`, `u` | select (actions then apply to every selected conversation), undo the last change |
 | `o`, `O` | expand/collapse all messages, open in Gmail on the web |
-| `/` | search all mail as you type (`enter` keeps the results, `esc` cancels) |
+| `/` | search mail as you type (local cache); `enter` then searches all of Gmail, with its syntax (`from:maya has:attachment`); `esc` cancels |
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
 | `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor) |
 | `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir` |
@@ -55,6 +55,7 @@ climail daemon [install|uninstall|restart]  sync in the background
 climail labels [-a ACCOUNT]                 mailboxes and labels, with unread counts
 climail list [LABEL] [-q WORDS] [-n N]      conversations, newest first (default: Inbox)
 climail show ID                             a conversation as plain text
+climail search QUERY... [--offline]         search all of Gmail, with Gmail's syntax
 climail compose [--to A] [-s SUBJECT]       write a new mail in your editor
 climail reply ID [--all] | forward ID       reply or forward in your editor
 climail send --to A [-s S] [--attach F] < BODY   send without an editor (scripts)

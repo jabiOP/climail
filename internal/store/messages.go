@@ -113,10 +113,15 @@ type View struct {
 	Search string // words, any case, that one message of each thread must all contain
 }
 
+// Anywhere, as a label, shows messages wherever they are, spam and trash included.
+const Anywhere = "*"
+
 // visible is the SQL condition for the messages a view shows. Like Gmail,
 // spam and trash only appear in their own views, even inside a conversation.
 func visible(label string) string {
 	switch label {
+	case Anywhere:
+		return `1`
 	case model.Trash:
 		return `instr(labels, ',TRASH,') > 0`
 	case model.Spam:
@@ -163,6 +168,19 @@ func (s *Store) Threads(ctx context.Context, account string, v View, limit, offs
 		return nil, err
 	}
 	return s.loadThreads(ctx, account, v.Label, ids)
+}
+
+// HasThread reports whether any message of the thread is cached.
+func (s *Store) HasThread(ctx context.Context, account, id string) (bool, error) {
+	var n int
+	err := s.q.QueryRowContext(ctx, `SELECT count(*) FROM messages WHERE account_id = ? AND thread_id = ?`, account, id).Scan(&n)
+	return n > 0, err
+}
+
+// ThreadsByID loads threads in the given order, every message included
+// (spam and trash too: search results show them as found).
+func (s *Store) ThreadsByID(ctx context.Context, account string, ids []string) ([]model.Thread, error) {
+	return s.loadThreads(ctx, account, Anywhere, ids)
 }
 
 // Thread returns one thread with the messages the label's view shows.

@@ -645,3 +645,46 @@ func TestAttachments_ChooseWhichToOpen(t *testing.T) {
 		t.Errorf("opened %v", d.opened)
 	}
 }
+
+func TestSearch_EnterAsksGmail(t *testing.T) {
+	var asked []string
+	f := newFixtureWith(t, 100, 24, Deps{Search: func(_ context.Context, account, q string) ([]string, error) {
+		asked = append(asked, account+": "+q)
+		return []string{"t-news", "t-invoice"}, nil // Gmail's order, and its own idea of a match
+	}})
+
+	f.keys("/", "from:weekly")
+	if len(f.listed()) != 0 || len(asked) != 0 {
+		t.Fatalf("while typing: listed %v, asked %v", f.listed(), asked)
+	}
+	f.keys("enter")
+
+	if diff := f.listed(); len(diff) != 2 || diff[0] != "t-news" || diff[1] != "t-invoice" {
+		t.Errorf("listed %v", f.listed())
+	}
+	if len(asked) != 1 || asked[0] != workAcct+": from:weekly" {
+		t.Errorf("asked %v", asked)
+	}
+	if !strings.Contains(f.view(), "Search “from:weekly” on Gmail · 2 conversations") {
+		t.Errorf("view:\n%s", f.view())
+	}
+	f.keys("esc")
+	if f.model().box.ID != model.Inbox || f.model().found != nil {
+		t.Errorf("esc: box %q, found %v", f.model().box.ID, f.model().found)
+	}
+}
+
+func TestSearch_GmailUnreachableKeepsLocalMatches(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{Search: func(context.Context, string, string) ([]string, error) {
+		return nil, context.DeadlineExceeded
+	}})
+
+	f.keys("/", "invoice", "enter")
+
+	if diff := f.listed(); len(diff) != 1 || diff[0] != "t-invoice" {
+		t.Errorf("listed %v", f.listed())
+	}
+	if !strings.Contains(f.view(), "couldn't search Gmail (offline): showing local matches") {
+		t.Errorf("view:\n%s", f.view())
+	}
+}

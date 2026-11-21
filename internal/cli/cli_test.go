@@ -247,3 +247,19 @@ func TestDemo_ListsMadeUpInboxWithoutTouchingRealData(t *testing.T) {
 		t.Error("the demo added an account to the real store")
 	}
 }
+
+func TestSearch_OnGmailFindsMailOutsideTheCache(t *testing.T) {
+	h := newHarness(t, work)
+	h.app.Config.SyncThreads = 1
+	h.gmail[work].Deliver(msg("old", "o", "Invoice 2019", 600, "Label_1"), msg("new", "n", "Hi", 1, "INBOX"))
+	h.mustRun("sync")
+
+	out := h.mustRun("search", "invoice")
+
+	if !strings.HasPrefix(out, "o\t") {
+		t.Errorf("got %q", out)
+	}
+	if out := h.mustRun("search", "invoice", "--offline"); !strings.HasPrefix(out, "o\t") {
+		t.Errorf("not cached after the search: %q", out)
+	}
+}

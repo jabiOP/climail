@@ -81,7 +81,7 @@ func TestThreadIDs_PagesUpToMax(t *testing.T) {
 		writeJSON(w, map[string]any{"nextPageToken": "p3", "threads": []any{map[string]any{"id": "c"}}})
 	})
 
-	got, err := c.ThreadIDs(context.Background(), 3)
+	got, err := c.ThreadIDs(context.Background(), "", 3)
 
 	if err != nil {
 		t.Fatal(err)

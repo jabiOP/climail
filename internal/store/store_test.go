@@ -273,3 +273,17 @@ func TestSyncState(t *testing.T) {
 		t.Errorf("HistoryID = %d, LastSync = %v", id, last)
 	}
 }
+
+func TestThreadsByID_KeepsOrderAndShowsEverything(t *testing.T) {
+	s := openStore(t)
+	put(t, s, msg("a1", "a", 0, "INBOX"), msg("a2", "a", 1, "TRASH"), msg("b1", "b", 2, "SPAM"))
+
+	threads, err := s.ThreadsByID(ctx, acct, []string{"b", "missing", "a"})
+
+	if err != nil || len(threads) != 2 || threads[0].ID != "b" || len(threads[1].Messages) != 2 {
+		t.Errorf("threads %+v, err %v", threads, err)
+	}
+	if ok, _ := s.HasThread(ctx, acct, "a"); !ok {
+		t.Error("HasThread(a) = false")
+	}
+}

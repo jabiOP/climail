@@ -34,6 +34,9 @@ type Deps struct {
 	Download    func(ctx context.Context, account string, refs []model.AttachmentRef, dir string) ([]string, error)
 	DownloadDir string // where D saves
 	OpenDir     string // where attachments opened or forwarded are fetched to
+	// Search asks Gmail and returns matching conversation IDs, fetched into
+	// the cache; nil: local search only.
+	Search func(ctx context.Context, account, query string) ([]string, error)
 }
 
 type pane int
@@ -78,8 +81,10 @@ type Model struct {
 	expanded   map[string]bool // reader: message IDs shown in full
 	openOnLoad bool            // after archiving from the reader: open the next conversation
 
-	search    string // the search shown ("" for a mailbox)
-	searching bool   // typing a search
+	search    string   // the search shown ("" for a mailbox)
+	searching bool     // typing a search
+	found     []string // the conversations Gmail found for the search, in its order; nil: local matches
+	asking    bool     // waiting for Gmail's answer
 	input     textinput.Model
 	before    service.Mailbox // the mailbox to return to when the search is cleared
 
@@ -125,6 +130,12 @@ type actionDoneMsg struct {
 	err    error
 }
 
+type searchedMsg struct {
+	query string
+	ids   []string
+	err   error
+}
+
 type infoMsg struct {
 	text  string
 	isErr bool
@@ -157,7 +168,7 @@ func (m *Model) load() tea.Cmd {
 
 func (m Model) loadCmd(seq int) tea.Cmd {
 	svc, ctx := m.deps.Service, m.ctx
-	account, view, limit := m.account, store.View{Label: m.box.ID, Search: m.search}, m.limit
+	account, view, limit, found := m.account, store.View{Label: m.box.ID, Search: m.search}, m.limit, m.found
 	return func() tea.Msg {
 		msg := loadedMsg{seq: seq, others: map[string]int{}}
 		if msg.accounts, msg.err = svc.Accounts(ctx); msg.err != nil {
@@ -181,7 +192,12 @@ func (m Model) loadCmd(seq int) tea.Cmd {
 				msg.boxes = boxes
 			}
 		}
-		if msg.threads, msg.err = svc.Threads(ctx, msg.account, view, limit, 0); msg.err != nil {
+		if found != nil && msg.account == account {
+			msg.threads, msg.err = svc.ThreadsByID(ctx, account, found)
+		} else {
+			msg.threads, msg.err = svc.Threads(ctx, msg.account, view, limit, 0)
+		}
+		if msg.err != nil {
 			return msg
 		}
 		msg.status, msg.err = svc.Status(ctx, msg.account)
@@ -272,6 +288,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
+	case searchedMsg:
+		if msg.query != m.search {
+			return m, nil // the search changed meanwhile
+		}
+		m.asking = false
+		if msg.err != nil {
+			m.message, m.isError = "couldn't search Gmail ("+syncErrorText(msg.err)+"): showing local matches", true
+			return m, nil
+		}
+		m.found = append([]string{}, msg.ids...)
+		m.cursor, m.offset = 0, 0
+		return m, m.load()
 	case downloadedMsg:
 		return m.downloaded(msg)
 	case forwardMsg:
