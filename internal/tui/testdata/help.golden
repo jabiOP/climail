@@ -1,43 +1,24 @@
-       ╭────────────────────────────────────────────────────────────────────────────────────╮       
-       │                                                                                    │       
-       │   Move                                                                             │       
-       │     j/↓          down                                                              │       
-       │     k/↑          up                                                                │       
-       │     J/pgdn/space page down                                                         │       
-       │     K/pgup       page up                                                           │       
-       │     ctrl-d       half a page down                                                  │       
-       │     ctrl-u       half a page up                                                    │       
-       │     gg           top                                                               │       
-       │     G            bottom                                                            │       
-       │     h/←          pane to the left                                                  │       
-       │     l/→          pane to the right                                                 │       
-       │     enter        open                                                              │       
-       │     esc          back; clear selection or search                                   │       
-       │     n            next conversation (reader)                                        │       
-       │     p            previous conversation (reader)                                    │       
-       │                                                                                    │       
-       │   Act on the conversation (or the selected ones)                                   │       
-       │     a            archive                                                           │       
-       │     dd           move to Trash                                                     │       
-       │     I            move to Inbox                                                     │       
-       │     N            mark read / unread                                                │       
-       │     *            star / unstar                                                     │       
-       │     x            select (then act on all selected)                                 │       
-       │     u            undo the last change                                              │       
-       │     o            expand / collapse messages (reader)                               │       
-       │     O            open in Gmail on the web                                          │       
-       │                                                                                    │       
-       │   Everywhere                                                                       │       
-       │     /            search all mail                                                   │       
-       │     gi gs gt…    go to Inbox, Starred, Sent, Drafts, All mail, Trash               │       
-       │     s            sync now                                                          │       
-       │     [            previous account                                                  │       
-       │     ]            next account                                                      │       
-       │     b            show / hide mailboxes (wide screens)                              │       
-       │     ?            help                                                              │       
-       │     q            quit                                                              │       
-       │                                                                                    │       
-       │   gi Inbox · gs Starred · gt Sent · gd Drafts · ga All mail · g# Trash · g! Spam   │       
-       │   Press any key to close.                                                          │       
-       │                                                                                    │       
-       ╰────────────────────────────────────────────────────────────────────────────────────╯       
+   ╭────────────────────────────────────────────────────────────────────────╮   
+   │ Move                                Conversations                      │   
+   │ j/k       down / up                 a         archive                  │   
+   │ J/K       page down / up            dd        move to Trash            │   
+   │ ^d/^u     half page down / up       I         move to Inbox            │   
+   │ gg/G      top / bottom              N         mark read / unread       │   
+   │ h/l       pane left / right         *         star / unstar            │   
+   │ enter/esc open / back               x         select for bulk actions  │   
+   │ n/p       next / prev (reader)      u         undo the last change     │   
+   │                                     o         expand / collapse all    │   
+   │ Everywhere                          O         open in Gmail (web)      │   
+   │ /         search all mail                                              │   
+   │ s         sync now                  Go to                              │   
+   │ [/]       previous / next account   gi        Inbox                    │   
+   │ b         show / hide mailboxes     gs        Starred                  │   
+   │ ?         this help                 gt        Sent                     │   
+   │ q         quit                      gd        Drafts                   │   
+   │                                     ga        All Mail                 │   
+   │                                     g#        Trash                    │   
+   │                                     g!        Spam                     │   
+   │                                                                        │   
+   │ Press any key to close.                                                │   
+   ╰────────────────────────────────────────────────────────────────────────╯   
+                                                                                

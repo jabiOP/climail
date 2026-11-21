@@ -29,14 +29,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if p := m.pending; p != "" {
 		m.pending = ""
 		k := msg.String()
-		box, isBox := goTo[k]
+		i := slices.IndexFunc(goTo, func(g struct{ key, box, name string }) bool { return g.key == k })
 		switch {
 		case p == "d" && k == "d":
 			return m.act(service.Trash)
 		case p == "g" && k == "g":
 			return m.top()
-		case p == "g" && isBox:
-			return m.openBox(box)
+		case p == "g" && i >= 0:
+			return m.openBox(goTo[i].box)
 		}
 		return m, nil // an unknown pair does nothing, like vim
 	}

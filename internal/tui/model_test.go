@@ -171,11 +171,14 @@ func TestView_NarrowReader(t *testing.T) {
 }
 
 func TestView_Help(t *testing.T) {
-	f := newFixture(t, 100, 40)
+	f := newFixture(t, 80, 24)
 
 	f.keys("?")
 
 	golden(t, "help", f.view())
+	if lines := strings.Count(f.view(), "\n") + 1; lines > 24 {
+		t.Errorf("help is %d lines tall, want it to fit 24", lines)
+	}
 }
 
 func has(labels []string, l string) bool { return slices.Contains(labels, l) }

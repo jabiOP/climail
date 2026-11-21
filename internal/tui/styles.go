@@ -27,7 +27,7 @@ var (
 	errStyle  = lipgloss.NewStyle().Foreground(danger)
 	ruleStyle = lipgloss.NewStyle().Foreground(rule)
 	quoted    = lipgloss.NewStyle().Foreground(muted).Italic(true)
-	helpBox   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accent).Padding(1, 3)
+	helpBox   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accent).Padding(0, 1)
 )
 
 // width is the number of terminal cells s takes, ANSI codes aside. Every

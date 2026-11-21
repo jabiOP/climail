@@ -48,7 +48,8 @@ func (m Model) readerWidth() int {
 func (m Model) View() string {
 	h := max(m.height-1, 1) // the status bar takes the last line
 	if m.help {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(helpText()))
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(helpText()),
+			lipgloss.WithWhitespaceChars(" "))
 	}
 	l := m.layout()
 	var cols [][]string
