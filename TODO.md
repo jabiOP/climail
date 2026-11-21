@@ -7,11 +7,11 @@ Last updated: 2026-11-21
 ## Done
 
 - Foundations: domain model, config and paths, SQLite store (threads, labels, outbox, sync state)
+- Gmail adapter (HTML-to-text bodies, charsets) and in-memory fake
+- Sync engine: push outbox, pull history (full resync when expired), cross-process lock
 
 ## Next
 
-- Gmail adapter and in-memory fake
-- Sync engine (push outbox, pull history) with cross-process lock
 - OAuth login, multi-account
 - CLI: auth, sync, list, show, labels, triage commands
 - TUI: adaptive layout, reading and triage
@@ -36,4 +36,6 @@ Last updated: 2026-11-21
 - Adaptive TUI layout: sidebar | list | reader when wide, one full-screen pane at a time when narrow.
 - Labels are stored once, as a `,A,B,` column; membership queries use `instr`. Simple and fast enough for a cache of thousands of messages.
 - Outbox holds one label delta per message; a change that undoes a pending one cancels it. Trash is the TRASH label, pushed through Gmail's trash endpoint. Label deltas are idempotent, so there are no conflicts.
+- Sync fetches whole threads (threads.get), so conversations are complete; a full sync takes the newest `sync_threads` threads.
+- Dependencies `golang.org/x/net/html` (HTML-only mail as text) and `golang.org/x/text` (non-UTF-8 charsets): both already in the module graph via the Google client.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).

@@ -142,3 +142,10 @@ func (t Thread) Senders() []Address {
 	}
 	return out
 }
+
+// Changes is what happened in a mailbox after a point in its history.
+type Changes struct {
+	Threads   []string // threads with new messages: fetched whole
+	Deleted   []string // message IDs deleted for good
+	Relabeled []string // message IDs whose labels changed
+}
