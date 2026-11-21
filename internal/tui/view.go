@@ -402,6 +402,13 @@ func (m Model) statusBar() string {
 	leftW := max(m.width-width(right)-3, 0)
 	var left seg
 	switch {
+	case m.composing != nil && m.composing.asked:
+		text, isErr := m.composePrompt()
+		st := accentFg
+		if isErr {
+			st = errStyle
+		}
+		left = s(fit(text, leftW), st.Bold(true))
 	case m.message != "" && m.isError:
 		left = s(fit(m.message, leftW), errStyle)
 	case m.message != "":
@@ -423,9 +430,9 @@ func (m Model) hints() string {
 	case paneSidebar:
 		return "enter open · [ ] accounts · l list · ? help"
 	case paneReader:
-		return "j/k scroll · n/p next/prev · a archive · dd trash · o expand · esc back · ? help"
+		return "j/k scroll · n/p next/prev · r reply · f forward · a archive · dd trash · esc back · ? help"
 	}
-	return "enter open · a archive · dd trash · * star · N read · x select · / search · ? help"
+	return "enter open · c compose · r reply · a archive · dd trash · * star · x select · / search · ? help"
 }
 
 func (m Model) syncText() string {

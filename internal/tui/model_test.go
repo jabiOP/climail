@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -64,7 +65,8 @@ func newFixtureWith(t *testing.T, w, h int, d Deps) *fixture {
 		st.SetLastSync(ctx, mb.Account, now.Add(-2*time.Minute))
 	}
 	f := &fixture{t: t, st: st}
-	d.Service, d.Now = service.New(st), func() time.Time { return now }
+	d.Service, d.Now, d.DraftDir = service.New(st), func() time.Time { return now }, t.TempDir()
+	d.Editor = func(string) *exec.Cmd { return exec.Command("true") } // tests send editedMsg themselves
 	m := New(ctx, d)
 	f.m = f.drain(m, m.Init())
 	f.send(tea.WindowSizeMsg{Width: w, Height: h})
@@ -446,5 +448,101 @@ func TestSync_RetriedWhileChangesWait(t *testing.T) {
 
 	if syncs != 3 {
 		t.Errorf("syncs = %d, want the change retried until it went", syncs)
+	}
+}
+
+// editDraft does what the user would in the editor, then returns to the TUI.
+func (f *fixture) editDraft(edit func(old string) string) {
+	f.t.Helper()
+	c := f.model().composing
+	if c == nil {
+		f.t.Fatal("not composing")
+	}
+	old, _ := os.ReadFile(c.path)
+	os.WriteFile(c.path, []byte(edit(string(old))), 0o600)
+	f.send(editedMsg{})
+}
+
+func (f *fixture) outbox() []string {
+	f.t.Helper()
+	out, err := f.st.Outgoing(context.Background(), workAcct)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	var s []string
+	for _, o := range out {
+		s = append(s, o.Summary)
+	}
+	return s
+}
+
+func TestReply_EditConfirmSend(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("r")
+	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
+
+	if !strings.Contains(f.view(), "Send “Re: Launch plan for the 2.0 release” to Maya Chen?") {
+		t.Fatalf("no confirmation:\n%s", f.view())
+	}
+	f.keys("y")
+
+	if diff := f.outbox(); len(diff) != 1 || diff[0] != "“Re: Launch plan for the 2.0 release” to Maya Chen" {
+		t.Errorf("outbox = %v", f.outbox())
+	}
+	if f.model().composing != nil {
+		t.Error("still composing")
+	}
+}
+
+func TestReplyAll_IncludesEveryone(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("R")
+	f.editDraft(func(old string) string { return old + "ok\n" })
+
+	if !strings.Contains(f.view(), "to Maya Chen, Tom Okafor?") {
+		t.Errorf("view:\n%s", f.view())
+	}
+}
+
+func TestCompose_ErrorThenQuitKeepsDraft(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("c")
+	f.editDraft(func(old string) string { return old + "no recipient\n" })
+	if !strings.Contains(f.view(), "no recipients: fill in To · e edit · q keep the draft") {
+		t.Fatalf("view:\n%s", f.view())
+	}
+	f.keys("y") // can't send this
+	if f.model().composing == nil {
+		t.Fatal("y sent an invalid draft")
+	}
+	path := f.model().composing.path
+	f.keys("q")
+
+	if _, err := os.Stat(path); err != nil || len(f.outbox()) != 0 || !strings.Contains(f.view(), "Not sent.") {
+		t.Errorf("draft %v, outbox %v", err, f.outbox())
+	}
+}
+
+func TestCompose_UnchangedIsDropped(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("c")
+	f.editDraft(func(old string) string { return old })
+
+	if f.model().composing != nil || !strings.Contains(f.view(), "wasn't changed") {
+		t.Errorf("view:\n%s", f.view())
+	}
+}
+
+func TestKeys_TypedTogetherAreTakenOneByOne(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("gt")})
+
+	if f.model().box.ID != model.Sent {
+		t.Errorf("box = %q, want Sent", f.model().box.ID)
 	}
 }

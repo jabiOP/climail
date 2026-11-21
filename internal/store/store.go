@@ -133,6 +133,17 @@ CREATE TABLE sync_state (
 	history_id   INTEGER NOT NULL DEFAULT 0,
 	last_success INTEGER NOT NULL DEFAULT 0
 );
+`, `
+CREATE TABLE outgoing (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	account_id TEXT NOT NULL,
+	thread_id  TEXT NOT NULL DEFAULT '',  -- a reply's conversation
+	summary    TEXT NOT NULL,             -- what it is, for people: "“Re: Plan” to Maya"
+	raw        BLOB NOT NULL,             -- the RFC 5322 message
+	attempts   INTEGER NOT NULL DEFAULT 0,
+	failed     TEXT NOT NULL DEFAULT '',  -- why Gmail refused it; not retried until asked
+	created    INTEGER NOT NULL
+);
 `}
 
 // notFound turns sql.ErrNoRows into ErrNotFound.

@@ -1,22 +1,22 @@
+                                                                                
    ╭────────────────────────────────────────────────────────────────────────╮   
    │ Move                                Conversations                      │   
-   │ j/k       down / up                 a         archive                  │   
-   │ J/K       page down / up            dd        move to Trash            │   
-   │ ^d/^u     half page down / up       I         move to Inbox            │   
-   │ gg/G      top / bottom              N         mark read / unread       │   
-   │ h/l       pane left / right         *         star / unstar            │   
-   │ enter/esc open / back               x         select for bulk actions  │   
-   │ n/p       next / prev (reader)      u         undo the last change     │   
-   │                                     o         expand / collapse all    │   
-   │ Everywhere                          O         open in Gmail (web)      │   
-   │ /         search all mail                                              │   
-   │ s         sync now                  Go to                              │   
-   │ [/]       previous / next account   gi        Inbox                    │   
-   │ b         show / hide mailboxes     gs        Starred                  │   
-   │ ?         this help                 gt        Sent                     │   
-   │ q         quit                      gd        Drafts                   │   
-   │                                     ga        All Mail                 │   
-   │                                     g#        Trash                    │   
+   │ j/k       down / up                 r/R       reply / reply all        │   
+   │ J/K       page down / up            f         forward                  │   
+   │ ^d/^u     half page down / up       a         archive                  │   
+   │ gg/G      top / bottom              dd        move to Trash            │   
+   │ h/l       pane left / right         I         move to Inbox            │   
+   │ enter/esc open / back               N         mark read / unread       │   
+   │ n/p       next / prev (reader)      *         star / unstar            │   
+   │                                     x         select for bulk actions  │   
+   │ Everywhere                          u         undo the last change     │   
+   │ c         write a new mail          o         expand / collapse all    │   
+   │ /         search all mail           O         open in Gmail (web)      │   
+   │ s         sync now                                                     │   
+   │ [/]       previous / next account   Go to                              │   
+   │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   
+   │ ?         this help                 gt/gd     Sent / Drafts            │   
+   │ q         quit                      ga/g#     All Mail / Trash         │   
    │                                     g!        Spam                     │   
    │                                                                        │   
    │ Press any key to close.                                                │   

@@ -4,6 +4,7 @@ package gmail
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"slices"
 	"time"
@@ -156,5 +157,12 @@ func (c *Client) Trash(ctx context.Context, id string) error {
 
 func (c *Client) Untrash(ctx context.Context, id string) error {
 	_, err := c.svc.Users.Messages.Untrash("me", id).Context(ctx).Do()
+	return mapErr(err)
+}
+
+// Send sends a raw RFC 5322 message; with threadID, into that conversation.
+func (c *Client) Send(ctx context.Context, raw []byte, threadID string) error {
+	m := &gmailapi.Message{Raw: base64.URLEncoding.EncodeToString(raw), ThreadId: threadID}
+	_, err := c.svc.Users.Messages.Send("me", m).Context(ctx).Do()
 	return mapErr(err)
 }

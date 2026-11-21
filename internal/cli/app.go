@@ -32,6 +32,8 @@ type App struct {
 	Remote func(ctx context.Context, account string) (syncer.Remote, error)
 	// OpenURL opens a link in the browser (nil: links can't be opened).
 	OpenURL func(string) error
+	// Edit opens a file in the user's editor and waits for it to close.
+	Edit func(path string) error
 
 	store *store.Store
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/store"
 )
@@ -151,7 +152,8 @@ func (s *Service) ResolveLabel(ctx context.Context, account, name string) (Mailb
 }
 
 type Status struct {
-	Pending  int       // messages with changes not yet sent to Gmail
+	Pending  int       // changes and mails not yet sent to Gmail
+	Unsent   int       // mails Gmail refused (see the outbox)
 	LastSync time.Time // zero if never
 }
 
@@ -161,6 +163,37 @@ func (s *Service) Status(ctx context.Context, account string) (Status, error) {
 	if st.Pending, err = s.store.PendingCount(ctx, account); err != nil {
 		return Status{}, err
 	}
+	waiting, unsent, err := s.store.SendCounts(ctx, account)
+	if err != nil {
+		return Status{}, err
+	}
+	st.Pending += waiting
+	st.Unsent = unsent
 	st.LastSync, err = s.store.LastSync(ctx, account)
 	return st, err
+}
+
+// Send queues a draft; it goes with the next sync.
+func (s *Service) Send(ctx context.Context, d compose.Draft, now time.Time) error {
+	raw, err := d.Build(now)
+	if err != nil {
+		return err
+	}
+	_, err = s.store.QueueSend(ctx, store.Outgoing{Account: d.Account, ThreadID: d.ThreadID, Summary: d.Summary(),
+		Raw: raw, Created: now})
+	return err
+}
+
+// Outbox lists mail waiting to be sent and mail Gmail refused.
+func (s *Service) Outbox(ctx context.Context, account string) ([]store.Outgoing, error) {
+	return s.store.Outgoing(ctx, account)
+}
+
+// RetrySend queues a refused mail again; DiscardSend forgets it.
+func (s *Service) RetrySend(ctx context.Context, account string, id int64) error {
+	return s.store.RetrySend(ctx, account, id)
+}
+
+func (s *Service) DiscardSend(ctx context.Context, account string, id int64) error {
+	return s.store.DeleteSend(ctx, account, id)
 }

@@ -34,7 +34,14 @@ time. `?` lists every key.
 | `o`, `O` | expand/collapse all messages, open in Gmail on the web |
 | `/` | search all mail as you type (`enter` keeps the results, `esc` cancels) |
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
+| `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward (in your editor) |
 | `[`/`]`, `b`, `s`, `q` | previous/next account, hide mailboxes, sync now, quit |
+
+Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `To:`, `Cc:`, `Bcc:`, `Subject:` and `Attach:`
+lines (one file per `Attach:` line), a blank line, then the body. Replies quote the message and stay in its
+conversation. When the editor closes, climail asks: `y` send, `e` edit again, `q` keep the draft (its path is shown).
+An unchanged draft is dropped. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
+stays in `climail outbox`.
 
 ### CLI
 
@@ -47,6 +54,10 @@ climail daemon [install|uninstall|restart]  sync in the background
 climail labels [-a ACCOUNT]                 mailboxes and labels, with unread counts
 climail list [LABEL] [-q WORDS] [-n N]      conversations, newest first (default: Inbox)
 climail show ID                             a conversation as plain text
+climail compose [--to A] [-s SUBJECT]       write a new mail in your editor
+climail reply ID [--all] | forward ID       reply or forward in your editor
+climail send --to A [-s S] [--attach F] < BODY   send without an editor (scripts)
+climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
 climail archive|trash|inbox ID... | -       move conversations
 climail read|unread|star|unstar ID... | -   mark conversations
 ```

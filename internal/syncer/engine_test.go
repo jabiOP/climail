@@ -266,3 +266,52 @@ func TestWithLock_OnlyOneSyncAtATime(t *testing.T) {
 		t.Errorf("WithLock after unlock: ran = %v, err = %v", ran, err)
 	}
 }
+
+func TestSync_SendsQueuedMailAndPullsItBack(t *testing.T) {
+	w := newWorld(t)
+	w.sync(t)
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Summary: "hi", Raw: []byte("To: bob@x.com\r\nSubject: Hi\r\n\r\nbody")})
+
+	w.sync(t)
+
+	if n := len(w.fake.Sent()); n != 1 {
+		t.Fatalf("sent %d", n)
+	}
+	if waiting, failed, _ := w.store.SendCounts(ctx, acct); waiting+failed != 0 {
+		t.Errorf("queue: %d waiting, %d failed", waiting, failed)
+	}
+	threads, _ := w.store.Threads(ctx, acct, store.View{Label: model.Sent}, 10, 0)
+	if len(threads) != 1 || threads[0].Subject() != "Hi" {
+		t.Errorf("Sent = %+v", threads)
+	}
+}
+
+func TestSync_RefusedMailIsKeptAndDoesNotBlock(t *testing.T) {
+	w := newWorld(t)
+	w.fake.Deliver(msg("a1", "a", 0, "INBOX"))
+	w.sync(t)
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("not a mail")})
+	w.store.ApplyLabels(ctx, acct, []string{"a1"}, nil, []string{"INBOX"})
+
+	w.sync(t)
+
+	if waiting, failed, _ := w.store.SendCounts(ctx, acct); waiting != 0 || failed != 1 {
+		t.Errorf("queue: %d waiting, %d failed; want it kept as failed", waiting, failed)
+	}
+	if w.pending(t) != 0 {
+		t.Error("the label change behind it wasn't pushed")
+	}
+}
+
+func TestSync_OfflineKeepsMailQueued(t *testing.T) {
+	w := newWorld(t)
+	w.sync(t)
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("To: b@x.com\r\n\r\nx")})
+	w.fake.Err = errors.New("network down")
+
+	w.engine.Sync(ctx)
+
+	if waiting, _, _ := w.store.SendCounts(ctx, acct); waiting != 1 {
+		t.Errorf("waiting = %d", waiting)
+	}
+}

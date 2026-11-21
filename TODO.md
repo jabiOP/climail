@@ -14,6 +14,7 @@ Last updated: 2026-11-21
 - CLI: auth, sync, labels, list, show, archive/trash/inbox/read/unread/star/unstar; TTY/TSV/JSON output; multi-account `-a`
 - TUI: adaptive layout (sidebar | list | reader, or one pane), Gmail-style reader, triage keys, selection, undo, live search, accounts
 - `climail demo`: the TUI on made-up mailboxes, no Google account needed
+- Compose, reply, reply all, forward in `$VISUAL`/`$EDITOR` (CLI and TUI); `send` for scripts; send queue with `outbox`
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next
@@ -22,7 +23,9 @@ Last updated: 2026-11-21
 
 ## Later
 
-- Compose, reply, reply-all, forward in `$EDITOR`; send queue
+- Forward: send the original's attachments along
+- Keep unsent drafts in Gmail's Drafts (today they stay as local files)
+- Send with the account's display name (Gmail send-as settings)
 - Attachments: list, download, open
 - Server-side search (Gmail query syntax) for mail outside the cache
 - Log of changes Google rejected
@@ -44,4 +47,6 @@ Last updated: 2026-11-21
 - Dependencies `golang.org/x/net/html` (HTML-only mail as text) and `golang.org/x/text` (non-UTF-8 charsets): both already in the module graph via the Google client.
 - The reader beside the list previews without marking read; `enter` opens and marks read. After archive/trash from the reader, the next conversation opens (Gmail's behavior).
 - `/` searches all mail locally as you type (the cache is small enough); server-side search is later.
+- Outgoing mail is queued in the store and pushed before label changes, so writing works offline; mail Gmail refuses is kept as failed, never dropped.
+- Drafts are edited as a plain file with mutt-style headers; a draft left unsent stays on disk and its path is shown.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).

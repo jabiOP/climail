@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,8 @@ type harness struct {
 	app   *cli.App
 	gmail map[string]*gmailtest.Fake
 	stdin string
+	// edit is what "the user" does in the editor: the new file text, given the old.
+	edit func(old string) string
 }
 
 func newHarness(t *testing.T, accounts ...string) *harness {
@@ -38,6 +41,13 @@ func newHarness(t *testing.T, accounts ...string) *harness {
 		Config: config.Default(),
 		Now:    func() time.Time { return now },
 		Remote: func(_ context.Context, account string) (syncer.Remote, error) { return h.gmail[account], nil },
+		Edit: func(path string) error {
+			old, err := os.ReadFile(path)
+			if err != nil || h.edit == nil {
+				return err
+			}
+			return os.WriteFile(path, []byte(h.edit(string(old))), 0o600)
+		},
 	}
 	t.Cleanup(func() { h.app.Close() })
 	st, err := h.app.Store()

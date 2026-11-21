@@ -15,7 +15,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 // and the help screen lists them.
 var keys = struct {
 	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev,
-	Archive, Trash, Inbox, Read, Star, Select, Undo, Expand, Browser,
+	Archive, Trash, Inbox, Read, Star, Select, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward,
 	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit key.Binding
 }{
 	Up:          bind("k", "up", "k", "up"),
@@ -41,6 +41,10 @@ var keys = struct {
 	Undo:        bind("u", "undo the last change", "u"),
 	Expand:      bind("o", "expand / collapse messages (reader)", "o"),
 	Browser:     bind("O", "open in Gmail on the web", "O"),
+	Compose:     bind("c", "write a new mail", "c"),
+	Reply:       bind("r", "reply", "r"),
+	ReplyAll:    bind("R", "reply all", "R"),
+	Forward:     bind("f", "forward", "f"),
 	Search:      bind("/", "search all mail", "/"),
 	Sync:        bind("s", "sync now", "s"),
 	PrevAccount: bind("[", "previous account", "["),
@@ -66,9 +70,14 @@ func pair(a, b key.Binding, desc string) helpRow {
 
 // helpText is the ? screen: two columns, so it fits an 80×24 terminal.
 func helpText() string {
-	gotoRows := make([]helpRow, len(goTo))
-	for i, g := range goTo {
-		gotoRows[i] = helpRow{"g" + g.key, g.name}
+	var gotoRows []helpRow // two to a row: "gi/gs  Inbox / Starred"
+	for i := 0; i < len(goTo); i += 2 {
+		r := helpRow{"g" + goTo[i].key, goTo[i].name}
+		if i+1 < len(goTo) {
+			r.keys += "/g" + goTo[i+1].key
+			r.desc += " / " + goTo[i+1].name
+		}
+		gotoRows = append(gotoRows, r)
 	}
 	left := helpColumn(
 		"Move", []helpRow{
@@ -78,12 +87,13 @@ func helpText() string {
 			pair(keys.Next, keys.Prev, "next / prev (reader)"),
 		},
 		"Everywhere", []helpRow{
-			one(keys.Search, "search all mail"), one(keys.Sync, "sync now"),
+			one(keys.Compose, "write a new mail"), one(keys.Search, "search all mail"), one(keys.Sync, "sync now"),
 			pair(keys.PrevAccount, keys.NextAccount, "previous / next account"),
 			one(keys.Sidebar, "show / hide mailboxes"), one(keys.Help, "this help"), one(keys.Quit, "quit"),
 		})
 	right := helpColumn(
 		"Conversations", []helpRow{
+			pair(keys.Reply, keys.ReplyAll, "reply / reply all"), one(keys.Forward, "forward"),
 			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),
 			one(keys.Select, "select for bulk actions"), one(keys.Undo, "undo the last change"),

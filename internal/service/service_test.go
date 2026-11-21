@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/service"
 	"github.com/jabiOP/climail/internal/store"
@@ -150,5 +151,28 @@ func TestResolveLabel(t *testing.T) {
 	}
 	if _, err := svc.ResolveLabel(ctx, acct, "nope"); err == nil {
 		t.Error("unknown label: want an error")
+	}
+}
+
+func TestSend_QueuesAndCountsAsPending(t *testing.T) {
+	svc, _ := setup(t)
+
+	err := svc.Send(ctx, compose.Draft{Account: acct, To: "bob@x.com", Subject: "Hi", Body: "x\n"}, time.Now())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, _ := svc.Status(ctx, acct)
+	out, _ := svc.Outbox(ctx, acct)
+	if st.Pending != 1 || len(out) != 1 || out[0].Summary != "“Hi” to bob" {
+		t.Errorf("status %+v, outbox %+v", st, out)
+	}
+}
+
+func TestSend_RefusesInvalidDraft(t *testing.T) {
+	svc, _ := setup(t)
+
+	if err := svc.Send(ctx, compose.Draft{Account: acct, Subject: "Hi"}, time.Now()); err == nil {
+		t.Error("want an error for a draft without recipients")
 	}
 }

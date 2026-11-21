@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"os/exec"
 	"slices"
 	"time"
 
@@ -27,6 +28,8 @@ type Deps struct {
 	Now          func() time.Time
 	SyncInterval time.Duration      // 0 disables periodic sync (tests)
 	OpenURL      func(string) error // opens a link in the browser; nil when there's none
+	DraftDir     string             // where drafts are written for the editor
+	Editor       func(path string) *exec.Cmd
 }
 
 type pane int
@@ -86,6 +89,7 @@ type Model struct {
 	undo      *service.Undo
 	pending   string // first key of a two-key command: "d" or "g"
 	help      bool
+	composing *composing // a mail being written
 }
 
 // --- messages ---
@@ -261,6 +265,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.undo = &msg.undo
 			m.message, m.isError = msg.undo.Done+" · u to undo", false
 		}
+		m.syncing = m.deps.Sync != nil
+		return m, tea.Batch(m.load(), m.syncCmd())
+	case editedMsg:
+		return m.edited(msg)
+	case sentMsg:
+		if msg.err != nil {
+			m.message, m.isError = "not sent: "+msg.err.Error(), true
+			return m, nil
+		}
+		m.message, m.isError = "Sending "+msg.summary, false
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
 	case infoMsg:

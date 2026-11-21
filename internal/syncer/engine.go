@@ -27,6 +27,7 @@ type Remote interface {
 	Modify(ctx context.Context, id string, add, remove []string) error
 	Trash(ctx context.Context, id string) error
 	Untrash(ctx context.Context, id string) error
+	Send(ctx context.Context, raw []byte, threadID string) error
 }
 
 // ErrPush and ErrPull tell which half of Sync failed: after a pull error,
@@ -59,8 +60,12 @@ func (e *Engine) Sync(ctx context.Context) error {
 	return e.Store.SetLastSync(ctx, e.Account, e.Now())
 }
 
-// Push sends queued label changes. It stops at the first transient error.
+// Push sends queued mail, then queued label changes. It stops at the first
+// transient error.
 func (e *Engine) Push(ctx context.Context) error {
+	if err := e.pushSends(ctx); err != nil {
+		return err
+	}
 	ops, err := e.Store.PendingOps(ctx, e.Account)
 	if err != nil {
 		return err
@@ -80,6 +85,33 @@ func (e *Engine) Push(ctx context.Context) error {
 			}
 		default:
 			return errors.Join(err, e.Store.FailOp(ctx, op, err.Error()))
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// pushSends sends queued mail. One Gmail refuses is kept, marked failed, for
+// the user to fix or discard; it never blocks the rest.
+func (e *Engine) pushSends(ctx context.Context) error {
+	out, err := e.Store.Outgoing(ctx, e.Account)
+	if err != nil {
+		return err
+	}
+	for _, o := range out {
+		if o.Failed != "" {
+			continue
+		}
+		err := e.Remote.Send(ctx, o.Raw, o.ThreadID)
+		switch {
+		case err == nil:
+			err = e.Store.DeleteSend(ctx, e.Account, o.ID)
+		case errors.Is(err, gmail.ErrPermanent), errors.Is(err, gmail.ErrNotFound):
+			err = e.Store.SendFailed(ctx, o.ID, err.Error(), true)
+		default:
+			return errors.Join(err, e.Store.SendFailed(ctx, o.ID, err.Error(), false))
 		}
 		if err != nil {
 			return err

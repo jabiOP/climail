@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/service"
 )
@@ -18,12 +19,26 @@ func (m Model) wide() bool { return m.width >= wideWidth }
 func (m Model) sidebarShown() bool { return m.wide() && !m.hideSidebar }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Keys typed fast can arrive together ("gt"): outside a text field, take them one by one.
+	if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 && !msg.Paste && !m.searching {
+		var cmds []tea.Cmd
+		var next tea.Model = m
+		for _, r := range msg.Runes {
+			var cmd tea.Cmd
+			next, cmd = next.(Model).handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+			cmds = append(cmds, cmd)
+		}
+		return next, tea.Batch(cmds...)
+	}
 	if m.help {
 		m.help = false
 		return m, nil
 	}
 	if m.searching {
 		return m.handleSearchKey(msg)
+	}
+	if m.composing != nil {
+		return m.composeKey(msg)
 	}
 	m.message, m.isError = "", false
 	if p := m.pending; p != "" {
@@ -67,6 +82,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.focus = paneList
 		}
 		return m, nil
+	case key.Matches(msg, keys.Compose):
+		return m.startCompose(compose.Draft{Account: m.account, Body: "\n"})
 	case key.Matches(msg, keys.Undo):
 		if m.undo == nil {
 			m.message = "nothing to undo"
@@ -207,6 +224,12 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.act(service.Unstar)
 	case key.Matches(msg, keys.Browser):
 		return m, m.openInBrowser(targets[0])
+	case key.Matches(msg, keys.Reply), key.Matches(msg, keys.ReplyAll):
+		t, _ := m.current()
+		return m.startCompose(compose.Reply(t, m.account, key.Matches(msg, keys.ReplyAll), m.deps.Now()))
+	case key.Matches(msg, keys.Forward):
+		t, _ := m.current()
+		return m.startCompose(compose.Forward(t, m.account, nil, m.deps.Now()))
 	}
 	return m, nil
 }

@@ -4,9 +4,14 @@
 package gmailtest
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"mime"
+	"net/mail"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/jabiOP/climail/internal/gmail"
 	"github.com/jabiOP/climail/internal/model"
@@ -31,6 +36,7 @@ type Fake struct {
 	next    uint64 // the next history ID
 	oldest  uint64 // History calls starting before this get ErrHistoryExpired
 	calls   map[string]int
+	sent    [][]byte
 }
 
 func New(email string) *Fake {
@@ -235,4 +241,40 @@ func (f *Fake) Trash(ctx context.Context, id string) error {
 
 func (f *Fake) Untrash(ctx context.Context, id string) error {
 	return f.change("Untrash", id, nil, []string{model.Trash})
+}
+
+// Send delivers a sent mail to the sender's own mailbox (labelled SENT), as
+// Gmail does, reading just enough of it to list it.
+func (f *Fake) Send(ctx context.Context, raw []byte, threadID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.begin("Send"); err != nil {
+		return err
+	}
+	msg, err := mail.ReadMessage(bytes.NewReader(raw))
+	if err != nil {
+		return fmt.Errorf("%w: %v", gmail.ErrPermanent, err)
+	}
+	f.sent = append(f.sent, raw)
+	id := fmt.Sprintf("sent-%d", len(f.sent))
+	if threadID == "" {
+		threadID = "thread-" + id
+	}
+	subject, _ := new(mime.WordDecoder).DecodeHeader(msg.Header.Get("Subject"))
+	to, _ := msg.Header.AddressList("To")
+	m := model.Message{Account: f.Email, ID: id, ThreadID: threadID, Subject: subject, Labels: []string{model.Sent},
+		From: model.Address{Email: f.Email}, Date: time.Now()}
+	for _, a := range to {
+		m.To = append(m.To, model.Address{Name: a.Name, Email: a.Address})
+	}
+	f.msgs[id] = m
+	f.record("added", m)
+	return nil
+}
+
+// Sent lists the raw mails sent, oldest first.
+func (f *Fake) Sent() [][]byte {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.sent)
 }

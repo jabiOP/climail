@@ -13,6 +13,7 @@ import (
 
 	"github.com/jabiOP/climail/internal/auth"
 	"github.com/jabiOP/climail/internal/browser"
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/gmail"
 	"github.com/jabiOP/climail/internal/service"
@@ -63,6 +64,11 @@ func NewApp() (*App, error) {
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
 		IsTTY:   term.IsTerminal(int(os.Stdout.Fd())),
 		OpenURL: browser.Open,
+		Edit: func(path string) error {
+			c := compose.EditorCmd(path)
+			c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
+			return c.Run()
+		},
 		Remote: func(ctx context.Context, account string) (syncer.Remote, error) {
 			oauthCfg, err := auth.LoadClient(paths.ClientFile())
 			if err != nil {
@@ -104,7 +110,8 @@ func NewRootCmd(app *App) *cobra.Command {
 	root.SetErr(app.Stderr)
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(newAuthCmd(app), newSyncCmd(app), newLabelsCmd(app), newListCmd(app), newShowCmd(app),
-		newDemoCmd(app), newDaemonCmd(app))
+		newDemoCmd(app), newDaemonCmd(app), newComposeCmd(app), newReplyCmd(app), newForwardCmd(app),
+		newSendCmd(app), newOutboxCmd(app))
 	root.AddCommand(newActionCmds(app)...)
 	return root
 }
@@ -120,6 +127,8 @@ func tuiDeps(app *App, svc *service.Service) tui.Deps {
 		Now:          app.Now,
 		SyncInterval: app.Config.SyncInterval.Duration,
 		OpenURL:      app.OpenURL,
+		DraftDir:     app.Paths.DraftDir(),
+		Editor:       compose.EditorCmd,
 	}
 }
 
