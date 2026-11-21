@@ -34,7 +34,8 @@ time. `?` lists every key.
 | `o`, `O` | expand/collapse all messages, open in Gmail on the web |
 | `/` | search all mail as you type (`enter` keeps the results, `esc` cancels) |
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
-| `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward (in your editor) |
+| `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor) |
+| `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir` |
 | `[`/`]`, `b`, `s`, `q` | previous/next account, hide mailboxes, sync now, quit |
 
 Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `To:`, `Cc:`, `Bcc:`, `Subject:` and `Attach:`
@@ -58,6 +59,8 @@ climail compose [--to A] [-s SUBJECT]       write a new mail in your editor
 climail reply ID [--all] | forward ID       reply or forward in your editor
 climail send --to A [-s S] [--attach F] < BODY   send without an editor (scripts)
 climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
+climail attachments ID                      a conversation's attachments, numbered
+climail download ID [N...] [-o DIR] [--open]   save attachments (all, or by number); prints the paths
 climail archive|trash|inbox ID... | -       move conversations
 climail read|unread|star|unstar ID... | -   mark conversations
 ```
@@ -75,6 +78,7 @@ sync_interval = "30s"  # how often the TUI and the daemon sync
 stale_after = "2m"     # CLI reads sync first when the last sync is older
 sync_timeout = "10s"   # how long a CLI command waits for that sync
 sync_threads = 300     # conversations a first (or --full) sync downloads per account
+download_dir = "~/Downloads"  # where attachments are saved
 ```
 
 To keep mail fresh, and changes flowing to Gmail, even when climail isn't open:

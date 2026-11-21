@@ -40,6 +40,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.composing != nil {
 		return m.composeKey(msg)
 	}
+	if m.choosing != nil {
+		return m.chooseKey(msg)
+	}
 	m.message, m.isError = "", false
 	if p := m.pending; p != "" {
 		m.pending = ""
@@ -228,8 +231,11 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		t, _ := m.current()
 		return m.startCompose(compose.Reply(t, m.account, key.Matches(msg, keys.ReplyAll), m.deps.Now()))
 	case key.Matches(msg, keys.Forward):
-		t, _ := m.current()
-		return m.startCompose(compose.Forward(t, m.account, nil, m.deps.Now()))
+		return m.forward()
+	case key.Matches(msg, keys.SaveFiles):
+		return m.saveAll()
+	case key.Matches(msg, keys.OpenFile):
+		return m.openAttachment()
 	}
 	return m, nil
 }

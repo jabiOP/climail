@@ -66,6 +66,9 @@ func newFixtureWith(t *testing.T, w, h int, d Deps) *fixture {
 	}
 	f := &fixture{t: t, st: st}
 	d.Service, d.Now, d.DraftDir = service.New(st), func() time.Time { return now }, t.TempDir()
+	if d.OpenDir == "" {
+		d.OpenDir = t.TempDir()
+	}
 	d.Editor = func(string) *exec.Cmd { return exec.Command("true") } // tests send editedMsg themselves
 	m := New(ctx, d)
 	f.m = f.drain(m, m.Init())
@@ -544,5 +547,101 @@ func TestKeys_TypedTogetherAreTakenOneByOne(t *testing.T) {
 
 	if f.model().box.ID != model.Sent {
 		t.Errorf("box = %q, want Sent", f.model().box.ID)
+	}
+}
+
+// downloads records what the TUI asked to download, and "saves" each file as dir/name.
+type downloads struct {
+	dirs   []string
+	names  []string
+	opened []string
+}
+
+func (d *downloads) deps() Deps {
+	return Deps{
+		Download: func(_ context.Context, _ string, refs []model.AttachmentRef, dir string) ([]string, error) {
+			var paths []string
+			for _, r := range refs {
+				d.dirs, d.names = append(d.dirs, dir), append(d.names, r.Filename)
+				paths = append(paths, filepath.Join(dir, r.Filename))
+			}
+			return paths, nil
+		},
+		DownloadDir: "/dl", OpenDir: "/open",
+		OpenURL: func(p string) error { d.opened = append(d.opened, p); return nil },
+	}
+}
+
+func TestAttachments_SaveAll(t *testing.T) {
+	d := &downloads{}
+	f := newFixtureWith(t, 100, 24, d.deps())
+
+	f.keys("D")
+
+	if len(d.names) != 1 || d.names[0] != "launch-plan-v2.pdf" || d.dirs[0] != "/dl" {
+		t.Errorf("downloaded %v into %v", d.names, d.dirs)
+	}
+	if !strings.Contains(f.view(), "Saved launch-plan-v2.pdf in /dl") {
+		t.Errorf("view:\n%s", f.view())
+	}
+}
+
+func TestAttachments_OpenOne(t *testing.T) {
+	d := &downloads{}
+	f := newFixtureWith(t, 100, 24, d.deps())
+
+	f.keys("A")
+
+	if len(d.opened) != 1 || d.opened[0] != "/open/launch-plan-v2.pdf" {
+		t.Errorf("opened %v", d.opened)
+	}
+}
+
+func TestAttachments_NoneHere(t *testing.T) {
+	d := &downloads{}
+	f := newFixtureWith(t, 100, 24, d.deps())
+
+	f.keys("j", "A")
+
+	if len(d.names) != 0 || !strings.Contains(f.view(), "no attachments here") {
+		t.Errorf("downloaded %v", d.names)
+	}
+}
+
+func TestForward_FetchesAttachmentsIntoDraft(t *testing.T) {
+	d := &downloads{}
+	f := newFixtureWith(t, 100, 24, d.deps())
+
+	f.keys("f")
+
+	c := f.model().composing
+	if c == nil || len(c.base.Attach) != 1 || !strings.HasPrefix(c.base.Attach[0], "/open/forward-") {
+		t.Fatalf("composing %+v", c)
+	}
+	text, _ := os.ReadFile(c.path)
+	if !strings.Contains(string(text), "Attach: /open/forward-") || !strings.Contains(string(text), "Subject: Fwd: Re: Launch plan") {
+		t.Errorf("draft:\n%s", text)
+	}
+}
+
+func TestAttachments_ChooseWhichToOpen(t *testing.T) {
+	d := &downloads{}
+	f := newFixtureWith(t, 100, 24, d.deps())
+	m := model.Message{Account: workAcct, ID: "two-1", ThreadID: "two", Subject: "Photos", Date: now, Labels: []string{"INBOX"},
+		Attachments: []model.Attachment{{Filename: "a.jpg"}, {Filename: "b.jpg"}}}
+	f.st.UpsertMessages(context.Background(), []model.Message{m})
+	reload := f.model()
+	cmd := reload.load()
+	f.m = reload
+	f.send(cmd())
+
+	f.keys("k", "A")
+	if !strings.Contains(f.view(), "Open: 1 a.jpg · 2 b.jpg · esc cancel") {
+		t.Fatalf("view:\n%s", f.view())
+	}
+	f.keys("2")
+
+	if len(d.opened) != 1 || d.opened[0] != "/open/b.jpg" {
+		t.Errorf("opened %v", d.opened)
 	}
 }

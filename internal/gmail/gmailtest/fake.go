@@ -37,10 +37,11 @@ type Fake struct {
 	oldest  uint64 // History calls starting before this get ErrHistoryExpired
 	calls   map[string]int
 	sent    [][]byte
+	files   map[string][]byte // attachment data by "messageID/index"
 }
 
 func New(email string) *Fake {
-	return &Fake{Email: email, msgs: map[string]model.Message{}, next: 100, calls: map[string]int{}}
+	return &Fake{Email: email, msgs: map[string]model.Message{}, next: 100, calls: map[string]int{}, files: map[string][]byte{}}
 }
 
 func (f *Fake) record(kind string, m model.Message) {
@@ -277,4 +278,28 @@ func (f *Fake) Sent() [][]byte {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.sent)
+}
+
+// SetAttachmentData sets what downloading a message's index-th attachment
+// gives. Without it, a download gives "contents of NAME".
+func (f *Fake) SetAttachmentData(messageID string, index int, data []byte) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.files[fmt.Sprintf("%s/%d", messageID, index)] = data
+}
+
+func (f *Fake) AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.begin("AttachmentData"); err != nil {
+		return nil, err
+	}
+	m, ok := f.msgs[messageID]
+	if !ok || index < 0 || index >= len(m.Attachments) {
+		return nil, gmail.ErrNotFound
+	}
+	if data, ok := f.files[fmt.Sprintf("%s/%d", messageID, index)]; ok {
+		return data, nil
+	}
+	return []byte("contents of " + m.Attachments[index].Filename), nil
 }

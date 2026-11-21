@@ -93,7 +93,7 @@ func newForwardCmd(app *App) *cobra.Command {
 	var f draftFlags
 	cmd := &cobra.Command{
 		Use:   "forward ID",
-		Short: "Forward a conversation's latest message in your editor",
+		Short: "Forward a conversation's latest message, with its attachments, in your editor",
 		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -105,7 +105,11 @@ func newForwardCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return app.editAndSend(ctx, f.over(compose.Forward(t, acct, nil, app.Now())))
+			files, err := app.forwardFiles(ctx, acct, t)
+			if err != nil {
+				fmt.Fprintf(app.Stderr, "climail: warning: the attachments aren't included: %v\n", err)
+			}
+			return app.editAndSend(ctx, f.over(compose.Forward(t, acct, files, app.Now())))
 		},
 	}
 	addAccountFlag(cmd, &account)

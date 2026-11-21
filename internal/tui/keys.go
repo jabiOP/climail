@@ -15,7 +15,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 // and the help screen lists them.
 var keys = struct {
 	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev,
-	Archive, Trash, Inbox, Read, Star, Select, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward,
+	Archive, Trash, Inbox, Read, Star, Select, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
 	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit key.Binding
 }{
 	Up:          bind("k", "up", "k", "up"),
@@ -45,6 +45,8 @@ var keys = struct {
 	Reply:       bind("r", "reply", "r"),
 	ReplyAll:    bind("R", "reply all", "R"),
 	Forward:     bind("f", "forward", "f"),
+	SaveFiles:   bind("D", "save the attachments", "D"),
+	OpenFile:    bind("A", "open an attachment", "A"),
 	Search:      bind("/", "search all mail", "/"),
 	Sync:        bind("s", "sync now", "s"),
 	PrevAccount: bind("[", "previous account", "["),
@@ -94,6 +96,7 @@ func helpText() string {
 	right := helpColumn(
 		"Conversations", []helpRow{
 			pair(keys.Reply, keys.ReplyAll, "reply / reply all"), one(keys.Forward, "forward"),
+			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"),
 			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),
 			one(keys.Select, "select for bulk actions"), one(keys.Undo, "undo the last change"),

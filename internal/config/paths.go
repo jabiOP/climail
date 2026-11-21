@@ -41,6 +41,7 @@ func (p Paths) DBFile() string     { return filepath.Join(p.DataDir, "climail.db
 func (p Paths) LockFile() string   { return filepath.Join(p.DataDir, "sync.lock") }
 func (p Paths) TokenFile() string  { return filepath.Join(p.DataDir, "token.json") }
 func (p Paths) DraftDir() string   { return filepath.Join(p.DataDir, "drafts") }
+func (p Paths) OpenDir() string    { return filepath.Join(p.DataDir, "opened") } // attachments opened or forwarded
 
 // EnsureDirs creates both directories, private to the user.
 func (p Paths) EnsureDirs() error {

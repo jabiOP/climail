@@ -131,6 +131,25 @@ func (t Thread) MessageIDs() []string {
 	return ids
 }
 
+// AttachmentRef is one attachment of a conversation, and where it is: the
+// index-th attachment of a message.
+type AttachmentRef struct {
+	MessageID string
+	Index     int
+	Attachment
+}
+
+// Attachments lists every attachment in the conversation, oldest message first.
+func (t Thread) Attachments() []AttachmentRef {
+	var out []AttachmentRef
+	for _, m := range t.Messages {
+		for i, a := range m.Attachments {
+			out = append(out, AttachmentRef{MessageID: m.ID, Index: i, Attachment: a})
+		}
+	}
+	return out
+}
+
 // Senders are the distinct senders in order of first appearance; the list
 // shows them like Gmail does: "Alice, Bob".
 func (t Thread) Senders() []Address {

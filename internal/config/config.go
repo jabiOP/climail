@@ -26,6 +26,7 @@ type Config struct {
 	StaleAfter   Duration `toml:"stale_after"`   // CLI reads sync first if older than this
 	SyncTimeout  Duration `toml:"sync_timeout"`  // max time a CLI command waits for that sync
 	SyncThreads  int      `toml:"sync_threads"`  // conversations a full sync fetches per account, newest first
+	DownloadDir  string   `toml:"download_dir"`  // where attachments are saved
 }
 
 func Default() Config {
@@ -34,6 +35,7 @@ func Default() Config {
 		StaleAfter:   Duration{2 * time.Minute},
 		SyncTimeout:  Duration{10 * time.Second},
 		SyncThreads:  300,
+		DownloadDir:  "~/Downloads",
 	}
 }
 

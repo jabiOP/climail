@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -115,5 +116,31 @@ func TestErrors_Classified(t *testing.T) {
 		if err == nil {
 			t.Errorf("%d: err = nil", tt.status)
 		}
+	}
+}
+
+func TestAttachmentData_FetchesByPosition(t *testing.T) {
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/attachments/fresh-id"):
+			writeJSON(w, map[string]any{"data": b64("second file")})
+		default:
+			writeJSON(w, map[string]any{"id": "m1", "payload": map[string]any{"mimeType": "multipart/mixed", "parts": []any{
+				map[string]any{"mimeType": "text/plain", "body": map[string]any{"data": b64("hi")}},
+				map[string]any{"filename": "a.txt", "body": map[string]any{"data": b64("first file")}},
+				map[string]any{"filename": "b.pdf", "body": map[string]any{"attachmentId": "fresh-id", "size": 11}},
+			}}})
+		}
+	})
+
+	first, err1 := c.AttachmentData(context.Background(), "m1", 0)
+	second, err2 := c.AttachmentData(context.Background(), "m1", 1)
+	_, err3 := c.AttachmentData(context.Background(), "m1", 2)
+
+	if string(first) != "first file" || string(second) != "second file" || err1 != nil || err2 != nil {
+		t.Errorf("got %q (%v), %q (%v)", first, err1, second, err2)
+	}
+	if !errors.Is(err3, gmail.ErrNotFound) {
+		t.Errorf("out of range: err = %v", err3)
 	}
 }

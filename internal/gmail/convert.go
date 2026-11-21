@@ -77,17 +77,16 @@ func parseAddresses(s string) []model.Address {
 func body(root *gmailapi.MessagePart) (string, []model.Attachment) {
 	var plain, htmlText string
 	var atts []model.Attachment
+	for _, p := range attachmentParts(root) {
+		a := model.Attachment{Filename: p.Filename, MimeType: p.MimeType}
+		if p.Body != nil {
+			a.ID, a.Size = p.Body.AttachmentId, p.Body.Size
+		}
+		atts = append(atts, a)
+	}
 	var walk func(p *gmailapi.MessagePart)
 	walk = func(p *gmailapi.MessagePart) {
-		if p == nil {
-			return
-		}
-		if p.Filename != "" {
-			a := model.Attachment{Filename: p.Filename, MimeType: p.MimeType}
-			if p.Body != nil {
-				a.ID, a.Size = p.Body.AttachmentId, p.Body.Size
-			}
-			atts = append(atts, a)
+		if p == nil || p.Filename != "" {
 			return
 		}
 		mediaType, params, _ := mime.ParseMediaType(header(p, "Content-Type"))
@@ -111,6 +110,35 @@ func body(root *gmailapi.MessagePart) (string, []model.Attachment) {
 	return HTMLToText(htmlText), atts
 }
 
+// attachmentParts are a message's parts with a file name, in order: the
+// order of model.Message.Attachments, which downloads go by.
+func attachmentParts(root *gmailapi.MessagePart) []*gmailapi.MessagePart {
+	var out []*gmailapi.MessagePart
+	var walk func(p *gmailapi.MessagePart)
+	walk = func(p *gmailapi.MessagePart) {
+		if p == nil {
+			return
+		}
+		if p.Filename != "" {
+			out = append(out, p)
+			return
+		}
+		for _, c := range p.Parts {
+			walk(c)
+		}
+	}
+	walk(root)
+	return out
+}
+
+// decodeBase64 reads Gmail's base64url, with or without padding.
+func decodeBase64(s string) ([]byte, error) {
+	if data, err := base64.URLEncoding.DecodeString(s); err == nil {
+		return data, nil
+	}
+	return base64.RawURLEncoding.DecodeString(s)
+}
+
 func header(p *gmailapi.MessagePart, name string) string {
 	for _, h := range p.Headers {
 		if strings.EqualFold(h.Name, name) {
@@ -126,11 +154,9 @@ func decodePart(p *gmailapi.MessagePart, charset string) string {
 	if p.Body == nil || p.Body.Data == "" {
 		return ""
 	}
-	data, err := base64.URLEncoding.DecodeString(p.Body.Data)
+	data, err := decodeBase64(p.Body.Data)
 	if err != nil {
-		if data, err = base64.RawURLEncoding.DecodeString(p.Body.Data); err != nil {
-			return ""
-		}
+		return ""
 	}
 	r, err := charsetReader(charset, strings.NewReader(string(data)))
 	if err != nil {

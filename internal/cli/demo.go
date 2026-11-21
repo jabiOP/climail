@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -31,12 +33,18 @@ func newDemoCmd(app *App) *cobra.Command {
 				f := gmailtest.New(mb.Account)
 				f.SetLabels(mb.Labels...)
 				f.Deliver(mb.Messages...)
+				for key, data := range mb.Files {
+					id, index, _ := strings.Cut(key, "/")
+					n, _ := strconv.Atoi(index)
+					f.SetAttachmentData(id, n, data)
+				}
 				fakes[mb.Account] = f
 			}
 			d := &App{
 				Paths: config.Paths{ConfigDir: dir, DataDir: dir}, Config: app.Config, Now: app.Now,
 				Stdin: app.Stdin, Stdout: app.Stdout, Stderr: app.Stderr, IsTTY: app.IsTTY,
-				Remote: func(_ context.Context, account string) (syncer.Remote, error) { return fakes[account], nil },
+				Remote:  func(_ context.Context, account string) (syncer.Remote, error) { return fakes[account], nil },
+				OpenURL: app.OpenURL, Edit: app.Edit,
 			}
 			defer d.Close()
 			st, err := d.Store()

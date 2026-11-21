@@ -5,6 +5,7 @@ package gmail
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"slices"
 	"time"
@@ -165,4 +166,30 @@ func (c *Client) Send(ctx context.Context, raw []byte, threadID string) error {
 	m := &gmailapi.Message{Raw: base64.URLEncoding.EncodeToString(raw), ThreadId: threadID}
 	_, err := c.svc.Users.Messages.Send("me", m).Context(ctx).Do()
 	return mapErr(err)
+}
+
+// AttachmentData downloads a message's index-th attachment (in the order of
+// model.Message.Attachments). The message is fetched again first: Gmail's
+// attachment IDs change from one fetch to the next.
+func (c *Client) AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error) {
+	m, err := c.svc.Users.Messages.Get("me", messageID).Format("full").Context(ctx).Do()
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	parts := attachmentParts(m.Payload)
+	if index < 0 || index >= len(parts) {
+		return nil, fmt.Errorf("%w: attachment %d of message %s", ErrNotFound, index+1, messageID)
+	}
+	body := parts[index].Body
+	if body == nil {
+		return nil, nil
+	}
+	if body.AttachmentId == "" { // small ones come inline
+		return decodeBase64(body.Data)
+	}
+	a, err := c.svc.Users.Messages.Attachments.Get("me", messageID, body.AttachmentId).Context(ctx).Do()
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return decodeBase64(a.Data)
 }

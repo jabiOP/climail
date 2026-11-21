@@ -30,6 +30,10 @@ type Deps struct {
 	OpenURL      func(string) error // opens a link in the browser; nil when there's none
 	DraftDir     string             // where drafts are written for the editor
 	Editor       func(path string) *exec.Cmd
+	// Download saves attachments into dir and returns their paths; nil: no downloads.
+	Download    func(ctx context.Context, account string, refs []model.AttachmentRef, dir string) ([]string, error)
+	DownloadDir string // where D saves
+	OpenDir     string // where attachments opened or forwarded are fetched to
 }
 
 type pane int
@@ -89,7 +93,8 @@ type Model struct {
 	undo      *service.Undo
 	pending   string // first key of a two-key command: "d" or "g"
 	help      bool
-	composing *composing // a mail being written
+	composing *composing            // a mail being written
+	choosing  []model.AttachmentRef // A: which attachment to open
 }
 
 // --- messages ---
@@ -267,6 +272,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
+	case downloadedMsg:
+		return m.downloaded(msg)
+	case forwardMsg:
+		m.message = ""
+		if msg.err != nil {
+			m.message, m.isError = "the attachments aren't included: "+msg.err.Error(), true
+		}
+		next, cmd := m.startCompose(msg.draft)
+		if msg.err != nil { // keep the warning visible after the editor
+			n := next.(Model)
+			n.message, n.isError = m.message, true
+			return n, cmd
+		}
+		return next, cmd
 	case editedMsg:
 		return m.edited(msg)
 	case sentMsg:

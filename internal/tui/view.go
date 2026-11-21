@@ -409,6 +409,8 @@ func (m Model) statusBar() string {
 			st = errStyle
 		}
 		left = s(fit(text, leftW), st.Bold(true))
+	case m.choosing != nil:
+		left = s(fit(m.choosePrompt(), leftW), accentFg.Bold(true))
 	case m.message != "" && m.isError:
 		left = s(fit(m.message, leftW), errStyle)
 	case m.message != "":

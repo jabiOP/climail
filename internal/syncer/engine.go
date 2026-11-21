@@ -28,6 +28,7 @@ type Remote interface {
 	Trash(ctx context.Context, id string) error
 	Untrash(ctx context.Context, id string) error
 	Send(ctx context.Context, raw []byte, threadID string) error
+	AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error)
 }
 
 // ErrPush and ErrPull tell which half of Sync failed: after a pull error,

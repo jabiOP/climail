@@ -15,6 +15,7 @@ type Mailbox struct {
 	Account  string
 	Labels   []model.Label
 	Messages []model.Message
+	Files    map[string][]byte // attachment contents by "messageID/index"
 }
 
 func addr(name, email string) model.Address { return model.Address{Name: name, Email: email} }
@@ -42,6 +43,42 @@ type builder struct {
 	mb  Mailbox
 	now time.Time
 	n   int
+}
+
+// attach adds a PDF attachment saying text to the message last added.
+func (b *builder) attach(m *model.Message, name, text string) {
+	data := pdf(text)
+	if b.mb.Files == nil {
+		b.mb.Files = map[string][]byte{}
+	}
+	b.mb.Files[fmt.Sprintf("%s/%d", m.ID, len(m.Attachments))] = data
+	m.Attachments = append(m.Attachments, model.Attachment{Filename: name, MimeType: "application/pdf", Size: int64(len(data))})
+}
+
+// pdf makes a one-page PDF showing text, so opened demo attachments show something.
+func pdf(text string) []byte {
+	stream := fmt.Sprintf("BT /F1 18 Tf 72 720 Td (%s) Tj ET", text)
+	objects := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+		fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(stream), stream),
+		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+	}
+	var b strings.Builder
+	b.WriteString("%PDF-1.4\n")
+	offsets := make([]int, len(objects))
+	for i, o := range objects {
+		offsets[i] = b.Len()
+		fmt.Fprintf(&b, "%d 0 obj\n%s\nendobj\n", i+1, o)
+	}
+	xref := b.Len()
+	fmt.Fprintf(&b, "xref\n0 %d\n0000000000 65535 f \n", len(objects)+1)
+	for _, off := range offsets {
+		fmt.Fprintf(&b, "%010d 00000 n \n", off)
+	}
+	fmt.Fprintf(&b, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(objects)+1, xref)
+	return []byte(b.String())
 }
 
 func (b *builder) add(thread string, minutesAgo int, from model.Address, to []model.Address, subject, body string,
@@ -89,7 +126,8 @@ func workBox(now time.Time) Mailbox {
 		"INBOX")
 	b.add("t-launch", 25, maya, []model.Address{work, tom}, "Re: Launch plan for the 2.0 release",
 		"Agreed, added. @you: could you own the migration guide? I've put a first outline in the shared folder.\n\n> I'd add a day for the release notes",
-		"INBOX", "UNREAD").Attachments = []model.Attachment{{ID: "a1", Filename: "launch-plan-v2.pdf", MimeType: "application/pdf", Size: 248_000}}
+		"INBOX", "UNREAD")
+	b.attach(&b.mb.Messages[len(b.mb.Messages)-1], "launch-plan-v2.pdf", "Launch plan v2 (demo attachment)")
 
 	b.add("t-north", 4*hour, priya, me, "Northwind: questions about the beta",
 		"Hello,\n\nThanks for the invitation to the beta. A few questions before we sign up:\n\n1. Will our existing exports keep working?\n2. Is there a sandbox we can try first?\n3. Who should our admins contact during the two weeks?\n\nBest regards,\nPriya Raman\nHead of Operations, Northwind",
@@ -118,7 +156,8 @@ func workBox(now time.Time) Mailbox {
 
 	b.add("t-invoice", 5*day, addr("Billing", "billing@saas.example"), me, "Your invoice for October",
 		"Thanks for your business. Your invoice for October is attached.\n\nAmount: €49.00\nPaid with: card ending 4242",
-		"Label_4").Attachments = []model.Attachment{{ID: "a2", Filename: "invoice-october.pdf", MimeType: "application/pdf", Size: 41_000}}
+		"Label_4")
+	b.attach(&b.mb.Messages[len(b.mb.Messages)-1], "invoice-october.pdf", "Invoice: October, EUR 49.00 (demo)")
 
 	b.add("t-sent", 7*hour, work, []model.Address{priya}, "Re: Northwind kickoff notes",
 		"Thanks Priya, notes attached. Let me know if I missed anything.", "SENT", "Label_1")
@@ -145,7 +184,8 @@ func homeBox(now time.Time) Mailbox {
 		"Are you coming on Sunday? I'm making the lemon cake. Bring Alex if you like!\n\nLove, Mum", "INBOX", "UNREAD")
 	b.add("h-trip", 2*day, travel, me, "Your booking is confirmed: LIS → AMS",
 		"Booking reference: K7Q2XP\n\nFri 12 Dec, 08:40 Lisbon → 12:55 Amsterdam\nSeat 14A\n\nCheck in online 24 hours before departure.",
-		"INBOX", "STARRED", "Label_9").Attachments = []model.Attachment{{ID: "a3", Filename: "boarding-pass.pdf", MimeType: "application/pdf", Size: 96_000}}
+		"INBOX", "STARRED", "Label_9")
+	b.attach(&b.mb.Messages[len(b.mb.Messages)-1], "boarding-pass.pdf", "Boarding pass LIS-AMS, seat 14A (demo)")
 	b.add("h-bank", 5*hour, bank, me, "Your monthly statement is ready", "Your November statement is ready to view in online banking.", "INBOX", "UNREAD")
 	b.add("h-alex", 26*hour, alex, me, "Board games Friday?",
 		"We're thinking of trying the new one Sam got. 8pm at mine?", "INBOX")

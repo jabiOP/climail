@@ -15,6 +15,7 @@ Last updated: 2026-11-21
 - TUI: adaptive layout (sidebar | list | reader, or one pane), Gmail-style reader, triage keys, selection, undo, live search, accounts
 - `climail demo`: the TUI on made-up mailboxes, no Google account needed
 - Compose, reply, reply all, forward in `$VISUAL`/`$EDITOR` (CLI and TUI); `send` for scripts; send queue with `outbox`
+- Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next
@@ -23,10 +24,8 @@ Last updated: 2026-11-21
 
 ## Later
 
-- Forward: send the original's attachments along
 - Keep unsent drafts in Gmail's Drafts (today they stay as local files)
 - Send with the account's display name (Gmail send-as settings)
-- Attachments: list, download, open
 - Server-side search (Gmail query syntax) for mail outside the cache
 - Log of changes Google rejected
 - TUI: show first-sync progress; label picker to add/remove labels; mouse
@@ -49,4 +48,5 @@ Last updated: 2026-11-21
 - `/` searches all mail locally as you type (the cache is small enough); server-side search is later.
 - Outgoing mail is queued in the store and pushed before label changes, so writing works offline; mail Gmail refuses is kept as failed, never dropped.
 - Drafts are edited as a plain file with mutt-style headers; a draft left unsent stays on disk and its path is shown.
+- Attachments are downloaded on demand, not cached; a download refetches the message because Gmail's attachment IDs change between fetches.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).
