@@ -43,6 +43,7 @@ Commands (`climail COMMAND --help` for details):
 ```text
 climail auth setup FILE | login | status | logout ACCOUNT
 climail sync [--full] [-a ACCOUNT]          sync every account, or one
+climail daemon [install|uninstall|restart]  sync in the background
 climail labels [-a ACCOUNT]                 mailboxes and labels, with unread counts
 climail list [LABEL] [-q WORDS] [-n N]      conversations, newest first (default: Inbox)
 climail show ID                             a conversation as plain text
@@ -59,11 +60,20 @@ climail read|unread|star|unstar ID... | -   mark conversations
 Configuration, all optional, in `~/.config/climail/config.toml`:
 
 ```toml
-sync_interval = "30s"  # how often the TUI syncs
+sync_interval = "30s"  # how often the TUI and the daemon sync
 stale_after = "2m"     # CLI reads sync first when the last sync is older
 sync_timeout = "10s"   # how long a CLI command waits for that sync
 sync_threads = 300     # conversations a first (or --full) sync downloads per account
 ```
+
+To keep mail fresh, and changes flowing to Gmail, even when climail isn't open:
+
+```bash
+climail daemon install
+```
+
+It writes a systemd user service (Linux) or a launchd agent (macOS) and prints the command that starts it. Without
+it, the TUI syncs while open and CLI commands sync when the cache is stale.
 
 Mail is cached in `~/.local/share/climail/`; login tokens are in the system keyring.
 
@@ -78,7 +88,7 @@ Go 1.26 or newer. Linux or macOS.
 Build:
 
 ```bash
-make install   # go install .
+make install   # go install ., then restart the daemon (if installed) on the new version
 ```
 
 Test:

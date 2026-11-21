@@ -40,6 +40,12 @@ type fixture struct {
 // newFixture opens the TUI on the demo mailboxes, as `climail demo` does.
 func newFixture(t *testing.T, w, h int) *fixture {
 	t.Helper()
+	return newFixtureWith(t, w, h, Deps{})
+}
+
+// newFixtureWith is newFixture with extra Deps (e.g. Sync).
+func newFixtureWith(t *testing.T, w, h int, d Deps) *fixture {
+	t.Helper()
 	ctx := context.Background()
 	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -58,7 +64,8 @@ func newFixture(t *testing.T, w, h int) *fixture {
 		st.SetLastSync(ctx, mb.Account, now.Add(-2*time.Minute))
 	}
 	f := &fixture{t: t, st: st}
-	m := New(ctx, Deps{Service: service.New(st), Now: func() time.Time { return now }})
+	d.Service, d.Now = service.New(st), func() time.Time { return now }
+	m := New(ctx, d)
 	f.m = f.drain(m, m.Init())
 	f.send(tea.WindowSizeMsg{Width: w, Height: h})
 	return f
@@ -413,5 +420,31 @@ func TestHelp_AnyKeyCloses(t *testing.T) {
 
 	if f.model().help || f.model().cursor != 0 {
 		t.Errorf("help %v, cursor %d; want help closed and the key not acted on", f.model().help, f.model().cursor)
+	}
+}
+
+func TestSync_RetriedWhileChangesWait(t *testing.T) {
+	old := pushRetry
+	pushRetry = time.Millisecond
+	t.Cleanup(func() { pushRetry = old })
+	syncs := 0
+	var st *store.Store
+	f := newFixtureWith(t, 100, 24, Deps{Sync: func(ctx context.Context) error {
+		syncs++
+		if syncs == 3 { // the daemon let go of the lock: push
+			ops, _ := st.PendingOps(ctx, workAcct)
+			for _, op := range ops {
+				st.CompleteOp(ctx, op)
+			}
+		}
+		return nil // skipped: someone else held the lock
+	}})
+	st = f.st
+	syncs = 0
+
+	f.keys("a")
+
+	if syncs != 3 {
+		t.Errorf("syncs = %d, want the change retried until it went", syncs)
 	}
 }

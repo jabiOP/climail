@@ -14,6 +14,7 @@ Last updated: 2026-11-21
 - CLI: auth, sync, labels, list, show, archive/trash/inbox/read/unread/star/unstar; TTY/TSV/JSON output; multi-account `-a`
 - TUI: adaptive layout (sidebar | list | reader, or one pane), Gmail-style reader, triage keys, selection, undo, live search, accounts
 - `climail demo`: the TUI on made-up mailboxes, no Google account needed
+- Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next
 
@@ -22,7 +23,6 @@ Last updated: 2026-11-21
 ## Later
 
 - Compose, reply, reply-all, forward in `$EDITOR`; send queue
-- Background sync daemon (systemd/launchd)
 - Attachments: list, download, open
 - Server-side search (Gmail query syntax) for mail outside the cache
 - Log of changes Google rejected

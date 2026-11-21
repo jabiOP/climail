@@ -104,7 +104,7 @@ func NewRootCmd(app *App) *cobra.Command {
 	root.SetErr(app.Stderr)
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return usageError{err} })
 	root.AddCommand(newAuthCmd(app), newSyncCmd(app), newLabelsCmd(app), newListCmd(app), newShowCmd(app),
-		newDemoCmd(app))
+		newDemoCmd(app), newDaemonCmd(app))
 	root.AddCommand(newActionCmds(app)...)
 	return root
 }

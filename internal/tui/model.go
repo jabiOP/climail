@@ -79,6 +79,8 @@ type Model struct {
 	status    service.Status
 	syncing   bool
 	syncError string
+	checkPend bool // after a sync: retry soon if changes are still waiting (the daemon held the lock)
+	retrying  bool // a retryMsg is on its way
 	message   string
 	isError   bool
 	undo      *service.Undo
@@ -101,6 +103,12 @@ type loadedMsg struct {
 
 type syncDoneMsg struct{ err error }
 type tickMsg struct{}
+
+// retryMsg retries a sync while local changes are still waiting.
+type retryMsg struct{}
+
+// pushRetry is how soon that is. Tests lower it.
+var pushRetry = 3 * time.Second
 
 type actionDoneMsg struct {
 	undo   service.Undo
@@ -235,7 +243,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.syncError = syncErrorText(msg.err)
 		}
+		m.checkPend = msg.err == nil // offline: wait for the next tick instead
 		return m, m.load()
+	case retryMsg:
+		m.retrying = false
+		m.syncing = m.deps.Sync != nil
+		return m, m.syncCmd()
 	case tickMsg:
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.syncCmd(), m.tick())
@@ -290,10 +303,15 @@ func (m Model) applyLoaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 	m.clampOffset()
 	m.followReader()
 	var cmd tea.Cmd
+	if m.checkPend && m.status.Pending > 0 && !m.retrying {
+		m.retrying = true
+		cmd = tea.Tick(pushRetry, func(time.Time) tea.Msg { return retryMsg{} })
+	}
+	m.checkPend = false
 	if m.openOnLoad {
 		m.openOnLoad = false
 		if t, ok := m.current(); ok {
-			cmd = m.apply([]model.Thread{t}, service.MarkRead, false)
+			cmd = tea.Batch(cmd, m.apply([]model.Thread{t}, service.MarkRead, false))
 		} else {
 			m.focus = paneList
 		}
