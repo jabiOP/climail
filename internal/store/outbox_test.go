@@ -24,7 +24,7 @@ func TestApplyLabels_ChangesLocallyAndQueues(t *testing.T) {
 	s := openStore(t)
 	put(t, s, msg("m1", "t", 0, "INBOX", "UNREAD"))
 
-	if err := s.ApplyLabels(ctx, acct, []string{"m1"}, []string{"STARRED"}, []string{"INBOX"}); err != nil {
+	if _, err := s.ApplyLabels(ctx, acct, []string{"m1"}, []string{"STARRED"}, []string{"INBOX"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -107,5 +107,20 @@ func TestFailOp_CountsAttempts(t *testing.T) {
 	}
 	if n, _ := s.PendingCount(ctx, acct); n != 1 {
 		t.Errorf("PendingCount = %d", n)
+	}
+}
+
+func TestApplyLabels_ReturnsActualChanges(t *testing.T) {
+	s := openStore(t)
+	put(t, s, msg("m1", "t", 0, "INBOX", "UNREAD"), msg("m2", "t", 1, "INBOX"))
+
+	got, err := s.ApplyLabels(ctx, acct, []string{"m1", "m2"}, nil, []string{"UNREAD"})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []store.Change{{MessageID: "m1", Added: []string{}, Removed: []string{"UNREAD"}}}
+	if diff := cmp.Diff(want, got, cmpopts.EquateEmpty()); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }

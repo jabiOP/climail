@@ -21,11 +21,19 @@ type Op struct {
 	LastError string
 }
 
+// Change is what ApplyLabels actually did to one message.
+type Change struct {
+	MessageID string
+	Added     []string
+	Removed   []string
+}
+
 // ApplyLabels changes the labels of the given cached messages and queues the
-// change for Google, in one transaction. Only actual changes are queued:
-// removing a label a message doesn't have does nothing.
-func (s *Store) ApplyLabels(ctx context.Context, account string, ids, add, remove []string) error {
-	return s.InTx(ctx, func(tx *Store) error {
+// change for Google, in one transaction. Only actual changes are made and
+// returned: removing a label a message doesn't have does nothing.
+func (s *Store) ApplyLabels(ctx context.Context, account string, ids, add, remove []string) ([]Change, error) {
+	var changes []Change
+	err := s.InTx(ctx, func(tx *Store) error {
 		for _, id := range ids {
 			m, err := tx.Message(ctx, account, id)
 			if err == ErrNotFound {
@@ -45,9 +53,14 @@ func (s *Store) ApplyLabels(ctx context.Context, account string, ids, add, remov
 			if err := tx.enqueue(ctx, account, id, added, removed); err != nil {
 				return err
 			}
+			changes = append(changes, Change{MessageID: id, Added: added, Removed: removed})
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return changes, nil
 }
 
 // enqueue merges an effective change (adds were absent, removes present) into

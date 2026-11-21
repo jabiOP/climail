@@ -10,6 +10,7 @@ Last updated: 2026-11-21
 - Gmail adapter (HTML-to-text bodies, charsets) and in-memory fake
 - Sync engine: push outbox, pull history (full resync when expired), cross-process lock
 - OAuth (loopback + PKCE), per-account tokens in the keyring with a 0600 file fallback
+- Service: thread actions (archive, trash, read/unread, star) with exact undo; mailbox list with unread counts
 
 ## Next
 
