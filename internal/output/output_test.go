@@ -28,6 +28,15 @@ func TestShortDate(t *testing.T) {
 	}
 }
 
+func TestMessageDate(t *testing.T) {
+	if got := output.MessageDate(time.Date(2026, 3, 4, 9, 5, 0, 0, time.UTC), now); got != "Wed 4 Mar 09:05" {
+		t.Errorf("this year: %q", got)
+	}
+	if got := output.MessageDate(time.Date(2025, 3, 4, 9, 5, 0, 0, time.UTC), now); got != "Tue 4 Mar 2025 09:05" {
+		t.Errorf("last year: %q", got)
+	}
+}
+
 func TestSize(t *testing.T) {
 	for n, want := range map[int64]string{512: "512 B", 12_345: "12 KB", 3_400_000: "3.4 MB"} {
 		if got := output.Size(n); got != want {
@@ -96,7 +105,7 @@ func TestConversation(t *testing.T) {
 
 	output.Conversation(&b, sample(), now)
 
-	for _, want := range []string{"Plan\tA\n", "── Alice <alice@x.com> · Fri 20 Nov 2026 14:00", "To: me@x.com", "Attached: a.pdf (2 KB)", "\nyo\n"} {
+	for _, want := range []string{"Plan\tA\n", "── Alice <alice@x.com> · Fri 20 Nov 14:00", "To: me@x.com", "Attached: a.pdf (2 KB)", "\nyo\n"} {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("conversation lacks %q:\n%s", want, b.String())
 		}

@@ -15,7 +15,9 @@ import (
 	"github.com/jabiOP/climail/internal/browser"
 	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/gmail"
+	"github.com/jabiOP/climail/internal/service"
 	"github.com/jabiOP/climail/internal/syncer"
+	"github.com/jabiOP/climail/internal/tui"
 )
 
 // Version is set by main.
@@ -84,16 +86,41 @@ func NewRootCmd(app *App) *cobra.Command {
 		SilenceUsage:  true, // don't dump usage on runtime errors
 		SilenceErrors: true, // Main prints errors once
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
+			if !app.IsTTY {
+				return cmd.Help()
+			}
+			if _, err := app.Accounts(cmd.Context()); err != nil {
+				return err
+			}
+			svc, err := app.Service()
+			if err != nil {
+				return err
+			}
+			return tui.Run(cmd.Context(), tuiDeps(app, svc))
 		},
 	}
 	root.SetIn(app.Stdin)
 	root.SetOut(app.Stdout)
 	root.SetErr(app.Stderr)
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return usageError{err} })
-	root.AddCommand(newAuthCmd(app), newSyncCmd(app), newLabelsCmd(app), newListCmd(app), newShowCmd(app))
+	root.AddCommand(newAuthCmd(app), newSyncCmd(app), newLabelsCmd(app), newListCmd(app), newShowCmd(app),
+		newDemoCmd(app))
 	root.AddCommand(newActionCmds(app)...)
 	return root
+}
+
+// tuiDeps maps the app onto the TUI.
+func tuiDeps(app *App, svc *service.Service) tui.Deps {
+	return tui.Deps{
+		Service: svc,
+		Sync: func(ctx context.Context) error {
+			_, err := app.SyncNow(ctx, nil) // skipped quietly if another process is syncing
+			return err
+		},
+		Now:          app.Now,
+		SyncInterval: app.Config.SyncInterval.Duration,
+		OpenURL:      app.OpenURL,
+	}
 }
 
 // exactArgs is cobra.ExactArgs, but reports a usage error (exit 2).

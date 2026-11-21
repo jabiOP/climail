@@ -224,3 +224,16 @@ func TestLabels_TSV(t *testing.T) {
 		t.Errorf("got:\n%s", out)
 	}
 }
+
+func TestDemo_ListsMadeUpInboxWithoutTouchingRealData(t *testing.T) {
+	h := newHarness(t)
+
+	out := h.mustRun("demo")
+
+	if !strings.Contains(out, "Launch plan for the 2.0 release") {
+		t.Errorf("got %q", out)
+	}
+	if _, err := h.app.Accounts(context.Background()); err == nil {
+		t.Error("the demo added an account to the real store")
+	}
+}

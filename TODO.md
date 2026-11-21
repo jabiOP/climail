@@ -12,11 +12,12 @@ Last updated: 2026-11-21
 - OAuth (loopback + PKCE), per-account tokens in the keyring with a 0600 file fallback
 - Service: thread actions (archive, trash, read/unread, star) with exact undo; mailbox list with unread counts
 - CLI: auth, sync, labels, list, show, archive/trash/inbox/read/unread/star/unstar; TTY/TSV/JSON output; multi-account `-a`
+- TUI: adaptive layout (sidebar | list | reader, or one pane), Gmail-style reader, triage keys, selection, undo, live search, accounts
+- `climail demo`: the TUI on made-up mailboxes, no Google account needed
 
 ## Next
 
-- TUI: adaptive layout, reading and triage
-- Credential-free demo mode
+- Manual check against real Gmail accounts: login, first sync, incremental sync, every action reaching Gmail
 
 ## Later
 
@@ -25,6 +26,7 @@ Last updated: 2026-11-21
 - Attachments: list, download, open
 - Server-side search (Gmail query syntax) for mail outside the cache
 - Log of changes Google rejected
+- TUI: show first-sync progress; label picker to add/remove labels; mouse
 
 ## Known issues
 
@@ -40,4 +42,6 @@ Last updated: 2026-11-21
 - Outbox holds one label delta per message; a change that undoes a pending one cancels it. Trash is the TRASH label, pushed through Gmail's trash endpoint. Label deltas are idempotent, so there are no conflicts.
 - Sync fetches whole threads (threads.get), so conversations are complete; a full sync takes the newest `sync_threads` threads.
 - Dependencies `golang.org/x/net/html` (HTML-only mail as text) and `golang.org/x/text` (non-UTF-8 charsets): both already in the module graph via the Google client.
+- The reader beside the list previews without marking read; `enter` opens and marks read. After archive/trash from the reader, the next conversation opens (Gmail's behavior).
+- `/` searches all mail locally as you type (the cache is small enough); server-side search is later.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).

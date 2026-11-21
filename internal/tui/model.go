@@ -1,0 +1,339 @@
+// Package tui is the Bubble Tea interface: mailboxes, a conversation list and
+// a reader, side by side on wide terminals and one at a time on narrow ones.
+// Update never blocks: anything touching the store runs in a tea.Cmd and
+// reports back with a message.
+package tui
+
+import (
+	"context"
+	"errors"
+	"net/url"
+	"slices"
+	"time"
+
+	"github.com/charmbracelet/bubbles/cursor"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/jabiOP/climail/internal/model"
+	"github.com/jabiOP/climail/internal/service"
+	"github.com/jabiOP/climail/internal/store"
+)
+
+// Deps are the TUI's connections to the rest of the app.
+type Deps struct {
+	Service      *service.Service
+	Sync         func(context.Context) error // syncs every account; nil disables syncing (tests)
+	Now          func() time.Time
+	SyncInterval time.Duration      // 0 disables periodic sync (tests)
+	OpenURL      func(string) error // opens a link in the browser; nil when there's none
+}
+
+type pane int
+
+const (
+	paneSidebar pane = iota
+	paneList
+	paneReader
+)
+
+// wideWidth is the narrowest terminal that shows the panes side by side.
+const wideWidth = 120
+
+// pageSize is how many more conversations load when the list nears its end.
+const pageSize = 100
+
+type Model struct {
+	deps          Deps
+	ctx           context.Context
+	width, height int
+	focus         pane
+	hideSidebar   bool // b: more room for the list and reader on wide screens
+
+	accounts []string
+	account  string            // the account shown
+	others   map[string]int    // unread in each account's Inbox, for the sidebar
+	boxes    []service.Mailbox // the account's mailboxes
+	box      service.Mailbox   // the mailbox shown
+	side     int               // sidebar cursor: index into sideRows()
+
+	threads []model.Thread
+	cursor  int // list selection
+	offset  int // first list row shown
+	limit   int // how many conversations to load
+	loaded  bool
+	loadSeq int // only the newest load is applied (search loads on every key)
+
+	selected map[string]bool // x: thread IDs acted on together
+
+	readerID   string          // the conversation the reader shows
+	scroll     int             // reader: first line shown
+	expanded   map[string]bool // reader: message IDs shown in full
+	openOnLoad bool            // after archiving from the reader: open the next conversation
+
+	search    string // the search shown ("" for a mailbox)
+	searching bool   // typing a search
+	input     textinput.Model
+	before    service.Mailbox // the mailbox to return to when the search is cleared
+
+	status    service.Status
+	syncing   bool
+	syncError string
+	message   string
+	isError   bool
+	undo      *service.Undo
+	pending   string // first key of a two-key command: "d" or "g"
+	help      bool
+}
+
+// --- messages ---
+
+type loadedMsg struct {
+	seq      int
+	accounts []string
+	account  string
+	others   map[string]int
+	boxes    []service.Mailbox
+	threads  []model.Thread
+	status   service.Status
+	err      error
+}
+
+type syncDoneMsg struct{ err error }
+type tickMsg struct{}
+
+type actionDoneMsg struct {
+	undo   service.Undo
+	record bool // offer it for undo
+	err    error
+}
+
+type infoMsg struct {
+	text  string
+	isErr bool
+}
+
+func New(ctx context.Context, d Deps) Model {
+	in := textinput.New()
+	in.Prompt = "/ "
+	in.Placeholder = "search all mail"
+	in.Cursor.SetMode(cursor.CursorStatic)
+	return Model{
+		deps: d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
+		box: service.Mailbox{ID: model.Inbox, Name: "Inbox"}, selected: map[string]bool{}, input: in,
+		syncing: d.Sync != nil, // Init starts one
+		loadSeq: 1,             // Init's load
+	}
+}
+
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(m.loadCmd(m.loadSeq), m.syncCmd(), m.tick(), tea.SetWindowTitle("climail"))
+}
+
+// --- commands (run off the UI goroutine) ---
+
+// load reloads everything shown from the store.
+func (m *Model) load() tea.Cmd {
+	m.loadSeq++
+	return m.loadCmd(m.loadSeq)
+}
+
+func (m Model) loadCmd(seq int) tea.Cmd {
+	svc, ctx := m.deps.Service, m.ctx
+	account, view, limit := m.account, store.View{Label: m.box.ID, Search: m.search}, m.limit
+	return func() tea.Msg {
+		msg := loadedMsg{seq: seq, others: map[string]int{}}
+		if msg.accounts, msg.err = svc.Accounts(ctx); msg.err != nil {
+			return msg
+		}
+		if len(msg.accounts) == 0 {
+			return msg
+		}
+		msg.account = account
+		if !slices.Contains(msg.accounts, account) {
+			msg.account = msg.accounts[0]
+		}
+		for _, a := range msg.accounts {
+			boxes, err := svc.Mailboxes(ctx, a)
+			if err != nil {
+				msg.err = err
+				return msg
+			}
+			msg.others[a] = boxes[0].Unread // Inbox comes first
+			if a == msg.account {
+				msg.boxes = boxes
+			}
+		}
+		if msg.threads, msg.err = svc.Threads(ctx, msg.account, view, limit, 0); msg.err != nil {
+			return msg
+		}
+		msg.status, msg.err = svc.Status(ctx, msg.account)
+		return msg
+	}
+}
+
+func (m Model) syncCmd() tea.Cmd {
+	if m.deps.Sync == nil {
+		return nil
+	}
+	sync, ctx := m.deps.Sync, m.ctx
+	return func() tea.Msg { return syncDoneMsg{err: sync(ctx)} }
+}
+
+func (m Model) tick() tea.Cmd {
+	if m.deps.SyncInterval <= 0 {
+		return nil
+	}
+	return tea.Tick(m.deps.SyncInterval, func(time.Time) tea.Msg { return tickMsg{} })
+}
+
+// apply runs an action on threads; record offers it for undo.
+func (m Model) apply(threads []model.Thread, a service.Action, record bool) tea.Cmd {
+	svc, ctx, account := m.deps.Service, m.ctx, m.account
+	return func() tea.Msg {
+		undo, err := svc.Apply(ctx, account, threads, a)
+		return actionDoneMsg{undo: undo, record: record, err: err}
+	}
+}
+
+func (m Model) undoCmd(u service.Undo) tea.Cmd {
+	svc, ctx := m.deps.Service, m.ctx
+	return func() tea.Msg {
+		if err := svc.Undo(ctx, u); err != nil {
+			return infoMsg{text: "undo failed: " + err.Error(), isErr: true}
+		}
+		return infoMsg{text: "Undone"}
+	}
+}
+
+// syncErrorText says briefly why a sync failed: a network failure is just
+// "offline" (changes wait), anything else as it is.
+func syncErrorText(err error) string {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) || errors.Is(err, context.DeadlineExceeded) {
+		return "offline"
+	}
+	return "sync failed: " + err.Error()
+}
+
+// --- update ---
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+		m.clampOffset()
+		return m, nil
+	case loadedMsg:
+		if msg.seq != m.loadSeq {
+			return m, nil // a newer load is on its way
+		}
+		return m.applyLoaded(msg)
+	case syncDoneMsg:
+		m.syncing = false
+		m.syncError = ""
+		if msg.err != nil {
+			m.syncError = syncErrorText(msg.err)
+		}
+		return m, m.load()
+	case tickMsg:
+		m.syncing = m.deps.Sync != nil
+		return m, tea.Batch(m.syncCmd(), m.tick())
+	case actionDoneMsg:
+		if msg.err != nil {
+			m.message, m.isError = msg.err.Error(), true
+			return m, m.load()
+		}
+		if msg.record && !msg.undo.Empty() {
+			m.undo = &msg.undo
+			m.message, m.isError = msg.undo.Done+" · u to undo", false
+		}
+		m.syncing = m.deps.Sync != nil
+		return m, tea.Batch(m.load(), m.syncCmd())
+	case infoMsg:
+		m.message, m.isError = msg.text, msg.isErr
+		m.syncing = m.deps.Sync != nil
+		return m, tea.Batch(m.load(), m.syncCmd())
+	case tea.KeyMsg:
+		return m.handleKey(msg)
+	}
+	return m, nil
+}
+
+// applyLoaded applies fresh data, keeping the cursor on the same conversation.
+func (m Model) applyLoaded(msg loadedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.message, m.isError = "couldn't read the mail cache: "+msg.err.Error(), true
+		return m, nil
+	}
+	var keep string
+	if t, ok := m.current(); ok {
+		keep = t.ID
+	}
+	if msg.account != m.account {
+		keep = ""
+	}
+	m.accounts, m.account, m.others, m.boxes, m.status = msg.accounts, msg.account, msg.others, msg.boxes, msg.status
+	m.threads, m.loaded = msg.threads, true
+	if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return t.ID == keep }); i >= 0 {
+		m.cursor = i
+	}
+	m.cursor = max(min(m.cursor, len(m.threads)-1), 0)
+	for _, b := range m.boxes { // the mailbox's name and count may have changed
+		if b.ID == m.box.ID {
+			m.box = b
+		}
+	}
+	if m.focus != paneSidebar {
+		m.side = m.boxRow()
+	}
+	m.clampOffset()
+	m.followReader()
+	var cmd tea.Cmd
+	if m.openOnLoad {
+		m.openOnLoad = false
+		if t, ok := m.current(); ok {
+			cmd = m.apply([]model.Thread{t}, service.MarkRead, false)
+		} else {
+			m.focus = paneList
+		}
+	}
+	return m, cmd
+}
+
+// current is the conversation under the list cursor.
+func (m Model) current() (model.Thread, bool) {
+	if m.cursor < 0 || m.cursor >= len(m.threads) {
+		return model.Thread{}, false
+	}
+	return m.threads[m.cursor], true
+}
+
+// followReader points the reader at the current conversation: from the top,
+// with unread messages and the last one expanded, as Gmail opens them.
+func (m *Model) followReader() {
+	t, ok := m.current()
+	if !ok {
+		m.readerID = ""
+		return
+	}
+	if t.ID == m.readerID {
+		return
+	}
+	m.readerID, m.scroll = t.ID, 0
+	m.expanded = map[string]bool{t.Latest().ID: true}
+	for _, msg := range t.Messages {
+		if msg.Unread() {
+			m.expanded[msg.ID] = true
+		}
+	}
+}
+
+// Run starts the TUI full-screen and blocks until the user quits.
+func Run(ctx context.Context, d Deps) error {
+	_, err := tea.NewProgram(New(ctx, d), tea.WithAltScreen(), tea.WithContext(ctx)).Run()
+	if errors.Is(err, tea.ErrProgramKilled) && ctx.Err() != nil {
+		return nil // Ctrl-C via the context
+	}
+	return err
+}

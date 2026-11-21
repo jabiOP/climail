@@ -14,6 +14,30 @@ First run:
 2. `climail auth setup ~/Downloads/client_secret_*.json`
 3. `climail auth login` (opens your browser, then downloads your recent mail). Repeat to add more accounts.
 
+To try it without a Google account: `climail demo` opens the TUI on a made-up mailbox with two accounts, in a
+temporary folder that is removed on exit.
+
+### TUI
+
+`climail` opens it. On a terminal at least 120 columns wide it shows mailboxes, the conversation list and a reader
+side by side (the reader previews the conversation under the cursor without marking it read); narrower, one pane at a
+time. `?` lists every key.
+
+| Keys | Action |
+|---|---|
+| `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls) |
+| `h`/`l`, `enter`, `esc` | move between panes; open; back (also clears a selection or search) |
+| `n`/`p` | next/previous conversation, from the reader |
+| `a`, `dd`, `I` | archive, move to Trash, move to Inbox |
+| `N`, `*` | mark read/unread, star/unstar |
+| `x`, `u` | select (actions then apply to every selected conversation), undo the last change |
+| `o`, `O` | expand/collapse all messages, open in Gmail on the web |
+| `/` | search all mail as you type (`enter` keeps the results, `esc` cancels) |
+| `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
+| `[`/`]`, `b`, `s`, `q` | previous/next account, hide mailboxes, sync now, quit |
+
+### CLI
+
 Commands (`climail COMMAND --help` for details):
 
 ```text

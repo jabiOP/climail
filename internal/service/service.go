@@ -33,11 +33,12 @@ type Action struct {
 	Done        string // what happened, for messages: "Archived"
 	Add, Remove []string
 	LatestOnly  bool // like Gmail, starring a conversation stars its latest message
+	Leaves      bool // takes conversations out of the mailbox they're in
 }
 
 var (
-	Archive     = Action{Done: "Archived", Remove: []string{model.Inbox}}
-	Trash       = Action{Done: "Moved to Trash", Add: []string{model.Trash}, Remove: []string{model.Inbox}}
+	Archive     = Action{Done: "Archived", Remove: []string{model.Inbox}, Leaves: true}
+	Trash       = Action{Done: "Moved to Trash", Add: []string{model.Trash}, Remove: []string{model.Inbox}, Leaves: true}
 	MoveToInbox = Action{Done: "Moved to Inbox", Add: []string{model.Inbox}, Remove: []string{model.Trash, model.Spam}}
 	MarkRead    = Action{Done: "Marked as read", Remove: []string{model.Unread}}
 	MarkUnread  = Action{Done: "Marked as unread", Add: []string{model.Unread}}

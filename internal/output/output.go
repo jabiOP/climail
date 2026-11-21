@@ -31,9 +31,14 @@ func sameDay(a, b time.Time) bool {
 	return a.Year() == b.Year() && a.YearDay() == b.YearDay()
 }
 
-// LongDate is how a message's header shows its date.
-func LongDate(t, now time.Time) string {
-	return t.In(now.Location()).Format("Mon 2 Jan 2006 15:04")
+// MessageDate is how a message's header shows its date: "Fri 20 Nov 14:35",
+// with the year when it isn't this year's.
+func MessageDate(t, now time.Time) string {
+	t = t.In(now.Location())
+	if t.Year() == now.Year() {
+		return t.Format("Mon 2 Jan 15:04")
+	}
+	return t.Format("Mon 2 Jan 2006 15:04")
 }
 
 // Senders names a thread's participants like Gmail's list: "Alice, Bob",
@@ -161,7 +166,7 @@ func Conversation(w io.Writer, t model.Thread, now time.Time) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n", Subject(t.Subject()))
 	for _, m := range t.Messages {
-		fmt.Fprintf(&b, "\n── %s · %s\n", m.From, LongDate(m.Date, now))
+		fmt.Fprintf(&b, "\n── %s · %s\n", m.From, MessageDate(m.Date, now))
 		for _, h := range MessageHeaders(m) {
 			fmt.Fprintf(&b, "%s %s\n", h[0], h[1])
 		}
