@@ -30,6 +30,8 @@ Last updated: 2026-11-21
 
 ## Known issues
 
+- Security: sanitize untrusted email subjects, sender names, snippets, and bodies before TUI/CLI terminal rendering to prevent ANSI/OSC/control-sequence injection. Add focused tests for ESC, CSI, OSC, multiline text, and ordinary Unicode.
+
 ## Decisions
 
 - An account is chosen by address or its start (`-a work`); the first account added is the default.
