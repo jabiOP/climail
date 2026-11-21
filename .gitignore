@@ -1,0 +1,18 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Build output and local data
+/climail
+/dist/
+*.db
+*.db-shm
+*.db-wal
+client.json
+token.json
