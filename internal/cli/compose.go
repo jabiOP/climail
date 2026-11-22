@@ -213,9 +213,9 @@ func (a *App) queue(ctx context.Context, d compose.Draft, path string) error {
 func newSendCmd(app *App) *cobra.Command {
 	var account string
 	var f draftFlags
-	var offline bool
+	var offline, plain bool
 	cmd := &cobra.Command{
-		Use:   "send --to ADDRESSES [--subject S] [--attach FILE]... < BODY",
+		Use:   "send --to ADDRESSES [--subject S] [--attach FILE]... [--plain] < BODY",
 		Short: "Send a mail without an editor: the body is read from stdin (for scripts)",
 		Args:  exactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -232,7 +232,7 @@ func newSendCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			d, err := svc.Prepare(ctx, f.over(compose.Draft{Account: acct, Body: string(body)}))
+			d, err := svc.Prepare(ctx, f.over(compose.Draft{Account: acct, Body: string(body), Plain: plain}))
 			if err != nil {
 				return usageError{err}
 			}
@@ -249,6 +249,7 @@ func newSendCmd(app *App) *cobra.Command {
 	addAccountFlag(cmd, &account)
 	addDraftFlags(cmd, &f)
 	cmd.Flags().BoolVar(&offline, "offline", false, "only queue it; it goes with the next sync")
+	cmd.Flags().BoolVar(&plain, "plain", false, "send the body as it is, not formatted from Markdown (logs, program output)")
 	return cmd
 }
 

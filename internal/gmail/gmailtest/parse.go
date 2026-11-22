@@ -31,35 +31,47 @@ func parse(raw []byte) (model.Message, [][]byte, error) {
 		m.From = model.Address{Name: from[0].Name, Email: from[0].Address}
 	}
 	m.To, m.Cc, m.Bcc = addressList(h, "To"), addressList(h, "Cc"), addressList(h, "Bcc")
-	ctype, params, _ := mime.ParseMediaType(h.Get("Content-Type"))
-	if !strings.HasPrefix(ctype, "multipart/") {
-		body, err := decode(msg.Body, h.Get("Content-Transfer-Encoding"))
-		m.Body = text(body)
-		return m, nil, err
-	}
 	var files [][]byte
-	r := multipart.NewReader(msg.Body, params["boundary"])
-	for {
-		part, err := r.NextPart() // decodes quoted-printable itself
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return model.Message{}, nil, fmt.Errorf("%w: %v", gmail.ErrPermanent, err)
-		}
-		data, err := decode(part, part.Header.Get("Content-Transfer-Encoding"))
-		if err != nil {
-			return model.Message{}, nil, fmt.Errorf("%w: %v", gmail.ErrPermanent, err)
-		}
-		if name := part.FileName(); name != "" {
-			ptype, _, _ := mime.ParseMediaType(part.Header.Get("Content-Type"))
-			m.Attachments = append(m.Attachments, model.Attachment{Filename: name, MimeType: ptype, Size: int64(len(data))})
-			files = append(files, data)
-		} else if m.Body == "" {
-			m.Body = text(data)
-		}
+	if err := readPart(&m, &files, h.Get("Content-Type"), h.Get("Content-Transfer-Encoding"), msg.Body); err != nil {
+		return model.Message{}, nil, fmt.Errorf("%w: %v", gmail.ErrPermanent, err)
 	}
 	return m, files, nil
+}
+
+// readPart reads a MIME entity into m: the first text/plain part is the
+// body, files are attachments, multiparts are read part by part.
+func readPart(m *model.Message, files *[][]byte, ctype, encoding string, r io.Reader) error {
+	media, params, _ := mime.ParseMediaType(ctype)
+	if !strings.HasPrefix(media, "multipart/") {
+		data, err := decode(r, encoding)
+		if err == nil && m.Body == "" && (media == "text/plain" || media == "") {
+			m.Body = text(data)
+		}
+		return err
+	}
+	mr := multipart.NewReader(r, params["boundary"])
+	for {
+		part, err := mr.NextPart() // decodes quoted-printable itself
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if name := part.FileName(); name != "" {
+			data, err := decode(part, part.Header.Get("Content-Transfer-Encoding"))
+			if err != nil {
+				return err
+			}
+			ptype, _, _ := mime.ParseMediaType(part.Header.Get("Content-Type"))
+			m.Attachments = append(m.Attachments, model.Attachment{Filename: name, MimeType: ptype, Size: int64(len(data))})
+			*files = append(*files, data)
+			continue
+		}
+		if err := readPart(m, files, part.Header.Get("Content-Type"), part.Header.Get("Content-Transfer-Encoding"), part); err != nil {
+			return err
+		}
+	}
 }
 
 func addressList(h mail.Header, name string) []model.Address {

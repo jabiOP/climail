@@ -62,24 +62,30 @@ func (d Draft) build(now time.Time) ([]byte, error) {
 	header("In-Reply-To", d.InReplyTo)
 	header("References", d.References)
 	header("MIME-Version", "1.0")
-	text, err := qp(d.Body)
+	ctype, content, err := d.text()
 	if err != nil {
 		return nil, err
 	}
 	if len(d.Attach) == 0 {
-		header("Content-Type", "text/plain; charset=utf-8")
-		header("Content-Transfer-Encoding", "quoted-printable")
-		b.WriteString("\r\n" + text)
+		header("Content-Type", ctype)
+		if !d.formatted() {
+			header("Content-Transfer-Encoding", "quoted-printable")
+		}
+		b.WriteString("\r\n")
+		b.Write(content)
 		return b.Bytes(), nil
 	}
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
-	part, err := w.CreatePart(textproto.MIMEHeader{
-		"Content-Type": {"text/plain; charset=utf-8"}, "Content-Transfer-Encoding": {"quoted-printable"}})
+	h := textproto.MIMEHeader{"Content-Type": {ctype}}
+	if !d.formatted() {
+		h.Set("Content-Transfer-Encoding", "quoted-printable")
+	}
+	part, err := w.CreatePart(h)
 	if err != nil {
 		return nil, err
 	}
-	part.Write([]byte(text))
+	part.Write(content)
 	for _, path := range d.Attach {
 		if err := attach(w, expandHome(path)); err != nil {
 			return nil, err
@@ -92,6 +98,39 @@ func (d Draft) build(now time.Time) ([]byte, error) {
 	b.WriteString("\r\n")
 	b.Write(body.Bytes())
 	return b.Bytes(), nil
+}
+
+func (d Draft) formatted() bool { return !d.Plain }
+
+// text is the body's MIME entity: the text as typed, or (as Gmail sends
+// mail) multipart/alternative with it and its Markdown rendered as HTML.
+func (d Draft) text() (ctype string, content []byte, err error) {
+	plain, err := qp(d.Body)
+	if err != nil || !d.formatted() {
+		return "text/plain; charset=utf-8", []byte(plain), err
+	}
+	html, err := HTML(d.Body)
+	if err != nil {
+		return "", nil, err
+	}
+	rich, err := qp(html)
+	if err != nil {
+		return "", nil, err
+	}
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	for _, p := range []struct{ ctype, content string }{{"text/plain", plain}, {"text/html", rich}} {
+		part, err := w.CreatePart(textproto.MIMEHeader{
+			"Content-Type": {p.ctype + "; charset=utf-8"}, "Content-Transfer-Encoding": {"quoted-printable"}})
+		if err != nil {
+			return "", nil, err
+		}
+		part.Write([]byte(p.content))
+	}
+	if err := w.Close(); err != nil {
+		return "", nil, err
+	}
+	return "multipart/alternative; boundary=" + w.Boundary(), b.Bytes(), nil
 }
 
 func qp(s string) (string, error) {

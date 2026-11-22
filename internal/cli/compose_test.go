@@ -179,3 +179,17 @@ func TestContactsAndNamesAsRecipients(t *testing.T) {
 		t.Errorf("exit %d, stderr %q", code, errOut)
 	}
 }
+
+func TestSend_FormattedUnlessPlain(t *testing.T) {
+	h := newHarness(t, work)
+	h.stdin = "**done**\n"
+	h.mustRun("send", "--to", "bob@example.com", "-s", "A")
+	if raw := h.sentText(work); !strings.Contains(raw, "text/html") || !strings.Contains(raw, "<strong>done</strong>") {
+		t.Errorf("not formatted:\n%s", raw)
+	}
+	h.stdin = "# build log\n"
+	h.mustRun("send", "--to", "bob@example.com", "-s", "B", "--plain")
+	if raw := h.sentText(work); strings.Contains(raw, "text/html") {
+		t.Errorf("--plain sent HTML:\n%s", raw)
+	}
+}

@@ -18,6 +18,7 @@ Last updated: 2026-11-21
 - Gmail search (`climail search`, `enter` in the TUI search) with Gmail's syntax; matches outside the cache are fetched into it
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
 - Mail goes out with the display name from Gmail's "Send mail as" settings
+- Mail is written in Markdown and sent formatted (HTML in Gmail's default style, plus the plain text); `send --plain` for scripts
 - Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
@@ -58,3 +59,4 @@ Last updated: 2026-11-21
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).
 - The sender's display name is read from Gmail's send-as settings when mail is pushed, not stored: always current, one request per batch.
 - Contacts come from the cached mail (no Contacts API, no extra scope); each message's addresses are also kept in their own column so listing them doesn't read bodies (1.3 s → 0.1 s on 10k messages).
+- Dependency `github.com/yuin/goldmark` v1.8.7 renders Markdown as HTML (CommonMark, no dependencies of its own). HTML typed in a body stays text, and no font is set, so Gmail's defaults apply.

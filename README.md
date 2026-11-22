@@ -40,7 +40,9 @@ time. `?` lists every key.
 | `[`/`]`, `b`, `s`, `q` | previous/next account, hide mailboxes, sync now, quit |
 
 Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `To:`, `Cc:`, `Bcc:`, `Subject:` and `Attach:`
-lines (one file per `Attach:` line), a blank line, then the body. In `To:`, `Cc:` and `Bcc:` you can type part of a
+lines (one file per `Attach:` line), a blank line, then the body, in Markdown (`**bold**`, `_italic_`,
+`[text](https://…)`, `- lists`, `> quotes`). Mail is sent as Gmail sends it: formatted, in Gmail's default font, with
+the text as typed for mail apps that show plain text; line breaks stay where you put them. In `To:`, `Cc:` and `Bcc:` you can type part of a
 name or address (`maya, tom`): each becomes the one person in your mail it matches (when several do, the one whose
 name or address before the @ is exactly what you typed); otherwise climail lists who it could be and lets you edit. Replies quote the message and stay in its
 conversation. When the editor closes, climail asks: `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
@@ -63,7 +65,7 @@ climail show ID                             a conversation as plain text
 climail search QUERY... [--offline]         search all of Gmail, with Gmail's syntax
 climail compose [--to A] [-s SUBJECT]       write a new mail in your editor
 climail reply ID [--all] | forward ID       reply or forward in your editor
-climail send --to A [-s S] [--attach F] < BODY   send without an editor (scripts)
+climail send --to A [-s S] [--attach F] [--plain] < BODY   send without an editor (--plain: not from Markdown)
 climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
 climail contacts [QUERY...]                 people in your mail, those you write to most first
 climail attachments ID                      a conversation's attachments, numbered

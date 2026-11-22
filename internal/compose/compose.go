@@ -26,6 +26,7 @@ type Draft struct {
 	Subject     string
 	Body        string
 	Attach      []string // file paths
+	Plain       bool     // send the body as typed; otherwise its Markdown is also sent formatted
 
 	// A reply keeps these, so Gmail files it in the conversation.
 	ThreadID, InReplyTo, References string
