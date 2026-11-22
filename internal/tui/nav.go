@@ -43,6 +43,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.choosing != nil {
 		return m.chooseKey(msg)
 	}
+	if m.askDraft != nil {
+		return m.askDraftKey(msg)
+	}
 	m.message, m.isError = "", false
 	if p := m.pending; p != "" {
 		m.pending = ""
@@ -286,7 +289,14 @@ func (m Model) openInBrowser(t model.Thread) tea.Cmd {
 	if m.deps.OpenURL == nil {
 		return nil
 	}
-	link := fmt.Sprintf("https://mail.google.com/mail/u/%s/#all/%s", url.PathEscape(t.Account), t.ID)
+	return m.openLink(fmt.Sprintf("https://mail.google.com/mail/u/%s/#all/%s", url.PathEscape(t.Account), t.ID))
+}
+
+// openLink opens a link in the browser.
+func (m Model) openLink(link string) tea.Cmd {
+	if m.deps.OpenURL == nil {
+		return nil
+	}
 	open := m.deps.OpenURL
 	return func() tea.Msg {
 		if err := open(link); err != nil {

@@ -66,6 +66,7 @@ type Message struct {
 	Subject     string
 	Snippet     string
 	Body        string   // plain text, converted from HTML when that's all there is
+	HTML        string   // the HTML body, kept only for drafts: they're continued with their formatting
 	Labels      []string // label IDs, sorted
 	MessageID   string   // the Message-ID header, for threading replies
 	InReplyTo   string

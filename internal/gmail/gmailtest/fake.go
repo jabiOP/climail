@@ -283,7 +283,7 @@ func (f *Fake) Send(ctx context.Context, raw []byte, threadID string) error {
 	if m.From.Email == "" {
 		m.From.Email = f.Email
 	}
-	m.ThreadID, m.Labels = threadID, []string{model.Sent}
+	m.ThreadID, m.Labels, m.HTML = threadID, []string{model.Sent}, ""
 	m.MessageID = fmt.Sprintf("<%s.%s@fake>", m.ID, f.Email) // Gmail gives every sent mail one
 	f.add(m, files)
 	var to []*Fake

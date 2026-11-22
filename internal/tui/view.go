@@ -423,6 +423,8 @@ func (m Model) statusBar() string {
 		left = s(fit(text, leftW), st.Bold(true))
 	case m.choosing != nil:
 		left = s(fit(m.choosePrompt(), leftW), accentFg.Bold(true))
+	case m.askDraft != nil:
+		left = s(fit("Fonts, colours → Gmail default · e edit · O open in Gmail · esc", leftW), accentFg.Bold(true))
 	case m.message != "" && m.isError:
 		left = s(fit(m.message, leftW), errStyle)
 	case m.message != "":

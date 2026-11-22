@@ -745,3 +745,26 @@ func TestCompose_NamesBecomeAddressesInTheDraft(t *testing.T) {
 		t.Errorf("draft file not updated:\n%s", text)
 	}
 }
+
+func TestDrafts_FormattingMarkdownCantHoldAsksFirst(t *testing.T) {
+	var opened []string
+	f := newFixtureWith(t, 100, 24, Deps{OpenURL: func(u string) error { opened = append(opened, u); return nil }})
+	d := model.Message{Account: workAcct, ID: "web1", ThreadID: "tweb", Subject: "From the web", Date: now,
+		To: []model.Address{{Email: "maya@work.example"}}, Labels: []string{model.Draft}, Body: "Big news",
+		HTML: `<div dir="ltr"><font size="6">Big</font> <b>news</b></div>`}
+	f.st.UpsertMessages(context.Background(), []model.Message{d})
+
+	f.keys("g", "d", "enter")
+	if f.model().composing != nil || !strings.Contains(f.view(), "Fonts, colours → Gmail default · e edit · O open in Gmail · esc") {
+		t.Fatalf("no question:\n%s", f.view())
+	}
+	f.keys("O")
+	if len(opened) != 1 || opened[0] != "https://mail.google.com/mail/u/you@work.example/#drafts?compose=web1" {
+		t.Errorf("opened %v", opened)
+	}
+
+	f.keys("enter", "e")
+	if c := f.model().composing; c == nil || c.base.Body != "Big **news**\n" {
+		t.Errorf("composing %+v", c)
+	}
+}

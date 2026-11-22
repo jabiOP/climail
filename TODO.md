@@ -19,6 +19,7 @@ Last updated: 2026-11-21
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
 - Mail goes out with the display name from Gmail's "Send mail as" settings
 - Mail is written in Markdown and sent formatted (HTML in Gmail's default style, plus the plain text); `send --plain` for scripts
+- Drafts written in Gmail are continued with their formatting as Markdown; climail asks first when fonts, colours or images would be lost
 - Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
@@ -28,7 +29,8 @@ Last updated: 2026-11-21
 - Manual check against real Gmail accounts: login, first sync, incremental sync, every action reaching Gmail;
   sending (new, reply in the right conversation, forward with attachments, Bcc), daemon install on macOS,
   attachment download and open, Gmail search, display name on sent mail,
-  drafts (save, continue one started on the web, send), recipients by name
+  drafts (save, continue one started on the web, send), recipients by name,
+  formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window
 
 ## Later
 
@@ -37,7 +39,6 @@ Last updated: 2026-11-21
 
 ## Known issues
 
-- Continuing a draft written in Gmail on the web turns it into plain text: its formatting is lost when it is saved or sent.
 
 ## Decisions
 
@@ -60,3 +61,4 @@ Last updated: 2026-11-21
 - The sender's display name is read from Gmail's send-as settings when mail is pushed, not stored: always current, one request per batch.
 - Contacts come from the cached mail (no Contacts API, no extra scope); each message's addresses are also kept in their own column so listing them doesn't read bodies (1.3 s → 0.1 s on 10k messages).
 - Dependency `github.com/yuin/goldmark` v1.8.7 renders Markdown as HTML (CommonMark, no dependencies of its own). HTML typed in a body stays text, and no font is set, so Gmail's defaults apply.
+- Only drafts keep their HTML in the cache, to be continued with their formatting. A draft whose HTML is what its text renders to was saved by climail: its text is continued as typed, not converted back.

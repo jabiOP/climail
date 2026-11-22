@@ -45,7 +45,11 @@ func FromAPI(account string, m *gmailapi.Message) model.Message {
 	if len(from) > 0 {
 		out.From = from[0]
 	}
-	out.Body, out.Attachments = body(m.Payload)
+	var htmlBody string
+	out.Body, htmlBody, out.Attachments = body(m.Payload)
+	if out.Has(model.Draft) {
+		out.HTML = htmlBody
+	}
 	return out
 }
 
@@ -75,8 +79,8 @@ func parseAddresses(s string) []model.Address {
 }
 
 // body picks the text to show, preferring a text/plain part to converting
-// HTML, and lists the attachments.
-func body(root *gmailapi.MessagePart) (string, []model.Attachment) {
+// HTML, and returns the HTML part too, and the attachments.
+func body(root *gmailapi.MessagePart) (string, string, []model.Attachment) {
 	var plain, htmlText string
 	var atts []model.Attachment
 	for _, p := range attachmentParts(root) {
@@ -107,9 +111,9 @@ func body(root *gmailapi.MessagePart) (string, []model.Attachment) {
 	}
 	walk(root)
 	if strings.TrimSpace(plain) != "" {
-		return strings.TrimSpace(strings.ReplaceAll(plain, "\r\n", "\n")), atts
+		return strings.TrimSpace(strings.ReplaceAll(plain, "\r\n", "\n")), htmlText, atts
 	}
-	return HTMLToText(htmlText), atts
+	return HTMLToText(htmlText), htmlText, atts
 }
 
 // attachmentParts are a message's parts with a file name, in order: the

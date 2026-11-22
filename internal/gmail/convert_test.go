@@ -133,3 +133,17 @@ func TestLabelFromAPI(t *testing.T) {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestFromAPI_KeepsTheHTMLOfDraftsOnly(t *testing.T) {
+	payload := &gmailapi.MessagePart{MimeType: "multipart/alternative", Parts: []*gmailapi.MessagePart{
+		part("text/plain", "text/plain; charset=utf-8", "hi"),
+		part("text/html", "text/html; charset=utf-8", "<div><b>hi</b></div>"),
+	}}
+
+	if got := gmail.FromAPI("a", &gmailapi.Message{LabelIds: []string{"DRAFT"}, Payload: payload}); got.HTML != "<div><b>hi</b></div>" {
+		t.Errorf("draft HTML = %q", got.HTML)
+	}
+	if got := gmail.FromAPI("a", &gmailapi.Message{LabelIds: []string{"INBOX"}, Payload: payload}); got.HTML != "" {
+		t.Errorf("inbox mail keeps HTML %q", got.HTML)
+	}
+}

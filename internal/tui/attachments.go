@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -131,6 +132,29 @@ func (m Model) continueDraft() (tea.Model, tea.Cmd) {
 		return m.openThread()
 	}
 	d := t.Messages[i]
+	if _, lossy := compose.DraftBody(d); lossy {
+		m.askDraft = &d
+		return m, nil
+	}
+	return m.editDraft(t, d)
+}
+
+// askDraftKey answers whether to edit a draft whose formatting Markdown
+// can't hold: e edits it anyway, O opens it in Gmail on the web.
+func (m Model) askDraftKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	d := *m.askDraft
+	m.askDraft = nil
+	switch msg.String() {
+	case "e":
+		t, _ := m.current()
+		return m.editDraft(t, d)
+	case "O":
+		return m, m.openLink(fmt.Sprintf("https://mail.google.com/mail/u/%s/#drafts?compose=%s", url.PathEscape(d.Account), d.ID))
+	}
+	return m, nil // anything else cancels
+}
+
+func (m Model) editDraft(t model.Thread, d model.Message) (tea.Model, tea.Cmd) {
 	return m.composeWith(t, d.ID, "draft-", func(paths []string) compose.Draft { return compose.FromDraft(d, m.account, paths) })
 }
 

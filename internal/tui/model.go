@@ -100,6 +100,7 @@ type Model struct {
 	help      bool
 	composing *composing            // a mail being written
 	choosing  []model.AttachmentRef // A: which attachment to open
+	askDraft  *model.Message        // a draft whose formatting Markdown can't hold: edit it anyway?
 }
 
 // --- messages ---

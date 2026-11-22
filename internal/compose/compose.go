@@ -83,11 +83,12 @@ func Forward(t model.Thread, account string, attach []string, now time.Time) Dra
 		Body: "\n\n" + header + "\n" + orig.Body}
 }
 
-// FromDraft continues a draft saved in Gmail. attach are its attachments,
-// downloaded.
+// FromDraft continues a draft saved in Gmail, its formatting as Markdown
+// (see DraftBody). attach are its attachments, downloaded.
 func FromDraft(m model.Message, account string, attach []string) Draft {
+	body, _ := DraftBody(m)
 	d := Draft{Account: account, To: addresses(m.To), Cc: addresses(m.Cc), Bcc: addresses(m.Bcc), Subject: m.Subject,
-		Body: m.Body, Attach: attach, DraftID: m.ID, InReplyTo: m.InReplyTo, References: m.References}
+		Body: body, Attach: attach, DraftID: m.ID, InReplyTo: m.InReplyTo, References: m.References}
 	if d.InReplyTo != "" || d.References != "" { // a reply: it goes in the conversation
 		d.ThreadID = m.ThreadID
 	}

@@ -47,7 +47,9 @@ name or address (`maya, tom`): each becomes the one person in your mail it match
 name or address before the @ is exactly what you typed); otherwise climail lists who it could be and lets you edit. Replies quote the message and stay in its
 conversation. When the editor closes, climail asks: `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
 climail can't read as a mail stays on disk instead, and its path is shown). In Drafts (`gd`), `enter` continues a draft,
-its attachments included; sending it takes it out of Drafts.
+its attachments included; sending it takes it out of Drafts. A draft written in Gmail opens with its formatting as
+Markdown; when it has formatting Markdown can't keep (fonts, colours, sizes, images), climail asks first: `e` edit it
+anyway (that formatting becomes Gmail's default), `O` open it in Gmail instead.
 An unchanged draft is dropped. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
 stays in `climail outbox`.
 

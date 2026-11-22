@@ -15,9 +15,10 @@ import (
 	"github.com/jabiOP/climail/internal/model"
 )
 
-// parse reads a raw mail as climail builds them (plain text, or
-// multipart/mixed with attachments) into a message without ID, labels or
-// thread, and its attachments' contents.
+// parse reads a raw mail as climail builds them (plain text or
+// multipart/alternative, inside multipart/mixed with attachments) into a
+// message without ID, labels or thread, and its attachments' contents.
+// HTML is set; Gmail keeps it only for drafts.
 func parse(raw []byte) (model.Message, [][]byte, error) {
 	msg, err := mail.ReadMessage(bytes.NewReader(raw))
 	if err != nil {
@@ -44,8 +45,12 @@ func readPart(m *model.Message, files *[][]byte, ctype, encoding string, r io.Re
 	media, params, _ := mime.ParseMediaType(ctype)
 	if !strings.HasPrefix(media, "multipart/") {
 		data, err := decode(r, encoding)
-		if err == nil && m.Body == "" && (media == "text/plain" || media == "") {
+		switch {
+		case err != nil:
+		case m.Body == "" && (media == "text/plain" || media == ""):
 			m.Body = text(data)
+		case m.HTML == "" && media == "text/html":
+			m.HTML = string(data)
 		}
 		return err
 	}
