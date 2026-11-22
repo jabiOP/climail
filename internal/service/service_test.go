@@ -176,3 +176,33 @@ func TestSend_RefusesInvalidDraft(t *testing.T) {
 		t.Error("want an error for a draft without recipients")
 	}
 }
+
+func TestContacts_MatchEveryWordOfTheQuery(t *testing.T) {
+	m1, m2 := msg("a1", "a", 0, "INBOX"), msg("b1", "b", 1, "INBOX")
+	m1.From = model.Address{Name: "Maya Chen", Email: "maya@work.example"}
+	m2.From = model.Address{Name: "Maya Lee", Email: "mlee@home.example"}
+	svc, _ := setup(t, m1, m2)
+
+	got, err := svc.Contacts(ctx, acct, "maya WORK")
+
+	if err != nil || len(got) != 1 || got[0].Email != "maya@work.example" {
+		t.Errorf("Contacts = %v, %v", got, err)
+	}
+	if all, _ := svc.Contacts(ctx, acct, ""); len(all) != 2 {
+		t.Errorf("no query: %v", all)
+	}
+}
+
+func TestPrepare_ResolvesNamesThenChecks(t *testing.T) {
+	m := msg("a1", "a", 0, "INBOX")
+	m.From = model.Address{Name: "Maya Chen", Email: "maya@work.example"}
+	svc, _ := setup(t, m)
+
+	d, err := svc.Prepare(ctx, compose.Draft{Account: acct, To: "maya"})
+	if err != nil || d.To != "Maya Chen <maya@work.example>" {
+		t.Errorf("Prepare = %q, %v", d.To, err)
+	}
+	if _, err := svc.Prepare(ctx, compose.Draft{Account: acct}); err == nil {
+		t.Error("no recipients: want an error")
+	}
+}

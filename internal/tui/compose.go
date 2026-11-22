@@ -67,7 +67,11 @@ func (m Model) edited(msg editedMsg) (tea.Model, tea.Cmd) {
 	next.asked = true
 	next.draft, next.err = compose.Parse(string(text), c.base)
 	if next.err == nil {
-		next.err = next.draft.Check()
+		parsed := next.draft
+		next.draft, next.err = m.deps.Service.Prepare(m.ctx, parsed)
+		if next.err == nil && next.draft.Text() != parsed.Text() { // names became addresses: show them on "e"
+			next.err = os.WriteFile(c.path, []byte(next.draft.Text()), 0o600)
+		}
 	}
 	m.composing = &next
 	return m, nil

@@ -287,3 +287,30 @@ func TestThreadsByID_KeepsOrderAndShowsEverything(t *testing.T) {
 		t.Error("HasThread(a) = false")
 	}
 }
+
+func TestContacts_PeopleWrittenToFirstWithTheirLatestName(t *testing.T) {
+	s := openStore(t)
+	me := model.Address{Email: "me@x.com"}
+	maya, tom, news := model.Address{Name: "Maya", Email: "maya@x.com"}, model.Address{Email: "tom@x.com"}, model.Address{Name: "News", Email: "news@x.com"}
+	day := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	m := func(id string, days int, from model.Address, to []model.Address, labels ...string) model.Message {
+		return model.Message{Account: "me@x.com", ID: id, ThreadID: id, Date: day.AddDate(0, 0, days), From: from, To: to, Labels: labels}
+	}
+	s.UpsertMessages(ctx, []model.Message{
+		m("1", 0, news, []model.Address{me}, "INBOX"),
+		m("2", 1, news, []model.Address{me}, "INBOX"),
+		m("3", 2, me, []model.Address{tom}, "SENT"),
+		m("4", 3, model.Address{Name: "Tom Okafor", Email: "TOM@x.com"}, []model.Address{me}, "INBOX"),
+		m("5", 4, maya, []model.Address{me, tom}, "INBOX"),
+	})
+
+	got, err := s.Contacts(ctx, "me@x.com")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []model.Address{{Name: "Tom Okafor", Email: "tom@x.com"}, news, maya}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}

@@ -688,3 +688,20 @@ func TestSearch_GmailUnreachableKeepsLocalMatches(t *testing.T) {
 		t.Errorf("view:\n%s", f.view())
 	}
 }
+
+func TestCompose_NamesBecomeAddressesInTheDraft(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("c")
+	f.editDraft(func(old string) string {
+		return strings.Replace(strings.Replace(old, "To: ", "To: maya, tom", 1), "Subject: ", "Subject: Hi", 1) + "hello\n"
+	})
+
+	if !strings.Contains(f.view(), "Send “Hi” to Maya Chen, Tom Okafor?") {
+		t.Fatalf("view:\n%s", f.view())
+	}
+	text, _ := os.ReadFile(f.model().composing.path)
+	if !strings.Contains(string(text), "To: Maya Chen <maya@work.example>, Tom Okafor <tom@work.example>\n") {
+		t.Errorf("draft file not updated:\n%s", text)
+	}
+}

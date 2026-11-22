@@ -189,6 +189,35 @@ func (s *Service) Send(ctx context.Context, d compose.Draft, now time.Time) erro
 	return err
 }
 
+// Contacts lists the people in the account's mail whose name or address
+// holds every word of query, people written to most first.
+func (s *Service) Contacts(ctx context.Context, account, query string) ([]model.Address, error) {
+	all, err := s.store.Contacts(ctx, account)
+	return matching(all, query), err
+}
+
+func matching(people []model.Address, query string) []model.Address {
+	words := strings.Fields(strings.ToLower(query))
+	return slices.DeleteFunc(slices.Clone(people), func(a model.Address) bool {
+		text := strings.ToLower(a.Name + " " + a.Email)
+		return slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(text, w) })
+	})
+}
+
+// Prepare readies an edited draft for sending: recipients typed as a name
+// ("maya") become the person's address, then the draft is checked.
+func (s *Service) Prepare(ctx context.Context, d compose.Draft) (compose.Draft, error) {
+	all, err := s.store.Contacts(ctx, d.Account)
+	if err != nil {
+		return d, err
+	}
+	resolved, err := compose.Resolve(d, func(query string) []model.Address { return matching(all, query) })
+	if err != nil {
+		return d, err
+	}
+	return resolved, resolved.Check()
+}
+
 // Outbox lists mail waiting to be sent and mail Gmail refused.
 func (s *Service) Outbox(ctx context.Context, account string) ([]store.Outgoing, error) {
 	return s.store.Outgoing(ctx, account)

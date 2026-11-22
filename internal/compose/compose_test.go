@@ -220,3 +220,47 @@ func TestWithFrom_ReplacesOrAddsTheSender(t *testing.T) {
 		t.Errorf("without a name: %q", got)
 	}
 }
+
+func TestResolve_TurnsShortNamesIntoAddresses(t *testing.T) {
+	people := []model.Address{
+		{Name: "Maya Chen", Email: "maya@work.example"},
+		{Name: "Tom Okafor", Email: "tom@work.example"},
+		{Name: "Tomás Ruiz", Email: "truiz@home.example"},
+		{Name: "Chen, Wei", Email: "wei@x.example"},
+	}
+	lookup := func(q string) []model.Address {
+		var out []model.Address
+		for _, p := range people {
+			if strings.Contains(strings.ToLower(p.Name+" "+p.Email), strings.ToLower(q)) {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	d, err := compose.Resolve(compose.Draft{To: "maya, bob@x.com", Cc: "Tom", Bcc: "wei"}, lookup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := compose.Draft{To: "Maya Chen <maya@work.example>, bob@x.com", Cc: "Tom Okafor <tom@work.example>",
+		Bcc: `"Chen, Wei" <wei@x.example>`}
+	if diff := cmp.Diff(want, d); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+	if err := d.Check(); err != nil {
+		t.Errorf("resolved draft doesn't check: %v", err)
+	}
+
+	_, err = compose.Resolve(compose.Draft{To: "o"}, lookup)
+	if err == nil || !strings.Contains(err.Error(), "Maya Chen <maya@work.example>") {
+		t.Errorf("ambiguous: %v", err)
+	}
+	_, err = compose.Resolve(compose.Draft{Cc: "nobody"}, lookup)
+	if err == nil || !strings.Contains(err.Error(), `Cc: no one matches "nobody"`) {
+		t.Errorf("unknown: %v", err)
+	}
+	// A quoted name with a comma is one recipient, left alone.
+	d, err = compose.Resolve(compose.Draft{To: `"Chen, Wei" <wei@x.example>`}, lookup)
+	if err != nil || d.To != `"Chen, Wei" <wei@x.example>` {
+		t.Errorf("quoted: %q, %v", d.To, err)
+	}
+}

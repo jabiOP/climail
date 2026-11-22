@@ -130,6 +130,10 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 		answer, _ := in.ReadString('\n') // EOF: no answer, so nothing happens
 		return strings.ToLower(strings.TrimSpace(answer))
 	}
+	svc, err := a.Service()
+	if err != nil {
+		return err
+	}
 	kept := func() error {
 		fmt.Fprintf(a.Stderr, "Not sent. The draft is in %s\n", path)
 		return nil
@@ -149,7 +153,11 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 		}
 		d, err := compose.Parse(string(text), base)
 		if err == nil {
-			err = d.Check()
+			parsed := d
+			d, err = svc.Prepare(ctx, parsed)
+			if err == nil && d.Text() != parsed.Text() { // names became addresses: show them on "e"
+				err = os.WriteFile(path, []byte(d.Text()), 0o600)
+			}
 		}
 		if err != nil {
 			if ask(fmt.Sprintf("climail: %v\n[e]dit or [q]uit? ", err)) == "e" {
@@ -202,15 +210,15 @@ func newSendCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			d := f.over(compose.Draft{Account: acct, Body: string(body)})
-			if err := d.Check(); err != nil {
+			svc, err := app.Service()
+			if err != nil {
+				return err
+			}
+			d, err := svc.Prepare(ctx, f.over(compose.Draft{Account: acct, Body: string(body)}))
+			if err != nil {
 				return usageError{err}
 			}
 			if offline {
-				svc, err := app.Service()
-				if err != nil {
-					return err
-				}
 				if err := svc.Send(ctx, d, app.Now()); err != nil {
 					return err
 				}
@@ -223,6 +231,40 @@ func newSendCmd(app *App) *cobra.Command {
 	addAccountFlag(cmd, &account)
 	addDraftFlags(cmd, &f)
 	cmd.Flags().BoolVar(&offline, "offline", false, "only queue it; it goes with the next sync")
+	return cmd
+}
+
+func newContactsCmd(app *App) *cobra.Command {
+	var account string
+	var offline bool
+	cmd := &cobra.Command{
+		Use:   "contacts [QUERY...]",
+		Short: "People in your mail matching every word of QUERY, those you write to most first (TSV in a pipe: address, name)",
+		Long: `People in your mail whose name or address holds every word of QUERY, those you write to most first.
+In To, Cc and Bcc, a name typed without an @ ("maya") becomes the one person it matches.
+In a pipe it prints TSV: address, name; that suits editor completion (e.g. vim's completefunc).`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			acct, svc, err := app.reader(ctx, account, offline)
+			if err != nil {
+				return err
+			}
+			people, err := svc.Contacts(ctx, acct, strings.Join(args, " "))
+			if err != nil {
+				return err
+			}
+			for _, p := range people {
+				if app.IsTTY {
+					fmt.Fprintln(app.Stdout, p)
+				} else {
+					fmt.Fprintf(app.Stdout, "%s\t%s\n", p.Email, p.Name)
+				}
+			}
+			return nil
+		},
+	}
+	addAccountFlag(cmd, &account)
+	addOfflineFlag(cmd, &offline)
 	return cmd
 }
 

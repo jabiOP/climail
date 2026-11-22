@@ -241,3 +241,99 @@ func WriteDraft(dir string, d Draft, now time.Time) (string, error) {
 	path := filepath.Join(dir, "draft-"+now.Format("20060102-150405.000")+".eml")
 	return path, os.WriteFile(path, []byte(d.Text()), 0o600)
 }
+
+// Resolve replaces each recipient typed without an @ ("maya") with the one
+// person lookup finds for it. A name that matches no one, or several, is an
+// error that lists who it could be.
+func Resolve(d Draft, lookup func(query string) []model.Address) (Draft, error) {
+	for _, h := range []struct {
+		name string
+		list *string
+	}{{"To", &d.To}, {"Cc", &d.Cc}, {"Bcc", &d.Bcc}} {
+		parts := splitRecipients(*h.list)
+		changed := false
+		for i, p := range parts {
+			if strings.Contains(p, "@") {
+				continue
+			}
+			a, err := pick(p, lookup(p))
+			if err != nil {
+				return Draft{}, fmt.Errorf("%s: %w", h.name, err)
+			}
+			parts[i], changed = formatAddress(a), true
+		}
+		if changed {
+			*h.list = strings.Join(parts, ", ")
+		}
+	}
+	return d, nil
+}
+
+// pick chooses the one match for query; with several, one whose name,
+// address or the part before its @ is exactly query.
+func pick(query string, matches []model.Address) (model.Address, error) {
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	for _, a := range matches {
+		local, _, _ := strings.Cut(a.Email, "@")
+		if strings.EqualFold(a.Name, query) || strings.EqualFold(a.Email, query) || strings.EqualFold(local, query) {
+			return a, nil
+		}
+	}
+	if len(matches) == 0 {
+		return model.Address{}, fmt.Errorf("no one matches %q (write the address)", query)
+	}
+	var names []string
+	for _, a := range matches[:min(len(matches), 4)] {
+		names = append(names, a.String())
+	}
+	more := ""
+	if len(matches) > 4 {
+		more = fmt.Sprintf(" and %d more", len(matches)-4)
+	}
+	return model.Address{}, fmt.Errorf("%q could be %s%s: write more of it", query, strings.Join(names, ", "), more)
+}
+
+// formatAddress writes an address the way Parse reads it back, quoting
+// names with characters that would split it.
+func formatAddress(a model.Address) string {
+	if strings.ContainsAny(a.Name, `,;:<>@"()[]\.`) {
+		a.Name = `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(a.Name) + `"`
+	}
+	return a.String()
+}
+
+// splitRecipients splits a header's recipients at commas outside quotes and
+// angle brackets, trimmed, empty ones dropped.
+func splitRecipients(s string) []string {
+	var parts []string
+	var cur strings.Builder
+	quoted, angled, escaped := false, false, false
+	flush := func() {
+		if p := strings.TrimSpace(cur.String()); p != "" {
+			parts = append(parts, p)
+		}
+		cur.Reset()
+	}
+	for _, r := range s {
+		switch {
+		case escaped:
+			escaped = false
+		case r == '\\' && quoted:
+			escaped = true
+		case r == '"':
+			quoted = !quoted
+		case r == '<' && !quoted:
+			angled = true
+		case r == '>' && !quoted:
+			angled = false
+		case r == ',' && !quoted && !angled:
+			flush()
+			continue
+		}
+		cur.WriteRune(r)
+	}
+	flush()
+	return parts
+}

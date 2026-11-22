@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jabiOP/climail/internal/model"
 )
 
 // sentText is the latest mail the fake Gmail sent, as text.
@@ -140,5 +142,25 @@ func TestOutbox_RefusedMailCanBeRetriedOrDiscarded(t *testing.T) {
 	}
 	if _, _, code := h.run("outbox", "retry", "1"); code != 1 {
 		t.Errorf("retry of a discarded mail: exit %d", code)
+	}
+}
+
+func TestContactsAndNamesAsRecipients(t *testing.T) {
+	h := newHarness(t, work)
+	h.gmail[work].Deliver(model.Message{ID: "m1", ThreadID: "t1", Date: now, Subject: "Hi", Labels: []string{"INBOX"},
+		From: model.Address{Name: "Maya Chen", Email: "maya@example.com"}})
+
+	if out := h.mustRun("contacts", "may"); out != "maya@example.com\tMaya Chen\n" {
+		t.Errorf("contacts = %q", out)
+	}
+	h.stdin = "body\n"
+	if _, errOut, code := h.run("send", "--to", "maya", "-s", "Hello"); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, errOut)
+	}
+	if raw := h.sentText(work); !strings.Contains(raw, `To: "Maya Chen" <maya@example.com>`) {
+		t.Errorf("sent:\n%s", raw)
+	}
+	if _, errOut, code := h.run("send", "--to", "nobody", "-s", "x"); code == 0 || !strings.Contains(errOut, `no one matches "nobody"`) {
+		t.Errorf("exit %d, stderr %q", code, errOut)
 	}
 }

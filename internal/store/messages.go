@@ -42,11 +42,15 @@ func (s *Store) UpsertMessages(ctx context.Context, msgs []model.Message) error 
 			if err != nil {
 				return err
 			}
-			if _, err := tx.q.ExecContext(ctx, `INSERT INTO messages (account_id, id, thread_id, ts, labels, search, data)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
+			people, err := json.Marshal(addresses{m.From, m.To, m.Cc})
+			if err != nil {
+				return err
+			}
+			if _, err := tx.q.ExecContext(ctx, `INSERT INTO messages (account_id, id, thread_id, ts, labels, search, data, people)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT (account_id, id) DO UPDATE SET thread_id = excluded.thread_id, ts = excluded.ts,
-					labels = excluded.labels, search = excluded.search, data = excluded.data`,
-				m.Account, m.ID, m.ThreadID, m.Date.UnixMilli(), encodeLabels(labels), searchText(m), data); err != nil {
+					labels = excluded.labels, search = excluded.search, data = excluded.data, people = excluded.people`,
+				m.Account, m.ID, m.ThreadID, m.Date.UnixMilli(), encodeLabels(labels), searchText(m), data, people); err != nil {
 				return err
 			}
 		}

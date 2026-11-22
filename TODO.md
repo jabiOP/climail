@@ -18,6 +18,7 @@ Last updated: 2026-11-21
 - Gmail search (`climail search`, `enter` in the TUI search) with Gmail's syntax; matches outside the cache are fetched into it
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
 - Mail goes out with the display name from Gmail's "Send mail as" settings
+- Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next
@@ -53,3 +54,4 @@ Last updated: 2026-11-21
 - Attachments are downloaded on demand, not cached; a download refetches the message because Gmail's attachment IDs change between fetches.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).
 - The sender's display name is read from Gmail's send-as settings when mail is pushed, not stored: always current, one request per batch.
+- Contacts come from the cached mail (no Contacts API, no extra scope); each message's addresses are also kept in their own column so listing them doesn't read bodies (1.3 s → 0.1 s on 10k messages).
