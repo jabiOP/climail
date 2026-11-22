@@ -15,7 +15,8 @@ First run:
 3. `climail auth login` (opens your browser, then downloads your recent mail). Repeat to add more accounts.
 
 To try it without a Google account: `climail demo` opens the TUI on a made-up mailbox with two accounts, in a
-temporary folder that is removed on exit.
+temporary folder that is removed on exit. Mail between its two accounts (`you@work.example`, `you@home.example`) is
+delivered; mail to anyone else only lands in Sent.
 
 ### TUI
 

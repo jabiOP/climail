@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"mime"
 	"net/mail"
 	"slices"
 	"strings"
@@ -40,6 +39,7 @@ type Fake struct {
 	oldest  uint64 // History calls starting before this get ErrHistoryExpired
 	calls   map[string]int
 	sent    [][]byte
+	peers   []*Fake           // other accounts mail is delivered to (Connect)
 	files   map[string][]byte // attachment data by "messageID/index"
 }
 
@@ -262,33 +262,92 @@ func (f *Fake) Untrash(ctx context.Context, id string) error {
 	return f.change("Untrash", id, nil, []string{model.Trash})
 }
 
-// Send delivers a sent mail to the sender's own mailbox (labelled SENT), as
-// Gmail does, reading just enough of it to list it.
+// Send files a sent mail in the sender's own mailbox (labelled SENT), as
+// Gmail does, and delivers it to connected fakes it is addressed to.
 func (f *Fake) Send(ctx context.Context, raw []byte, threadID string) error {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	if err := f.begin("Send"); err != nil {
+		f.mu.Unlock()
 		return err
 	}
-	msg, err := mail.ReadMessage(bytes.NewReader(raw))
+	m, files, err := parse(raw)
 	if err != nil {
-		return fmt.Errorf("%w: %v", gmail.ErrPermanent, err)
+		f.mu.Unlock()
+		return err
 	}
 	f.sent = append(f.sent, raw)
-	id := fmt.Sprintf("sent-%d", len(f.sent))
+	m.ID = fmt.Sprintf("sent-%d", len(f.sent))
 	if threadID == "" {
-		threadID = "thread-" + id
+		threadID = "thread-" + m.ID
 	}
-	subject, _ := new(mime.WordDecoder).DecodeHeader(msg.Header.Get("Subject"))
-	to, _ := msg.Header.AddressList("To")
-	m := model.Message{Account: f.Email, ID: id, ThreadID: threadID, Subject: subject, Labels: []string{model.Sent},
-		From: model.Address{Email: f.Email}, Date: time.Now()}
-	for _, a := range to {
-		m.To = append(m.To, model.Address{Name: a.Name, Email: a.Address})
+	if m.From.Email == "" {
+		m.From.Email = f.Email
 	}
-	f.msgs[id] = m
-	f.record("added", m)
+	m.ThreadID, m.Labels = threadID, []string{model.Sent}
+	m.MessageID = fmt.Sprintf("<%s.%s@fake>", m.ID, f.Email) // Gmail gives every sent mail one
+	f.add(m, files)
+	var to []*Fake
+	for _, p := range f.peers {
+		if p.addressedIn(raw) {
+			to = append(to, p)
+		}
+	}
+	f.mu.Unlock() // before taking a peer's lock: two fakes may send to each other at once
+	for _, p := range to {
+		p.receive(m, files)
+	}
 	return nil
+}
+
+// Connect makes fakes deliver mail to one another, like two real accounts.
+func Connect(fakes ...*Fake) {
+	for _, f := range fakes {
+		f.mu.Lock()
+		f.peers = slices.DeleteFunc(slices.Clone(fakes), func(p *Fake) bool { return p == f })
+		f.mu.Unlock()
+	}
+}
+
+// addressedIn reports whether a raw mail's To, Cc or Bcc holds this account.
+func (f *Fake) addressedIn(raw []byte) bool {
+	msg, err := mail.ReadMessage(bytes.NewReader(raw))
+	if err != nil {
+		return false
+	}
+	for _, h := range []string{"To", "Cc", "Bcc"} {
+		as, _ := msg.Header.AddressList(h)
+		if slices.ContainsFunc(as, func(a *mail.Address) bool { return strings.EqualFold(a.Address, f.Email) }) {
+			return true
+		}
+	}
+	return false
+}
+
+// receive delivers a mail sent from another fake, unread in the inbox, in
+// the conversation it replies to if this account has it.
+func (f *Fake) receive(m model.Message, files [][]byte) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	m.ID = fmt.Sprintf("in-%d", f.next)
+	m.ThreadID = "thread-" + m.ID
+	for _, other := range f.msgs {
+		if other.MessageID != "" && strings.Contains(m.References, other.MessageID) {
+			m.ThreadID = other.ThreadID
+			break
+		}
+	}
+	m.Labels = []string{model.Inbox, model.Unread}
+	f.add(m, files)
+}
+
+// add stores a new message with its attachments' contents. f.mu is held.
+func (f *Fake) add(m model.Message, files [][]byte) {
+	m.Account, m.Date, m.Snippet = f.Email, time.Now(), snippet(m.Body)
+	for i, data := range files {
+		f.files[fmt.Sprintf("%s/%d", m.ID, i)] = data
+	}
+	f.msgs[m.ID] = m
+	f.record("added", m)
 }
 
 func (f *Fake) SendAsName(ctx context.Context) (string, error) {

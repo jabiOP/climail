@@ -18,6 +18,9 @@ type Mailbox struct {
 	Files    map[string][]byte // attachment contents by "messageID/index"
 }
 
+// Name is the demo user's display name, which mail is sent with.
+const Name = "Sam Rivera"
+
 func addr(name, email string) model.Address { return model.Address{Name: name, Email: email} }
 
 var (

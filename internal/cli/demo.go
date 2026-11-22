@@ -29,8 +29,11 @@ func newDemoCmd(app *App) *cobra.Command {
 			}
 			defer os.RemoveAll(dir)
 			fakes := map[string]*gmailtest.Fake{}
+			var all []*gmailtest.Fake
 			for _, mb := range demo.Mailboxes(app.Now()) {
 				f := gmailtest.New(mb.Account)
+				f.Name = demo.Name
+				all = append(all, f)
 				f.SetLabels(mb.Labels...)
 				f.Deliver(mb.Messages...)
 				for key, data := range mb.Files {
@@ -40,6 +43,7 @@ func newDemoCmd(app *App) *cobra.Command {
 				}
 				fakes[mb.Account] = f
 			}
+			gmailtest.Connect(all...) // mail between the demo accounts arrives
 			d := &App{
 				Paths: config.Paths{ConfigDir: dir, DataDir: dir}, Config: app.Config, Now: app.Now,
 				Stdin: app.Stdin, Stdout: app.Stdout, Stderr: app.Stderr, IsTTY: app.IsTTY,
