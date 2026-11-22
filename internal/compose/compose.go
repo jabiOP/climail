@@ -29,6 +29,10 @@ type Draft struct {
 
 	// A reply keeps these, so Gmail files it in the conversation.
 	ThreadID, InReplyTo, References string
+
+	// DraftID is the message ID of the Gmail draft this continues: saving
+	// replaces that draft, sending removes it.
+	DraftID string
 }
 
 // Reply drafts a reply to a conversation's latest message from someone
@@ -76,6 +80,17 @@ func Forward(t model.Thread, account string, attach []string, now time.Time) Dra
 	}
 	return Draft{Account: account, Subject: prefixed("Fwd: ", orig.Subject), Attach: attach,
 		Body: "\n\n" + header + "\n" + orig.Body}
+}
+
+// FromDraft continues a draft saved in Gmail. attach are its attachments,
+// downloaded.
+func FromDraft(m model.Message, account string, attach []string) Draft {
+	d := Draft{Account: account, To: addresses(m.To), Cc: addresses(m.Cc), Bcc: addresses(m.Bcc), Subject: m.Subject,
+		Body: m.Body, Attach: attach, DraftID: m.ID, InReplyTo: m.InReplyTo, References: m.References}
+	if d.InReplyTo != "" || d.References != "" { // a reply: it goes in the conversation
+		d.ThreadID = m.ThreadID
+	}
+	return d
 }
 
 // others drops the account itself and addresses already in skip, and duplicates.
@@ -129,7 +144,8 @@ func (d Draft) Text() string {
 // Parse reads an edited draft file. base gives what the file doesn't hold:
 // the account and how a reply is threaded.
 func Parse(text string, base Draft) (Draft, error) {
-	d := Draft{Account: base.Account, ThreadID: base.ThreadID, InReplyTo: base.InReplyTo, References: base.References}
+	d := Draft{Account: base.Account, ThreadID: base.ThreadID, InReplyTo: base.InReplyTo, References: base.References,
+		DraftID: base.DraftID}
 	head, body, _ := strings.Cut(strings.ReplaceAll(text, "\r\n", "\n"), "\n\n")
 	for _, line := range strings.Split(head, "\n") {
 		if strings.TrimSpace(line) == "" {
@@ -202,7 +218,8 @@ func expandHome(path string) string {
 	return path
 }
 
-// Summary says what is about to be sent: "“Re: Plan” to Maya Chen, tom".
+// Summary says what is about to be sent: "“Re: Plan” to Maya Chen, tom"
+// (just "“Re: Plan”" for a draft without recipients).
 func (d Draft) Summary() string {
 	var names []string
 	for _, list := range []string{d.To, d.Cc, d.Bcc} {
@@ -211,7 +228,10 @@ func (d Draft) Summary() string {
 			names = append(names, model.Address{Name: a.Name, Email: a.Address}.Short())
 		}
 	}
-	s := fmt.Sprintf("“%s” to %s", output.Subject(d.Subject), strings.Join(names, ", "))
+	s := fmt.Sprintf("“%s”", output.Subject(d.Subject))
+	if len(names) > 0 {
+		s += " to " + strings.Join(names, ", ")
+	}
 	if n := len(d.Attach); n > 0 {
 		s += fmt.Sprintf(" (%d attached)", n)
 	}
@@ -246,6 +266,17 @@ func WriteDraft(dir string, d Draft, now time.Time) (string, error) {
 // person lookup finds for it. A name that matches no one, or several, is an
 // error that lists who it could be.
 func Resolve(d Draft, lookup func(query string) []model.Address) (Draft, error) {
+	return resolve(d, lookup, true)
+}
+
+// ResolveWhatCan is Resolve for a draft being kept: names that match no
+// one, or several, stay as typed.
+func ResolveWhatCan(d Draft, lookup func(query string) []model.Address) Draft {
+	d, _ = resolve(d, lookup, false)
+	return d
+}
+
+func resolve(d Draft, lookup func(query string) []model.Address, strict bool) (Draft, error) {
 	for _, h := range []struct {
 		name string
 		list *string
@@ -257,6 +288,9 @@ func Resolve(d Draft, lookup func(query string) []model.Address) (Draft, error) 
 				continue
 			}
 			a, err := pick(p, lookup(p))
+			if err != nil && !strict {
+				continue
+			}
 			if err != nil {
 				return Draft{}, fmt.Errorf("%s: %w", h.name, err)
 			}

@@ -184,9 +184,37 @@ func (s *Service) Send(ctx context.Context, d compose.Draft, now time.Time) erro
 	if err != nil {
 		return err
 	}
-	_, err = s.store.QueueSend(ctx, store.Outgoing{Account: d.Account, ThreadID: d.ThreadID, Summary: d.Summary(),
-		Raw: raw, Created: now})
-	return err
+	return s.queue(ctx, d, raw, store.Outgoing{Summary: d.Summary(), Created: now})
+}
+
+// queue queues raw, taking the draft it continues out of the cached Drafts
+// at once (Gmail's change comes with the next sync), so it can't be
+// continued twice.
+func (s *Service) queue(ctx context.Context, d compose.Draft, raw []byte, o store.Outgoing) error {
+	o.Account, o.ThreadID, o.Raw, o.Draft = d.Account, d.ThreadID, raw, d.DraftID
+	return s.store.InTx(ctx, func(tx *store.Store) error {
+		if d.DraftID != "" {
+			if err := tx.DeleteMessages(ctx, d.Account, []string{d.DraftID}); err != nil {
+				return err
+			}
+		}
+		_, err := tx.QueueSend(ctx, o)
+		return err
+	})
+}
+
+// SaveDraft queues the draft to be saved in Gmail's Drafts, replacing the
+// one it continues. It may be unfinished; names that match one person
+// become their address, the rest stay as typed.
+func (s *Service) SaveDraft(ctx context.Context, d compose.Draft, now time.Time) error {
+	if all, err := s.store.Contacts(ctx, d.Account); err == nil {
+		d = compose.ResolveWhatCan(d, func(query string) []model.Address { return matching(all, query) })
+	}
+	raw, err := d.BuildDraft(now)
+	if err != nil {
+		return err
+	}
+	return s.queue(ctx, d, raw, store.Outgoing{Summary: "draft " + d.Summary(), Save: true, Created: now})
 }
 
 // Contacts lists the people in the account's mail whose name or address

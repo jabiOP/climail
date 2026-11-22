@@ -162,3 +162,30 @@ func TestSendAsName_IsTheAccountsOwnAddress(t *testing.T) {
 		t.Errorf("SendAsName = %q, %v", name, err)
 	}
 }
+
+func TestSaveDraft_UpdatesTheDraftOrCreatesOne(t *testing.T) {
+	var calls []string
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path[strings.Index(r.URL.Path, "/drafts"):])
+		if r.Method == http.MethodGet {
+			writeJSON(w, map[string]any{"drafts": []any{map[string]any{"id": "r1", "message": map[string]any{"id": "m1"}}}})
+			return
+		}
+		writeJSON(w, map[string]any{"id": "r1"})
+	})
+
+	if err := c.SaveDraft(context.Background(), "m1", []byte("x"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SaveDraft(context.Background(), "m9", []byte("x"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.DeleteDraft(context.Background(), "m9"); err != nil {
+		t.Errorf("deleting a draft already gone: %v", err)
+	}
+
+	want := []string{"GET /drafts", "PUT /drafts/r1", "GET /drafts", "POST /drafts", "GET /drafts"}
+	if diff := cmp.Diff(want, calls); diff != "" {
+		t.Errorf("calls (-want +got):\n%s", diff)
+	}
+}

@@ -61,12 +61,14 @@ type Message struct {
 	From        Address
 	To          []Address
 	Cc          []Address
+	Bcc         []Address // only on mail this account sent, and its drafts
 	ReplyTo     []Address
 	Subject     string
 	Snippet     string
 	Body        string   // plain text, converted from HTML when that's all there is
 	Labels      []string // label IDs, sorted
 	MessageID   string   // the Message-ID header, for threading replies
+	InReplyTo   string
 	References  string
 	Attachments []Attachment
 }

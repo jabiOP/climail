@@ -148,6 +148,9 @@ CREATE TABLE outgoing (
 ALTER TABLE messages ADD COLUMN people TEXT NOT NULL DEFAULT '{}';  -- JSON {From, To, Cc}, for contacts
 UPDATE messages SET people = json_object('From', json_extract(data, '$.From'), 'To', json_extract(data, '$.To'),
 	'Cc', json_extract(data, '$.Cc'));
+`, `
+ALTER TABLE outgoing ADD COLUMN draft TEXT NOT NULL DEFAULT '';  -- message ID of the Gmail draft it replaces or sends
+ALTER TABLE outgoing ADD COLUMN save INTEGER NOT NULL DEFAULT 0; -- 1: save it in Drafts instead of sending it
 `}
 
 // notFound turns sql.ErrNoRows into ErrNotFound.

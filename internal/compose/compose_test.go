@@ -264,3 +264,38 @@ func TestResolve_TurnsShortNamesIntoAddresses(t *testing.T) {
 		t.Errorf("quoted: %q, %v", d.To, err)
 	}
 }
+
+func TestFromDraft_ContinuesAGmailDraft(t *testing.T) {
+	reply := model.Message{ID: "d1", ThreadID: "t1", Subject: "Re: Plan", Body: "Half written\n",
+		To: []model.Address{{Name: "Maya", Email: "maya@x.com"}}, Bcc: []model.Address{{Email: "boss@x.com"}},
+		InReplyTo: "<m1@x>", References: "<m0@x> <m1@x>", Labels: []string{model.Draft}}
+
+	d := compose.FromDraft(reply, me, []string{"/tmp/a.pdf"})
+
+	want := compose.Draft{Account: me, To: "Maya <maya@x.com>", Bcc: "boss@x.com", Subject: "Re: Plan", Body: "Half written\n",
+		Attach: []string{"/tmp/a.pdf"}, DraftID: "d1", ThreadID: "t1", InReplyTo: "<m1@x>", References: "<m0@x> <m1@x>"}
+	if diff := cmp.Diff(want, d); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+	if back, err := compose.Parse(d.Text(), d); err != nil || !cmp.Equal(back, d) {
+		t.Errorf("Parse(Text()) = %+v, %v", back, err)
+	}
+
+	// A new mail's draft is in a conversation of its own: sent, it starts one.
+	if d := compose.FromDraft(model.Message{ID: "d2", ThreadID: "t2"}, me, nil); d.ThreadID != "" {
+		t.Errorf("ThreadID = %q", d.ThreadID)
+	}
+}
+
+func TestBuildDraft_TakesUnfinishedRecipients(t *testing.T) {
+	raw, err := compose.Draft{Account: me, To: "maya, bob@x.com", Body: "todo\n"}.BuildDraft(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "\r\nTo: maya, bob@x.com\r\n") {
+		t.Errorf("raw:\n%s", raw)
+	}
+	if _, err := (compose.Draft{Account: me, Attach: []string{"/no/such/file"}}).BuildDraft(now); err == nil {
+		t.Error("a missing attachment: want an error")
+	}
+}

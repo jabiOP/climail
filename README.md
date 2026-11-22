@@ -27,7 +27,7 @@ time. `?` lists every key.
 | Keys | Action |
 |---|---|
 | `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls) |
-| `h`/`l`, `enter`, `esc` | move between panes; open; back (also clears a selection or search) |
+| `h`/`l`, `enter`, `esc` | move between panes; open (in Drafts: continue the draft); back (also clears a selection or search) |
 | `n`/`p` | next/previous conversation, from the reader |
 | `a`, `dd`, `I` | archive, move to Trash, move to Inbox |
 | `N`, `*` | mark read/unread, star/unstar |
@@ -43,7 +43,9 @@ Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `To:`, `Cc:`,
 lines (one file per `Attach:` line), a blank line, then the body. In `To:`, `Cc:` and `Bcc:` you can type part of a
 name or address (`maya, tom`): each becomes the one person in your mail it matches (when several do, the one whose
 name or address before the @ is exactly what you typed); otherwise climail lists who it could be and lets you edit. Replies quote the message and stay in its
-conversation. When the editor closes, climail asks: `y` send, `e` edit again, `q` keep the draft (its path is shown).
+conversation. When the editor closes, climail asks: `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
+climail can't read as a mail stays on disk instead, and its path is shown). In Drafts (`gd`), `enter` continues a draft,
+its attachments included; sending it takes it out of Drafts.
 An unchanged draft is dropped. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
 stays in `climail outbox`.
 

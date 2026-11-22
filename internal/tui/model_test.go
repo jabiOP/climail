@@ -509,12 +509,14 @@ func TestReplyAll_IncludesEveryone(t *testing.T) {
 	}
 }
 
-func TestCompose_ErrorThenQuitKeepsDraft(t *testing.T) {
+func TestCompose_ErrorThenQuitSavesToDrafts(t *testing.T) {
 	f := newFixture(t, 100, 24)
 
 	f.keys("c")
-	f.editDraft(func(old string) string { return old + "no recipient\n" })
-	if !strings.Contains(f.view(), "no recipients: fill in To · e edit · q keep the draft") {
+	f.editDraft(func(old string) string {
+		return strings.Replace(old, "Subject: ", "Subject: Later", 1) + "no recipient\n"
+	})
+	if !strings.Contains(f.view(), "no recipients: fill in To · e edit · q save to Drafts") {
 		t.Fatalf("view:\n%s", f.view())
 	}
 	f.keys("y") // can't send this
@@ -524,8 +526,46 @@ func TestCompose_ErrorThenQuitKeepsDraft(t *testing.T) {
 	path := f.model().composing.path
 	f.keys("q")
 
-	if _, err := os.Stat(path); err != nil || len(f.outbox()) != 0 || !strings.Contains(f.view(), "Not sent.") {
-		t.Errorf("draft %v, outbox %v", err, f.outbox())
+	out, _ := f.st.Outgoing(context.Background(), workAcct)
+	if len(out) != 1 || !out[0].Save || out[0].Summary != "draft “Later”" || !strings.Contains(f.view(), "Saved in Drafts") {
+		t.Errorf("queued %+v\n%s", out, f.view())
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("the local draft file is still there")
+	}
+}
+
+func TestCompose_UnreadableDraftStaysOnDisk(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("c")
+	f.editDraft(func(old string) string { return "Frm: oops\n" + old })
+	path := f.model().composing.path
+	f.keys("q")
+
+	if _, err := os.Stat(path); err != nil || len(f.outbox()) != 0 || !strings.Contains(f.view(), "Not saved. The draft is in") {
+		t.Errorf("draft %v, outbox %v\n%s", err, f.outbox(), f.view())
+	}
+}
+
+func TestDrafts_EnterContinuesTheDraftAndSendingRemovesIt(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("g", "d", "enter")
+
+	c := f.model().composing
+	if c == nil || c.base.DraftID == "" || c.base.To != "Maya Chen <maya@work.example>" || c.base.Subject != "Ideas for the offsite" {
+		t.Fatalf("composing %+v", c)
+	}
+	f.editDraft(func(old string) string { return old + "A walk\n" })
+	f.keys("y")
+
+	out, _ := f.st.Outgoing(context.Background(), workAcct)
+	if len(out) != 1 || out[0].Save || out[0].Draft != c.base.DraftID {
+		t.Errorf("queued %+v", out)
+	}
+	if !strings.Contains(f.view(), "No conversations in Drafts") {
+		t.Errorf("the draft is still listed:\n%s", f.view())
 	}
 }
 

@@ -5,13 +5,16 @@ import (
 	"time"
 )
 
-// Outgoing is a mail waiting to be sent, or one Gmail refused (Failed).
+// Outgoing is a mail waiting to be sent, or saved as a draft (Save), or one
+// Gmail refused (Failed).
 type Outgoing struct {
 	ID       int64
 	Account  string
 	ThreadID string
 	Summary  string
 	Raw      []byte
+	Draft    string // message ID of the Gmail draft it replaces (Save) or sends
+	Save     bool
 	Attempts int
 	Failed   string
 	Created  time.Time
@@ -19,8 +22,8 @@ type Outgoing struct {
 
 // QueueSend adds a mail to send with the next sync.
 func (s *Store) QueueSend(ctx context.Context, o Outgoing) (int64, error) {
-	res, err := s.q.ExecContext(ctx, `INSERT INTO outgoing (account_id, thread_id, summary, raw, created)
-		VALUES (?, ?, ?, ?, ?)`, o.Account, o.ThreadID, o.Summary, o.Raw, o.Created.Unix())
+	res, err := s.q.ExecContext(ctx, `INSERT INTO outgoing (account_id, thread_id, summary, raw, draft, save, created)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`, o.Account, o.ThreadID, o.Summary, o.Raw, o.Draft, o.Save, o.Created.Unix())
 	if err != nil {
 		return 0, err
 	}
@@ -29,7 +32,7 @@ func (s *Store) QueueSend(ctx context.Context, o Outgoing) (int64, error) {
 
 // Outgoing lists the account's mail waiting to be sent and refused, oldest first.
 func (s *Store) Outgoing(ctx context.Context, account string) ([]Outgoing, error) {
-	rows, err := s.q.QueryContext(ctx, `SELECT id, account_id, thread_id, summary, raw, attempts, failed, created
+	rows, err := s.q.QueryContext(ctx, `SELECT id, account_id, thread_id, summary, raw, draft, save, attempts, failed, created
 		FROM outgoing WHERE account_id = ? ORDER BY id`, account)
 	if err != nil {
 		return nil, err
@@ -39,7 +42,7 @@ func (s *Store) Outgoing(ctx context.Context, account string) ([]Outgoing, error
 	for rows.Next() {
 		var o Outgoing
 		var created int64
-		if err := rows.Scan(&o.ID, &o.Account, &o.ThreadID, &o.Summary, &o.Raw, &o.Attempts, &o.Failed, &created); err != nil {
+		if err := rows.Scan(&o.ID, &o.Account, &o.ThreadID, &o.Summary, &o.Raw, &o.Draft, &o.Save, &o.Attempts, &o.Failed, &created); err != nil {
 			return nil, err
 		}
 		o.Created = time.Unix(created, 0)
@@ -82,9 +85,10 @@ func (s *Store) changeOne(ctx context.Context, query string, args ...any) error 
 	return err
 }
 
-// SendCounts is how many of the account's mails wait to be sent, and how many Gmail refused.
+// SendCounts is how many of the account's mails wait to be sent (drafts to
+// save aside), and how many Gmail refused.
 func (s *Store) SendCounts(ctx context.Context, account string) (waiting, failed int, err error) {
-	err = s.q.QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE failed = ''), count(*) FILTER (WHERE failed != '')
+	err = s.q.QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE failed = '' AND NOT save), count(*) FILTER (WHERE failed != '')
 		FROM outgoing WHERE account_id = ?`, account).Scan(&waiting, &failed)
 	return waiting, failed, err
 }

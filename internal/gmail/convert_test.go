@@ -34,6 +34,8 @@ func TestFromAPI_HeadersAndLabels(t *testing.T) {
 				{Name: "To", Value: "bob@example.com, Carol <carol@example.com>"},
 				{Name: "Subject", Value: "=?UTF-8?Q?Caf=C3=A9?="},
 				{Name: "Message-ID", Value: "<abc@mail>"},
+				{Name: "Bcc", Value: "dan@example.com"},
+				{Name: "In-Reply-To", Value: "<prev@mail>"},
 			},
 			Body: &gmailapi.MessagePartBody{Data: b64("Hello\r\nthere\r\n")},
 		},
@@ -47,6 +49,7 @@ func TestFromAPI_HeadersAndLabels(t *testing.T) {
 		To:      []model.Address{{Email: "bob@example.com"}, {Name: "Carol", Email: "carol@example.com"}},
 		Subject: "Café", Snippet: "It's here", Body: "Hello\nthere",
 		Labels: []string{"INBOX", "UNREAD"}, MessageID: "<abc@mail>",
+		Bcc: []model.Address{{Email: "dan@example.com"}}, InReplyTo: "<prev@mail>",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("mismatch (-want +got):\n%s", diff)

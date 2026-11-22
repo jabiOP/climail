@@ -16,12 +16,17 @@ type composing struct {
 	draft compose.Draft // as edited
 	err   error         // why it can't be sent as it is
 	asked bool          // back from the editor: the question is showing
+
+	unreadable bool // the file couldn't be read as a mail: it stays on disk
 }
 
 type editedMsg struct{ err error }
 
+// sentMsg reports a mail queued to send, or a draft queued to save.
 type sentMsg struct {
 	summary string
+	saving  bool
+	path    string // the draft file, kept when saving failed
 	err     error
 }
 
@@ -66,6 +71,7 @@ func (m Model) edited(msg editedMsg) (tea.Model, tea.Cmd) {
 	next := *c
 	next.asked = true
 	next.draft, next.err = compose.Parse(string(text), c.base)
+	next.unreadable = next.err != nil
 	if next.err == nil {
 		parsed := next.draft
 		next.draft, next.err = m.deps.Service.Prepare(m.ctx, parsed)
@@ -98,7 +104,18 @@ func (m Model) composeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.editCmd()
 	case "q", "n", "esc":
 		m.composing = nil
-		m.message = "Not sent. The draft is in " + c.path
+		if c.unreadable {
+			m.message = "Not saved. The draft is in " + c.path
+			return m, nil
+		}
+		svc, ctx, now, d, path := m.deps.Service, m.ctx, m.deps.Now(), c.draft, c.path
+		return m, func() tea.Msg {
+			err := svc.SaveDraft(ctx, d, now)
+			if err == nil {
+				os.Remove(path)
+			}
+			return sentMsg{saving: true, path: path, err: err}
+		}
 	}
 	return m, nil
 }
@@ -106,8 +123,11 @@ func (m Model) composeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // composePrompt is the status bar's question after editing.
 func (m Model) composePrompt() (string, bool) {
 	c := m.composing
-	if c.err != nil {
-		return c.err.Error() + " · e edit · q keep the draft", true
+	switch {
+	case c.unreadable:
+		return c.err.Error() + " · e edit · q leave it on disk", true
+	case c.err != nil:
+		return c.err.Error() + " · e edit · q save to Drafts", true
 	}
-	return "Send " + c.draft.Summary() + "? y send · e edit · q keep the draft", false
+	return "Send " + c.draft.Summary() + "? y send · e edit · q save to Drafts", false
 }

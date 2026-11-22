@@ -23,6 +23,21 @@ func (d Draft) Build(now time.Time) ([]byte, error) {
 	if err := d.Check(); err != nil {
 		return nil, err
 	}
+	return d.build(now)
+}
+
+// BuildDraft makes the message saved in Gmail's Drafts. It may be
+// unfinished: no recipients, or ones still typed as names ("maya").
+func (d Draft) BuildDraft(now time.Time) ([]byte, error) {
+	for _, path := range d.Attach {
+		if _, err := os.Stat(expandHome(path)); err != nil {
+			return nil, fmt.Errorf("can't attach %s: %w", path, err)
+		}
+	}
+	return d.build(now)
+}
+
+func (d Draft) build(now time.Time) ([]byte, error) {
 	var b bytes.Buffer
 	header := func(name, value string) {
 		if value != "" {
@@ -31,7 +46,11 @@ func (d Draft) Build(now time.Time) ([]byte, error) {
 	}
 	header("From", d.Account)
 	for _, h := range []struct{ name, list string }{{"To", d.To}, {"Cc", d.Cc}, {"Bcc", d.Bcc}} {
-		as, _ := parseList(h.list) // Check has read them
+		as, err := parseList(h.list)
+		if err != nil { // only in a draft: kept as typed
+			header(h.name, mime.QEncoding.Encode("utf-8", h.list))
+			continue
+		}
 		var out []string
 		for _, a := range as {
 			out = append(out, a.String()) // encodes non-ASCII names

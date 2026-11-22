@@ -29,7 +29,9 @@ type Remote interface {
 	Trash(ctx context.Context, id string) error
 	Untrash(ctx context.Context, id string) error
 	Send(ctx context.Context, raw []byte, threadID string) error
-	SendAsName(ctx context.Context) (string, error) // the display name mail goes out with; "" for none
+	SendAsName(ctx context.Context) (string, error)                                    // the display name mail goes out with; "" for none
+	SaveDraft(ctx context.Context, replaces string, raw []byte, threadID string) error // replaces: a draft's message ID, or ""
+	DeleteDraft(ctx context.Context, messageID string) error                           // nil if it's already gone
 	AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error)
 }
 
@@ -96,7 +98,7 @@ func (e *Engine) Push(ctx context.Context) error {
 	return nil
 }
 
-// pushSends sends queued mail. One Gmail refuses is kept, marked failed, for
+// pushSends sends queued mail and saves queued drafts. One Gmail refuses is kept, marked failed, for
 // the user to fix or discard; it never blocks the rest.
 func (e *Engine) pushSends(ctx context.Context) error {
 	out, err := e.Store.Outgoing(ctx, e.Account)
@@ -115,7 +117,20 @@ func (e *Engine) pushSends(ctx context.Context) error {
 			}
 			from = &model.Address{Name: name, Email: e.Account}
 		}
-		err := e.Remote.Send(ctx, compose.WithFrom(o.Raw, *from), o.ThreadID)
+		raw := compose.WithFrom(o.Raw, *from)
+		var err error
+		switch {
+		case o.Save:
+			err = e.Remote.SaveDraft(ctx, o.Draft, raw, o.ThreadID)
+		case o.Draft != "":
+			// The draft goes first: if sending then fails and is retried,
+			// the mail can't go twice.
+			if err = e.Remote.DeleteDraft(ctx, o.Draft); err == nil {
+				err = e.Remote.Send(ctx, raw, o.ThreadID)
+			}
+		default:
+			err = e.Remote.Send(ctx, raw, o.ThreadID)
+		}
 		switch {
 		case err == nil:
 			err = e.Store.DeleteSend(ctx, e.Account, o.ID)

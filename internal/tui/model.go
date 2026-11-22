@@ -302,7 +302,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.load()
 	case downloadedMsg:
 		return m.downloaded(msg)
-	case forwardMsg:
+	case composeMsg:
 		m.message = ""
 		if msg.err != nil {
 			m.message, m.isError = "the attachments aren't included: "+msg.err.Error(), true
@@ -317,11 +317,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case editedMsg:
 		return m.edited(msg)
 	case sentMsg:
-		if msg.err != nil {
+		switch {
+		case msg.err != nil && msg.saving:
+			m.message, m.isError = "not saved: "+msg.err.Error()+". The draft is in "+msg.path, true
+			return m, nil
+		case msg.err != nil:
 			m.message, m.isError = "not sent: "+msg.err.Error(), true
 			return m, nil
+		case msg.saving:
+			m.message, m.isError = "Saved in Drafts", false
+		default:
+			m.message, m.isError = "Sending "+msg.summary, false
 		}
-		m.message, m.isError = "Sending "+msg.summary, false
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
 	case infoMsg:

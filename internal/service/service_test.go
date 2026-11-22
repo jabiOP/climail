@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -204,5 +205,38 @@ func TestPrepare_ResolvesNamesThenChecks(t *testing.T) {
 	}
 	if _, err := svc.Prepare(ctx, compose.Draft{Account: acct}); err == nil {
 		t.Error("no recipients: want an error")
+	}
+}
+
+func TestSaveDraft_QueuesItWithNamesResolvedWhereTheyCanBe(t *testing.T) {
+	m := msg("a1", "a", 0, "INBOX")
+	m.From = model.Address{Name: "Maya Chen", Email: "maya@work.example"}
+	svc, st := setup(t, m, msg("d1", "d", 0, model.Draft))
+
+	if err := svc.SaveDraft(ctx, compose.Draft{Account: acct, To: "maya, zed", Subject: "Plan", DraftID: "d1"}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Message(ctx, acct, "d1"); err != store.ErrNotFound {
+		t.Errorf("the draft replaced is still cached: %v", err)
+	}
+
+	out, _ := st.Outgoing(ctx, acct)
+	if len(out) != 1 || !out[0].Save || out[0].Draft != "d1" || !strings.Contains(string(out[0].Raw), "To: Maya Chen <maya@work.example>, zed\r\n") {
+		t.Errorf("queued %+v", out)
+	}
+}
+
+func TestSend_ContinuedDraftLeavesDraftsAtOnce(t *testing.T) {
+	svc, st := setup(t, msg("d1", "a", 0, model.Draft))
+
+	if err := svc.Send(ctx, compose.Draft{Account: acct, To: "b@x.com", DraftID: "d1"}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := st.Message(ctx, acct, "d1"); err != store.ErrNotFound {
+		t.Errorf("draft still cached: %v", err)
+	}
+	if out, _ := st.Outgoing(ctx, acct); len(out) != 1 || out[0].Draft != "d1" || out[0].Save {
+		t.Errorf("queued %+v", out)
 	}
 }

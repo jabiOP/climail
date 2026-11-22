@@ -179,6 +179,8 @@ func (m Model) listKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveBy(-m.listRows() / 2)
 	case key.Matches(msg, keys.Bottom):
 		return m.moveBy(len(m.threads))
+	case key.Matches(msg, keys.Open) && m.box.ID == model.Draft:
+		return m.continueDraft()
 	case key.Matches(msg, keys.Open), key.Matches(msg, keys.Right):
 		return m.openThread()
 	case key.Matches(msg, keys.Left):

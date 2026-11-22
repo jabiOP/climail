@@ -33,11 +33,13 @@ func FromAPI(account string, m *gmailapi.Message) model.Message {
 		Date:       time.UnixMilli(m.InternalDate),
 		To:         parseAddresses(headers["to"]),
 		Cc:         parseAddresses(headers["cc"]),
+		Bcc:        parseAddresses(headers["bcc"]),
 		ReplyTo:    parseAddresses(headers["reply-to"]),
 		Subject:    decodeHeader(headers["subject"]),
 		Snippet:    strings.TrimSpace(html.UnescapeString(m.Snippet)), // Gmail escapes snippets ("&#39;")
 		Labels:     labels,
 		MessageID:  headers["message-id"],
+		InReplyTo:  headers["in-reply-to"],
 		References: headers["references"],
 	}
 	if len(from) > 0 {

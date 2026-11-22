@@ -25,14 +25,12 @@ func parse(raw []byte) (model.Message, [][]byte, error) {
 	}
 	h := msg.Header
 	subject, _ := new(mime.WordDecoder).DecodeHeader(h.Get("Subject"))
-	m := model.Message{Subject: subject, MessageID: h.Get("Message-ID"), References: h.Get("References")}
+	m := model.Message{Subject: subject, MessageID: h.Get("Message-ID"), InReplyTo: h.Get("In-Reply-To"),
+		References: h.Get("References")}
 	if from, err := h.AddressList("From"); err == nil && len(from) > 0 {
 		m.From = model.Address{Name: from[0].Name, Email: from[0].Address}
 	}
-	m.To, m.Cc = addressList(h, "To"), addressList(h, "Cc")
-	if irt := h.Get("In-Reply-To"); irt != "" && !strings.Contains(m.References, irt) {
-		m.References = strings.TrimSpace(m.References + " " + irt)
-	}
+	m.To, m.Cc, m.Bcc = addressList(h, "To"), addressList(h, "Cc"), addressList(h, "Bcc")
 	ctype, params, _ := mime.ParseMediaType(h.Get("Content-Type"))
 	if !strings.HasPrefix(ctype, "multipart/") {
 		body, err := decode(msg.Body, h.Get("Content-Transfer-Encoding"))

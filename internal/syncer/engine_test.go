@@ -351,3 +351,40 @@ func TestSync_SendsFromTheAccountsDisplayName(t *testing.T) {
 		t.Errorf("sent %q", sent)
 	}
 }
+
+func TestSync_SavesDraftsAndReplacesTheOneContinued(t *testing.T) {
+	w := newWorld(t)
+	w.fake.Deliver(msg("d1", "t1", 0, model.Draft))
+	w.sync(t)
+
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("To: maya\r\nSubject: Plan\r\n\r\nmore"), Draft: "d1", Save: true})
+	w.sync(t)
+
+	if w.local(t, "d1") != nil {
+		t.Error("the draft continued is still there")
+	}
+	threads, _ := w.store.Threads(ctx, acct, store.View{Label: model.Draft}, 10, 0)
+	if len(threads) != 1 || threads[0].Subject() != "Plan" || threads[0].Latest().Body != "more" {
+		t.Errorf("Drafts = %+v", threads)
+	}
+	if out, _ := w.store.Outgoing(ctx, acct); len(out) != 0 || len(w.fake.Sent()) != 0 {
+		t.Errorf("queue %v, sent %d", out, len(w.fake.Sent()))
+	}
+}
+
+func TestSync_SendingADraftRemovesIt(t *testing.T) {
+	w := newWorld(t)
+	w.fake.Deliver(msg("d1", "t1", 0, model.Draft))
+	w.sync(t)
+
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("To: b@x.com\r\n\r\nx"), Draft: "d1"})
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("To: b@x.com\r\n\r\ny"), Draft: "gone"})
+	w.sync(t)
+
+	if _, ok := w.fake.Get("d1"); ok || w.local(t, "d1") != nil {
+		t.Error("the draft is still there")
+	}
+	if n := len(w.fake.Sent()); n != 2 {
+		t.Errorf("sent %d, want both (a draft already gone doesn't stop the mail)", n)
+	}
+}

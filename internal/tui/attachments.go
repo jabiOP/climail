@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,9 +19,10 @@ type downloadedMsg struct {
 	err   error
 }
 
-type forwardMsg struct {
+// composeMsg is a draft whose attachments were fetched first.
+type composeMsg struct {
 	draft compose.Draft
-	err   error // the attachments couldn't be fetched; the forward goes without them
+	err   error // the attachments couldn't be fetched; the draft goes without them
 }
 
 // download fetches attachments into dir off the UI goroutine.
@@ -112,20 +114,43 @@ func (m Model) choosePrompt() string {
 // forward drafts a forward, fetching the latest message's attachments first.
 func (m Model) forward() (tea.Model, tea.Cmd) {
 	t, _ := m.current()
+	return m.composeWith(t, t.Latest().ID, "forward-", func(paths []string) compose.Draft {
+		return compose.Forward(t, m.account, paths, m.deps.Now())
+	})
+}
+
+// continueDraft opens the conversation's draft in the editor, its
+// attachments fetched first.
+func (m Model) continueDraft() (tea.Model, tea.Cmd) {
+	t, ok := m.current()
+	if !ok {
+		return m, nil
+	}
+	i := slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.Has(model.Draft) })
+	if i < 0 {
+		return m.openThread()
+	}
+	d := t.Messages[i]
+	return m.composeWith(t, d.ID, "draft-", func(paths []string) compose.Draft { return compose.FromDraft(d, m.account, paths) })
+}
+
+// composeWith opens a draft made with the attachments of one of the
+// conversation's messages, downloaded into a folder of their own.
+func (m Model) composeWith(t model.Thread, messageID, dirPrefix string, draft func(paths []string) compose.Draft) (tea.Model, tea.Cmd) {
 	var refs []model.AttachmentRef
 	for _, r := range t.Attachments() {
-		if r.MessageID == t.Latest().ID {
+		if r.MessageID == messageID {
 			refs = append(refs, r)
 		}
 	}
 	if len(refs) == 0 || m.deps.Download == nil {
-		return m.startCompose(compose.Forward(t, m.account, nil, m.deps.Now()))
+		return m.startCompose(draft(nil))
 	}
-	m.message = "Fetching the attachments to forward…"
-	dl, ctx, account, now := m.deps.Download, m.ctx, m.account, m.deps.Now()
-	dir := filepath.Join(m.deps.OpenDir, "forward-"+now.Format("20060102-150405.000"))
+	m.message = "Fetching the attachments…"
+	dl, ctx, account := m.deps.Download, m.ctx, m.account
+	dir := filepath.Join(m.deps.OpenDir, dirPrefix+m.deps.Now().Format("20060102-150405.000"))
 	return m, func() tea.Msg {
 		paths, err := dl(ctx, account, refs, dir)
-		return forwardMsg{draft: compose.Forward(t, account, paths, now), err: err}
+		return composeMsg{draft: draft(paths), err: err}
 	}
 }

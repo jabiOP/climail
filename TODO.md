@@ -18,6 +18,7 @@ Last updated: 2026-11-21
 - Gmail search (`climail search`, `enter` in the TUI search) with Gmail's syntax; matches outside the cache are fetched into it
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
 - Mail goes out with the display name from Gmail's "Send mail as" settings
+- Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
@@ -25,15 +26,17 @@ Last updated: 2026-11-21
 
 - Manual check against real Gmail accounts: login, first sync, incremental sync, every action reaching Gmail;
   sending (new, reply in the right conversation, forward with attachments, Bcc), daemon install on macOS,
-  attachment download and open, Gmail search, display name on sent mail
+  attachment download and open, Gmail search, display name on sent mail,
+  drafts (save, continue one started on the web, send), recipients by name
 
 ## Later
 
-- Keep unsent drafts in Gmail's Drafts (today they stay as local files)
 - Log of changes Google rejected
 - TUI: show first-sync progress; label picker to add/remove labels; mouse
 
 ## Known issues
+
+- Continuing a draft written in Gmail on the web turns it into plain text: its formatting is lost when it is saved or sent.
 
 ## Decisions
 
@@ -50,7 +53,7 @@ Last updated: 2026-11-21
 - The reader beside the list previews without marking read; `enter` opens and marks read. After archive/trash from the reader, the next conversation opens (Gmail's behavior).
 - `/` filters the local cache as you type (instant, offline); `enter` asks Gmail, whose syntax the local filter doesn't understand. Search results show every message, spam and trash included.
 - Outgoing mail is queued in the store and pushed before label changes, so writing works offline; mail Gmail refuses is kept as failed, never dropped.
-- Drafts are edited as a plain file with mutt-style headers; a draft left unsent stays on disk and its path is shown.
+- Drafts are edited as a plain file with mutt-style headers and kept in Gmail's Drafts, queued like outgoing mail so it works offline. Drafts are found by their message ID (Gmail's draft IDs aren't cached); a continued draft leaves the local Drafts at once, so it can't be continued twice before a sync.
 - Attachments are downloaded on demand, not cached; a download refetches the message because Gmail's attachment IDs change between fetches.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).
 - The sender's display name is read from Gmail's send-as settings when mail is pushed, not stored: always current, one request per batch.

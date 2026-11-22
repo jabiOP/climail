@@ -124,3 +124,17 @@ func TestApplyLabels_ReturnsActualChanges(t *testing.T) {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestQueueSend_KeepsDraftSavesApart(t *testing.T) {
+	s := openStore(t)
+	s.QueueSend(ctx, store.Outgoing{Account: "me@x.com", Summary: "a", Raw: []byte("x"), Draft: "d1"})
+	s.QueueSend(ctx, store.Outgoing{Account: "me@x.com", Summary: "b", Raw: []byte("y"), Draft: "d2", Save: true})
+
+	out, err := s.Outgoing(ctx, "me@x.com")
+	if err != nil || len(out) != 2 || out[0].Draft != "d1" || out[0].Save || out[1].Draft != "d2" || !out[1].Save {
+		t.Fatalf("Outgoing = %+v, %v", out, err)
+	}
+	if waiting, _, _ := s.SendCounts(ctx, "me@x.com"); waiting != 1 {
+		t.Errorf("waiting = %d: a draft being saved isn't mail to send", waiting)
+	}
+}

@@ -39,19 +39,34 @@ func TestCompose_EditThenSend(t *testing.T) {
 	}
 }
 
-func TestCompose_QuitKeepsDraft(t *testing.T) {
+func TestCompose_QuitSavesToDrafts(t *testing.T) {
 	h := newHarness(t, work)
 	h.edit = func(old string) string { return strings.Replace(old, "To: ", "To: bob@example.com", 1) }
 	h.stdin = "q\n"
 
-	_, errOut, _ := h.run("compose")
+	_, errOut, _ := h.run("compose", "-s", "Later")
 
-	if len(h.gmail[work].Sent()) != 0 || !strings.Contains(errOut, "The draft is in") {
+	if len(h.gmail[work].Sent()) != 0 || !strings.Contains(errOut, "Saved in Drafts.") {
 		t.Errorf("stderr %q", errOut)
 	}
+	if out := h.mustRun("list", "drafts", "--offline"); !strings.Contains(out, "Later") {
+		t.Errorf("Drafts = %q", out)
+	}
+	if files, _ := filepath.Glob(filepath.Join(h.app.Paths.DraftDir(), "*.eml")); len(files) != 0 {
+		t.Errorf("local drafts = %v", files)
+	}
+}
+
+func TestCompose_UnreadableDraftStaysOnDisk(t *testing.T) {
+	h := newHarness(t, work)
+	h.edit = func(old string) string { return "Frm: oops\n" + old }
+	h.stdin = "q\n"
+
+	_, errOut, _ := h.run("compose")
+
 	files, _ := filepath.Glob(filepath.Join(h.app.Paths.DraftDir(), "*.eml"))
-	if len(files) != 1 {
-		t.Errorf("drafts = %v", files)
+	if len(files) != 1 || !strings.Contains(errOut, "Not saved. The draft is in") {
+		t.Errorf("drafts %v, stderr %q", files, errOut)
 	}
 }
 

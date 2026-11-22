@@ -118,7 +118,8 @@ func newForwardCmd(app *App) *cobra.Command {
 }
 
 // editAndSend opens the draft in the editor, then asks whether to send it.
-// A draft not sent stays on disk, and the path is printed.
+// A draft not sent is saved in Gmail's Drafts; one that can't be read as a
+// mail stays on disk, and the path is printed.
 func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 	path, err := compose.WriteDraft(a.Paths.DraftDir(), base, a.Now())
 	if err != nil {
@@ -135,7 +136,17 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 		return err
 	}
 	kept := func() error {
-		fmt.Fprintf(a.Stderr, "Not sent. The draft is in %s\n", path)
+		fmt.Fprintf(a.Stderr, "Not saved. The draft is in %s\n", path)
+		return nil
+	}
+	save := func(d compose.Draft) error {
+		if err := svc.SaveDraft(ctx, d, a.Now()); err != nil {
+			fmt.Fprintf(a.Stderr, "climail: couldn't save the draft: %v\n", err)
+			return kept()
+		}
+		os.Remove(path)
+		fmt.Fprintln(a.Stderr, "Saved in Drafts.")
+		a.PushAfterWrite(ctx, d.Account, false)
 		return nil
 	}
 	for {
@@ -152,6 +163,7 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 			return nil
 		}
 		d, err := compose.Parse(string(text), base)
+		unreadable := err != nil
 		if err == nil {
 			parsed := d
 			d, err = svc.Prepare(ctx, parsed)
@@ -160,18 +172,24 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 			}
 		}
 		if err != nil {
-			if ask(fmt.Sprintf("climail: %v\n[e]dit or [q]uit? ", err)) == "e" {
+			if unreadable {
+				if ask(fmt.Sprintf("climail: %v\n[e]dit or [q]uit? ", err)) == "e" {
+					continue
+				}
+				return kept()
+			}
+			if ask(fmt.Sprintf("climail: %v\n[e]dit or [q]uit (save to Drafts)? ", err)) == "e" {
 				continue
 			}
-			return kept()
+			return save(d)
 		}
-		switch ask(fmt.Sprintf("Send %s? [y]es, [e]dit, [q]uit: ", d.Summary())) {
+		switch ask(fmt.Sprintf("Send %s? [y]es, [e]dit, [q]uit (save to Drafts): ", d.Summary())) {
 		case "y", "yes":
 			return a.queue(ctx, d, path)
 		case "e":
 			continue
 		}
-		return kept()
+		return save(d)
 	}
 }
 

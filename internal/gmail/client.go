@@ -192,6 +192,56 @@ func (c *Client) SendAsName(ctx context.Context) (string, error) {
 	return name, nil
 }
 
+// SaveDraft saves raw in Drafts, replacing the draft whose message is
+// replaces; when that one is gone (sent or deleted elsewhere), as a new draft.
+func (c *Client) SaveDraft(ctx context.Context, replaces string, raw []byte, threadID string) error {
+	m := &gmailapi.Message{Raw: base64.URLEncoding.EncodeToString(raw), ThreadId: threadID}
+	if replaces != "" {
+		id, err := c.draftID(ctx, replaces)
+		if err == nil {
+			_, err = c.svc.Users.Drafts.Update("me", id, &gmailapi.Draft{Id: id, Message: m}).Context(ctx).Do()
+			return mapErr(err)
+		}
+		if !isNotFound(err) {
+			return err
+		}
+	}
+	_, err := c.svc.Users.Drafts.Create("me", &gmailapi.Draft{Message: m}).Context(ctx).Do()
+	return mapErr(err)
+}
+
+// DeleteDraft deletes the draft whose message is messageID; nil if it's gone.
+func (c *Client) DeleteDraft(ctx context.Context, messageID string) error {
+	id, err := c.draftID(ctx, messageID)
+	if err == nil {
+		err = mapErr(c.svc.Users.Drafts.Delete("me", id).Context(ctx).Do())
+	}
+	if isNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+// draftID finds the draft holding a message: Gmail addresses drafts by
+// their own IDs, which climail doesn't keep.
+func (c *Client) draftID(ctx context.Context, messageID string) (string, error) {
+	call := c.svc.Users.Drafts.List("me").MaxResults(500).Context(ctx)
+	for page := ""; ; {
+		resp, err := call.PageToken(page).Do()
+		if err != nil {
+			return "", mapErr(err)
+		}
+		for _, d := range resp.Drafts {
+			if d.Message != nil && d.Message.Id == messageID {
+				return d.Id, nil
+			}
+		}
+		if page = resp.NextPageToken; page == "" {
+			return "", fmt.Errorf("%w: draft of message %s", ErrNotFound, messageID)
+		}
+	}
+}
+
 // AttachmentData downloads a message's index-th attachment (in the order of
 // model.Message.Attachments). The message is fetched again first: Gmail's
 // attachment IDs change from one fetch to the next.

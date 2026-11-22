@@ -299,6 +299,46 @@ func (f *Fake) Send(ctx context.Context, raw []byte, threadID string) error {
 	return nil
 }
 
+// SaveDraft keeps a draft as a message labelled DRAFT, replacing the draft
+// message replaces (as Gmail gives an updated draft a new message).
+func (f *Fake) SaveDraft(ctx context.Context, replaces string, raw []byte, threadID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.begin("SaveDraft"); err != nil {
+		return err
+	}
+	m, files, err := parse(raw)
+	if err != nil {
+		return err
+	}
+	f.deleteDraft(replaces)
+	m.ID = fmt.Sprintf("draft-%d", f.next)
+	if threadID == "" {
+		threadID = "thread-" + m.ID
+	}
+	m.ThreadID, m.Labels = threadID, []string{model.Draft}
+	f.add(m, files)
+	return nil
+}
+
+func (f *Fake) DeleteDraft(ctx context.Context, messageID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.begin("DeleteDraft"); err != nil {
+		return err
+	}
+	f.deleteDraft(messageID)
+	return nil
+}
+
+// deleteDraft removes a draft's message, if there is one. f.mu is held.
+func (f *Fake) deleteDraft(id string) {
+	if m, ok := f.msgs[id]; ok && m.Has(model.Draft) {
+		f.record("deleted", m)
+		delete(f.msgs, id)
+	}
+}
+
 // Connect makes fakes deliver mail to one another, like two real accounts.
 func Connect(fakes ...*Fake) {
 	for _, f := range fakes {
@@ -331,12 +371,12 @@ func (f *Fake) receive(m model.Message, files [][]byte) {
 	m.ID = fmt.Sprintf("in-%d", f.next)
 	m.ThreadID = "thread-" + m.ID
 	for _, other := range f.msgs {
-		if other.MessageID != "" && strings.Contains(m.References, other.MessageID) {
+		if other.MessageID != "" && strings.Contains(m.InReplyTo+" "+m.References, other.MessageID) {
 			m.ThreadID = other.ThreadID
 			break
 		}
 	}
-	m.Labels = []string{model.Inbox, model.Unread}
+	m.Labels, m.Bcc = []string{model.Inbox, model.Unread}, nil // Bcc isn't shown to those it's sent to
 	f.add(m, files)
 }
 

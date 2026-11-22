@@ -165,6 +165,9 @@ func workBox(now time.Time) Mailbox {
 	b.add("t-sent", 7*hour, work, []model.Address{priya}, "Re: Northwind kickoff notes",
 		"Thanks Priya, notes attached. Let me know if I missed anything.", "SENT", "Label_1")
 
+	b.add("t-draft", 90, work, []model.Address{maya}, "Ideas for the offsite",
+		"Hi Maya,\n\nA few ideas for the offsite sessions:\n\n• A hands-on session on the new CLI\n• ", "DRAFT")
+
 	for i := range 12 { // older mail, so the list scrolls
 		b.add(fmt.Sprintf("t-old%02d", i), (6+i)*day, []model.Address{maya, tom, hr, news}[i%4], me,
 			[]string{"Weekly sync notes", "Quick question about the API", "Reminder: expenses", "Issue %d of The Weekly Terminal"}[i%4],
