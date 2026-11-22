@@ -29,6 +29,8 @@ type Fake struct {
 	Email string
 	// Err, when set, makes every call fail with it (e.g. to act offline).
 	Err error
+	// Name is the display name Gmail's send-as settings give.
+	Name string
 
 	mu      sync.Mutex
 	labels  []model.Label
@@ -287,6 +289,12 @@ func (f *Fake) Send(ctx context.Context, raw []byte, threadID string) error {
 	f.msgs[id] = m
 	f.record("added", m)
 	return nil
+}
+
+func (f *Fake) SendAsName(ctx context.Context) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.Name, f.begin("SendAsName")
 }
 
 // Sent lists the raw mails sent, oldest first.

@@ -17,18 +17,18 @@ Last updated: 2026-11-21
 - Compose, reply, reply all, forward in `$VISUAL`/`$EDITOR` (CLI and TUI); `send` for scripts; send queue with `outbox`
 - Gmail search (`climail search`, `enter` in the TUI search) with Gmail's syntax; matches outside the cache are fetched into it
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
+- Mail goes out with the display name from Gmail's "Send mail as" settings
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next
 
 - Manual check against real Gmail accounts: login, first sync, incremental sync, every action reaching Gmail;
   sending (new, reply in the right conversation, forward with attachments, Bcc), daemon install on macOS,
-  attachment download and open, Gmail search
+  attachment download and open, Gmail search, display name on sent mail
 
 ## Later
 
 - Keep unsent drafts in Gmail's Drafts (today they stay as local files)
-- Send with the account's display name (Gmail send-as settings)
 - Log of changes Google rejected
 - TUI: show first-sync progress; label picker to add/remove labels; mouse
 
@@ -52,3 +52,4 @@ Last updated: 2026-11-21
 - Drafts are edited as a plain file with mutt-style headers; a draft left unsent stays on disk and its path is shown.
 - Attachments are downloaded on demand, not cached; a download refetches the message because Gmail's attachment IDs change between fetches.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).
+- The sender's display name is read from Gmail's send-as settings when mail is pushed, not stored: always current, one request per batch.

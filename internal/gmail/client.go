@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	gmailapi "google.golang.org/api/gmail/v1"
@@ -170,6 +171,25 @@ func (c *Client) Send(ctx context.Context, raw []byte, threadID string) error {
 	m := &gmailapi.Message{Raw: base64.URLEncoding.EncodeToString(raw), ThreadId: threadID}
 	_, err := c.svc.Users.Messages.Send("me", m).Context(ctx).Do()
 	return mapErr(err)
+}
+
+// SendAsName is the display name set in Gmail's "Send mail as" settings for
+// the account's own address; "" when none is set.
+func (c *Client) SendAsName(ctx context.Context) (string, error) {
+	resp, err := c.svc.Users.Settings.SendAs.List("me").Context(ctx).Do()
+	if err != nil {
+		return "", mapErr(err)
+	}
+	name := ""
+	for _, s := range resp.SendAs {
+		if strings.EqualFold(s.SendAsEmail, c.account) {
+			return s.DisplayName, nil
+		}
+		if s.IsPrimary {
+			name = s.DisplayName
+		}
+	}
+	return name, nil
 }
 
 // AttachmentData downloads a message's index-th attachment (in the order of

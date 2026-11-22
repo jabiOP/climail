@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/gmail"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/store"
@@ -28,6 +29,7 @@ type Remote interface {
 	Trash(ctx context.Context, id string) error
 	Untrash(ctx context.Context, id string) error
 	Send(ctx context.Context, raw []byte, threadID string) error
+	SendAsName(ctx context.Context) (string, error) // the display name mail goes out with; "" for none
 	AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error)
 }
 
@@ -101,11 +103,19 @@ func (e *Engine) pushSends(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	var from *model.Address // asked for once, only when there's mail to send
 	for _, o := range out {
 		if o.Failed != "" {
 			continue
 		}
-		err := e.Remote.Send(ctx, o.Raw, o.ThreadID)
+		if from == nil {
+			name, err := e.Remote.SendAsName(ctx)
+			if err != nil && !errors.Is(err, gmail.ErrPermanent) { // permanent: send without the name
+				return err
+			}
+			from = &model.Address{Name: name, Email: e.Account}
+		}
+		err := e.Remote.Send(ctx, compose.WithFrom(o.Raw, *from), o.ThreadID)
 		switch {
 		case err == nil:
 			err = e.Store.DeleteSend(ctx, e.Account, o.ID)

@@ -144,3 +144,21 @@ func TestAttachmentData_FetchesByPosition(t *testing.T) {
 		t.Errorf("out of range: err = %v", err3)
 	}
 }
+
+func TestSendAsName_IsTheAccountsOwnAddress(t *testing.T) {
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/settings/sendAs") {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		writeJSON(w, map[string]any{"sendAs": []any{
+			map[string]any{"sendAsEmail": "alias@x.com", "displayName": "Alias", "isDefault": true},
+			map[string]any{"sendAsEmail": "Me@x.com", "displayName": "Me Myself", "isPrimary": true},
+		}})
+	})
+
+	name, err := c.SendAsName(context.Background())
+
+	if err != nil || name != "Me Myself" {
+		t.Errorf("SendAsName = %q, %v", name, err)
+	}
+}

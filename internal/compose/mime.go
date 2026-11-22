@@ -7,11 +7,14 @@ import (
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
+	"net/mail"
 	"net/textproto"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/jabiOP/climail/internal/model"
 )
 
 // Build makes the RFC 5322 message Gmail sends. Gmail adds Message-ID, and
@@ -108,4 +111,20 @@ func attach(w *multipart.Writer, path string) error {
 	}
 	_, err = fmt.Fprintf(part, "%s\r\n", enc)
 	return err
+}
+
+// WithFrom sets a built message's sender, replacing its From line (Build
+// writes the bare address), so mail goes out with the account's display name.
+func WithFrom(raw []byte, from model.Address) []byte {
+	line := from.Email
+	if from.Name != "" {
+		line = (&mail.Address{Name: from.Name, Address: from.Email}).String()
+	}
+	rest := raw
+	if bytes.HasPrefix(raw, []byte("From:")) {
+		if i := bytes.Index(raw, []byte("\r\n")); i >= 0 {
+			rest = raw[i+2:]
+		}
+	}
+	return append([]byte("From: "+line+"\r\n"), rest...)
 }

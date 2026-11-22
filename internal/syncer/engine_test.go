@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -334,5 +335,19 @@ func TestSearch_FetchesMatchesNotCached(t *testing.T) {
 	}
 	if n := w.fake.Calls("Thread"); n != 2 {
 		t.Errorf("Thread called %d times, want once more for the one match not cached", n)
+	}
+}
+
+func TestSync_SendsFromTheAccountsDisplayName(t *testing.T) {
+	w := newWorld(t)
+	w.fake.Name = "Me Myself"
+	w.sync(t)
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("From: " + acct + "\r\nTo: b@x.com\r\n\r\nx")})
+
+	w.sync(t)
+
+	sent := w.fake.Sent()
+	if len(sent) != 1 || !strings.HasPrefix(string(sent[0]), "From: \"Me Myself\" <"+acct+">\r\nTo: b@x.com\r\n") {
+		t.Errorf("sent %q", sent)
 	}
 }

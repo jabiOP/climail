@@ -204,3 +204,19 @@ func TestEditorCmd(t *testing.T) {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestWithFrom_ReplacesOrAddsTheSender(t *testing.T) {
+	me := model.Address{Name: "José Díaz", Email: "me@example.com"}
+	cases := map[string]string{
+		"From: me@example.com\r\nTo: b@x.com\r\n\r\nhi": "From: =?utf-8?q?Jos=C3=A9_D=C3=ADaz?= <me@example.com>\r\nTo: b@x.com\r\n\r\nhi",
+		"To: b@x.com\r\n\r\nhi":                         "From: =?utf-8?q?Jos=C3=A9_D=C3=ADaz?= <me@example.com>\r\nTo: b@x.com\r\n\r\nhi",
+	}
+	for raw, want := range cases {
+		if got := string(compose.WithFrom([]byte(raw), me)); got != want {
+			t.Errorf("WithFrom(%q) = %q, want %q", raw, got, want)
+		}
+	}
+	if got := string(compose.WithFrom([]byte("From: me@example.com\r\n\r\nhi"), model.Address{Email: "me@example.com"})); got != "From: me@example.com\r\n\r\nhi" {
+		t.Errorf("without a name: %q", got)
+	}
+}
