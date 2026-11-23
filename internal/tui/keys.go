@@ -15,7 +15,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 // and the help screen lists them.
 var keys = struct {
 	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev,
-	Archive, Trash, Inbox, Read, Star, Select, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
+	Archive, Trash, Inbox, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
 	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit key.Binding
 }{
 	Up:          bind("k", "up", "k", "up"),
@@ -38,6 +38,7 @@ var keys = struct {
 	Read:        bind("N", "mark read / unread", "N"),
 	Star:        bind("*", "star / unstar", "*"),
 	Select:      bind("x", "select (then act on all selected)", "x"),
+	Together:    bind("T", "read the selected, else the unread, together", "T"),
 	Undo:        bind("u", "undo the last change", "u"),
 	Expand:      bind("o", "expand / collapse messages (reader)", "o"),
 	Browser:     bind("O", "open in Gmail on the web", "O"),
@@ -99,7 +100,7 @@ func helpText() string {
 			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"),
 			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),
-			one(keys.Select, "select for bulk actions"), one(keys.Undo, "undo the last change"),
+			pair(keys.Select, keys.Together, "select / read together"), one(keys.Undo, "undo the last change"),
 			one(keys.Expand, "expand / collapse all"), one(keys.Browser, "open in Gmail (web)"),
 		},
 		"Go to", gotoRows)

@@ -200,6 +200,8 @@ func (m Model) listKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.clearSearch()
 		}
 		return m, nil
+	case key.Matches(msg, keys.Together):
+		return m.readTogether()
 	case key.Matches(msg, keys.Select):
 		if t, ok := m.current(); ok {
 			if m.selected[t.ID] {
@@ -230,7 +232,7 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.act(service.MarkRead)
 		}
 		if m.focus == paneReader { // read on, unread: back to the list, as in Gmail
-			m.focus = paneList
+			m.focus, m.together = paneList, nil
 		}
 		return m.act(service.MarkUnread)
 	case key.Matches(msg, keys.Star):
@@ -272,13 +274,17 @@ func (m Model) targets() []model.Thread {
 }
 
 // act applies an action to the targets. From the reader, an action that takes
-// the conversation out of the mailbox moves on to the next one.
+// the conversation out of the mailbox moves on to the next one (on the page,
+// when reading together).
 func (m Model) act(a service.Action) (tea.Model, tea.Cmd) {
 	targets := m.targets()
 	if len(targets) == 0 {
 		return m, nil
 	}
-	if m.focus == paneReader && a.Leaves {
+	switch {
+	case m.reading() && a.Leaves:
+		m.dropTogether(targets[0].ID)
+	case m.focus == paneReader && a.Leaves:
 		m.openOnLoad = true
 	}
 	m.selected = map[string]bool{}
@@ -311,11 +317,108 @@ func (m Model) openThread() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	m.focus = paneReader
+	m.focus, m.together = paneReader, nil
 	if !t.Unread() {
 		return m, nil
 	}
 	return m, m.apply([]model.Thread{t}, service.MarkRead, false)
+}
+
+// readTogether shows several conversations in the reader, one after the
+// other, and marks them read: the selected ones, else the unread ones listed.
+// The one at the top of the reader is current: actions apply to it alone.
+func (m Model) readTogether() (tea.Model, tea.Cmd) {
+	threads := m.targets()
+	if len(m.selected) == 0 {
+		threads = slices.DeleteFunc(slices.Clone(m.threads), func(t model.Thread) bool { return !t.Unread() })
+	}
+	if len(threads) == 0 {
+		m.message = "nothing unread here (x selects conversations to read together)"
+		return m, nil
+	}
+	m.together, m.expanded = nil, map[string]bool{}
+	for _, t := range threads {
+		m.together = append(m.together, t.ID)
+		m.expanded[t.Latest().ID] = true
+		for _, msg := range t.Messages {
+			if msg.Unread() {
+				m.expanded[msg.ID] = true
+			}
+		}
+	}
+	m.focus, m.scroll, m.readerID, m.selected = paneReader, 0, "", map[string]bool{}
+	m.scrollBy(0)
+	return m, m.apply(threads, service.MarkRead, false)
+}
+
+// reading reports whether the reader shows conversations together.
+func (m Model) reading() bool { return m.together != nil && m.focus == paneReader }
+
+// togetherThreads are the conversations read together that are still listed.
+func (m Model) togetherThreads() []model.Thread {
+	var out []model.Thread
+	for _, id := range m.together {
+		if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return t.ID == id }); i >= 0 {
+			out = append(out, m.threads[i])
+		}
+	}
+	return out
+}
+
+// togetherStarts is the reader line each conversation read together starts on.
+func (m Model) togetherStarts(w int) []int {
+	var starts []int
+	n := 0
+	for i, t := range m.togetherThreads() {
+		if i > 0 {
+			n++ // the blank line between them
+		}
+		starts = append(starts, n)
+		n += len(m.threadLines(t, w)) + 1 // and its subject
+	}
+	return starts
+}
+
+// togetherAt is the index of the current conversation among those read together.
+func (m Model) togetherAt() int {
+	t, _ := m.current()
+	return max(slices.IndexFunc(m.togetherThreads(), func(o model.Thread) bool { return o.ID == t.ID }), 0)
+}
+
+// showTogether scrolls the conversation at index i, read together, to the top.
+func (m *Model) showTogether(i int) {
+	if starts := m.togetherStarts(m.readerWidth()); i >= 0 && i < len(starts) {
+		m.scroll = starts[i]
+		m.scrollBy(0)
+	}
+}
+
+// dropTogether takes a conversation off the page read together; the next one
+// becomes current, or, with none left, the list is back.
+func (m *Model) dropTogether(id string) {
+	at := m.togetherAt()
+	m.together = slices.DeleteFunc(m.together, func(o string) bool { return o == id })
+	if len(m.togetherThreads()) == 0 {
+		m.focus, m.together = paneList, nil
+		m.followReader()
+		return
+	}
+	m.showTogether(min(at, len(m.togetherThreads())-1))
+}
+
+// keepTogether, after a load, drops the conversations no longer listed.
+func (m *Model) keepTogether() {
+	var ids []string
+	for _, t := range m.togetherThreads() {
+		ids = append(ids, t.ID)
+	}
+	if len(ids) == 0 {
+		m.focus, m.together = paneList, nil
+		m.followReader()
+		return
+	}
+	m.together = ids
+	m.scrollBy(0)
 }
 
 // listRows is how many conversations fit on screen.
@@ -383,11 +486,16 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Bottom):
 		m.scrollBy(1 << 20)
 	case key.Matches(msg, keys.Back), key.Matches(msg, keys.Left):
-		m.focus = paneList
+		m.focus, m.together = paneList, nil
+		m.followReader()
 	case key.Matches(msg, keys.Next), key.Matches(msg, keys.Prev):
 		n := 1
 		if key.Matches(msg, keys.Prev) {
 			n = -1
+		}
+		if m.reading() {
+			m.showTogether(m.togetherAt() + n)
+			return m, nil
 		}
 		before := m.cursor
 		next, cmd := m.moveBy(n)
@@ -402,12 +510,12 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		all := len(m.expanded) == len(t.Messages)
-		m.expanded = map[string]bool{t.Latest().ID: true}
-		if !all {
-			for _, msg := range t.Messages {
-				m.expanded[msg.ID] = true
-			}
+		all := !slices.ContainsFunc(t.Messages, func(msg model.Message) bool { return !m.expanded[msg.ID] })
+		if !m.reading() {
+			m.expanded = map[string]bool{}
+		}
+		for _, msg := range t.Messages { // read together, the others stay as they are
+			m.expanded[msg.ID] = !all || msg.ID == t.Latest().ID
 		}
 		m.scrollBy(0)
 	default:
@@ -416,9 +524,26 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// scrollBy scrolls the reader. Read together, the conversation at the top is
+// current, and the last one can be scrolled to the top.
 func (m *Model) scrollBy(n int) {
-	lines := len(m.readerLines(m.readerWidth()))
-	m.scroll = max(min(m.scroll+n, lines-m.listRows()), 0)
+	w := m.readerWidth()
+	end := len(m.readerLines(w)) - m.listRows()
+	if !m.reading() {
+		m.scroll = max(min(m.scroll+n, end), 0)
+		return
+	}
+	starts := m.togetherStarts(w)
+	m.scroll = max(min(m.scroll+n, max(end, starts[len(starts)-1])), 0)
+	at := 0
+	for i, s := range starts {
+		if s <= m.scroll {
+			at = i
+		}
+	}
+	id := m.togetherThreads()[at].ID
+	m.cursor = slices.IndexFunc(m.threads, func(t model.Thread) bool { return t.ID == id })
+	m.clampOffset()
 }
 
 // --- the sidebar ---

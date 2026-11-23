@@ -2,7 +2,7 @@
 
 Status: Initial development
 
-Last updated: 2026-11-21
+Last updated: 2026-11-23
 
 ## Done
 
@@ -22,6 +22,7 @@ Last updated: 2026-11-21
 - Drafts written in Gmail are continued with their formatting as Markdown; climail asks first when fonts, colours or images would be lost
 - Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
+- Read Together (HEY-style): `T` shows the selected conversations, else the unread ones listed, on one page; each is archived (or replied to…) on its own as you read on
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next
@@ -30,7 +31,7 @@ Last updated: 2026-11-21
   sending (new, reply in the right conversation, forward with attachments, Bcc), daemon install on macOS,
   attachment download and open, Gmail search, display name on sent mail,
   drafts (save, continue one started on the web, send), recipients by name,
-  formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window
+  formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together
 
 ## Later
 

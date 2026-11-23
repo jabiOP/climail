@@ -768,3 +768,116 @@ func TestDrafts_FormattingMarkdownCantHoldAsksFirst(t *testing.T) {
 		t.Errorf("composing %+v", c)
 	}
 }
+
+func (f *fixture) thread(id string) model.Thread {
+	f.t.Helper()
+	t, err := f.model().deps.Service.Thread(context.Background(), workAcct, id, model.AllMail)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return t
+}
+
+func (f *fixture) unreadListed() []string {
+	var ids []string
+	for _, t := range f.model().threads {
+		if t.Unread() {
+			ids = append(ids, t.ID)
+		}
+	}
+	return ids
+}
+
+func TestReadTogether_UnreadOnOnePageMarkedRead(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	unread := f.unreadListed()
+	if len(unread) < 3 || len(unread) == len(f.listed()) {
+		t.Fatalf("the demo Inbox should mix read and unread: unread %v of %v", unread, f.listed())
+	}
+
+	f.keys("T")
+
+	if f.model().focus != paneReader || !strings.Contains(f.view(), plural(len(unread), "conversation")+" together") {
+		t.Fatalf("not reading together:\n%s", f.view())
+	}
+	if f.currentID() != unread[0] {
+		t.Errorf("current %s, want the first, %s", f.currentID(), unread[0])
+	}
+	page := strings.Join(f.model().readerLines(80), "\n")
+	if !strings.Contains(page, "store_test.go:142") { // deep in the CI mail: unread messages open expanded
+		t.Errorf("unread messages not expanded:\n%s", page)
+	}
+	for _, id := range unread {
+		th := f.thread(id)
+		if th.Unread() {
+			t.Errorf("%s still unread", id)
+		}
+		if !strings.Contains(page, th.Subject()) {
+			t.Errorf("%q not on the page", th.Subject())
+		}
+	}
+}
+
+func TestReadTogether_ArchiveOneAtATime(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	unread := f.unreadListed()
+	f.keys("T")
+
+	f.keys("a") // the first: gone, the next one is current
+
+	if slices.Contains(f.listed(), unread[0]) {
+		t.Errorf("%s not archived", unread[0])
+	}
+	if f.model().focus != paneReader || f.currentID() != unread[1] || f.model().scroll != 0 {
+		t.Fatalf("focus %v, current %s, scroll %d; want the reader on %s at the top", f.model().focus, f.currentID(), f.model().scroll, unread[1])
+	}
+	if !slices.Contains(f.listed(), unread[1]) || !strings.Contains(f.view(), plural(len(unread)-1, "conversation")+" together") {
+		t.Errorf("archived more than one: listed %v\n%s", f.listed(), f.view())
+	}
+
+	f.keys("n") // keep the second, on to the third
+	if f.currentID() != unread[2] || f.model().scroll == 0 {
+		t.Errorf("n: current %s, scroll %d; want %s, scrolled to it", f.currentID(), f.model().scroll, unread[2])
+	}
+	f.keys("p")
+	if f.currentID() != unread[1] || f.model().scroll != 0 {
+		t.Errorf("p: current %s, scroll %d; want %s at the top", f.currentID(), f.model().scroll, unread[1])
+	}
+	f.keys("G") // the bottom: the last one is current
+	if f.currentID() != unread[len(unread)-1] {
+		t.Errorf("G: current %s, want the last, %s", f.currentID(), unread[len(unread)-1])
+	}
+
+	f.keys("u") // undo brings the first back to the Inbox, not to the page
+	if !slices.Contains(f.listed(), unread[0]) || f.model().focus != paneReader {
+		t.Errorf("undo: listed %v, focus %v", f.listed(), f.model().focus)
+	}
+
+	for range len(unread) - 1 {
+		f.keys("a")
+	}
+	if f.model().focus != paneList || f.model().reading() {
+		t.Errorf("all archived: focus %v, still reading together", f.model().focus)
+	}
+	for _, id := range unread[1:] {
+		if slices.Contains(f.listed(), id) {
+			t.Errorf("%s not archived", id)
+		}
+	}
+}
+
+func TestReadTogether_SelectedOnes(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	want := f.listed()[2:4]
+	f.keys("j", "j", "x", "x")
+
+	f.keys("T")
+
+	if got := f.model().together; !slices.Equal(got, want) {
+		t.Errorf("together = %v, want %v", got, want)
+	}
+	f.keys("esc")
+	if f.model().focus != paneList || f.model().reading() {
+		t.Errorf("esc: focus %v, still reading together", f.model().focus)
+	}
+}

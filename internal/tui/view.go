@@ -278,11 +278,14 @@ func (m Model) reader(w, h int) []string {
 	if !ok {
 		return append([]string{m.paneTitle(paneReader, "", "", w)}, centered("No conversation selected", w, h-1)...)
 	}
-	right := ""
+	left, right := output.Subject(t.Subject()), ""
 	if n := len(t.Messages); n > 1 {
 		right = plural(n, "message")
 	}
-	lines := []string{m.paneTitle(paneReader, output.Subject(t.Subject()), right, w)}
+	if m.reading() {
+		left, right = plural(len(m.togetherThreads()), "conversation")+" together", ""
+	}
+	lines := []string{m.paneTitle(paneReader, left, right, w)}
 	body := m.readerLines(w)
 	end := min(m.scroll+h-1, len(body))
 	if m.scroll < end {
@@ -310,12 +313,33 @@ func (m Model) shownLabels(t model.Thread) []string {
 	return out
 }
 
-// readerLines draws the whole conversation, w cells wide; the reader scrolls over it.
+// readerLines draws the whole conversation, or the ones read together under
+// their subjects (the current one marked), w cells wide; the reader scrolls over it.
 func (m Model) readerLines(w int) []string {
 	t, ok := m.current()
 	if !ok {
 		return nil
 	}
+	if !m.reading() {
+		return m.threadLines(t, w)
+	}
+	var out []string
+	for i, o := range m.togetherThreads() {
+		if i > 0 {
+			out = append(out, strings.Repeat(" ", w))
+		}
+		mark := "  "
+		if o.ID == t.ID {
+			mark = "▶ "
+		}
+		out = append(out, row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain)))
+		out = append(out, m.threadLines(o, w)...)
+	}
+	return out
+}
+
+// threadLines draws one conversation, w cells wide.
+func (m Model) threadLines(t model.Thread, w int) []string {
 	cw := max(w-2, 10) // a space of margin each side
 	line := func(segs ...seg) string {
 		return row(plain, append([]seg{s(" ", plain)}, append(segs, s(" ", plain))...)...)
@@ -446,6 +470,9 @@ func (m Model) hints() string {
 	case paneSidebar:
 		return "enter open · [ ] accounts · l list · ? help"
 	case paneReader:
+		if m.reading() {
+			return "j/k scroll · n/p next/prev · a archive this · r reply · esc back · ? help"
+		}
 		return "j/k scroll · n/p next/prev · r reply · f forward · a archive · dd trash · esc back · ? help"
 	}
 	return "enter open · c compose · r reply · a archive · dd trash · * star · x select · / search · ? help"

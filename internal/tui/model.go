@@ -80,6 +80,7 @@ type Model struct {
 	scroll     int             // reader: first line shown
 	expanded   map[string]bool // reader: message IDs shown in full
 	openOnLoad bool            // after archiving from the reader: open the next conversation
+	together   []string        // T: the conversations the reader shows on one page, by ID; nil: one
 
 	search    string   // the search shown ("" for a mailbox)
 	searching bool     // typing a search
@@ -371,6 +372,9 @@ func (m Model) applyLoaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 	}
 	m.clampOffset()
 	m.followReader()
+	if m.reading() {
+		m.keepTogether()
+	}
 	var cmd tea.Cmd
 	if m.checkPend && m.status.Pending > 0 && !m.retrying {
 		m.retrying = true
@@ -399,6 +403,9 @@ func (m Model) current() (model.Thread, bool) {
 // followReader points the reader at the current conversation: from the top,
 // with unread messages and the last one expanded, as Gmail opens them.
 func (m *Model) followReader() {
+	if m.reading() {
+		return // the page read together stays as it opened
+	}
 	t, ok := m.current()
 	if !ok {
 		m.readerID = ""

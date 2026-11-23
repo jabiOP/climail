@@ -8,7 +8,7 @@
    │ enter/esc open / back               I         move to Inbox            │   
    │ n/p       next / prev (reader)      N         mark read / unread       │   
    │                                     *         star / unstar            │   
-   │ Everywhere                          x         select for bulk actions  │   
+   │ Everywhere                          x/T       select / read together   │   
    │ c         write a new mail          u         undo the last change     │   
    │ /         search all mail           o         expand / collapse all    │   
    │ s         sync now                  O         open in Gmail (web)      │   
