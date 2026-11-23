@@ -24,6 +24,12 @@ delivered; mail to anyone else only lands in Sent.
 side by side (the reader previews the conversation under the cursor without marking it read); narrower, one pane at a
 time. `?` lists every key.
 
+With several accounts, each has its own color (Google Calendar's, as in clindar), on its dot in the sidebar and its
+name above the list. `All accounts`, first in the sidebar and in the `[`/`]` round, shows every account's mail in one
+list, newest first, each conversation with a stripe in its account's color: Inbox, Starred, Sent, Drafts, All Mail,
+Spam and Trash, their unread counts added up. Actions, replies and attachments use the conversation's own account;
+`c` writes from the default account (the first added).
+
 | Keys | Action |
 |---|---|
 | `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls; when it can't scroll further, `j`/`k` move `▶` like `tab`/`shift+tab`; in the reader `J`/`K` read the next/previous message: `▶` moves to it, opens it and brings it to the top) |
@@ -38,7 +44,7 @@ time. `?` lists every key.
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
 | `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
 | `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
-| `[`/`]`, `b`, `s`, `ZZ` | previous/next account, hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
+| `[`/`]`, `b`, `s`, `ZZ` | previous/next account (or all accounts at once), hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
 
 Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `To:`, `Cc:`, `Bcc:`, `Subject:` and `Attach:`
 lines (one file per `Attach:` line), a blank line, then the body, in Markdown (`**bold**`, `_italic_`,

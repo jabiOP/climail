@@ -28,6 +28,8 @@ Last updated: 2026-11-23
 - The config and data folders and the mail cache are private to the user, made so even if an earlier run left them open
 - Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
+- All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
+- Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts
 
 ## Next
 
@@ -36,7 +38,8 @@ Last updated: 2026-11-23
   attachment download and open, Gmail search, display name on sent mail,
   drafts (save, continue one started on the web, send), recipients by name,
   formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together,
-  macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`
+  macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
+  All accounts with real accounts (actions and replies in the right account; the colors readable on light and dark terminals)
 
 ## Later
 
@@ -70,4 +73,7 @@ Last updated: 2026-11-23
 - Only drafts keep their HTML in the cache, to be continued with their formatting. A draft whose HTML is what its text renders to was saved by climail: its text is continued as typed, not converted back.
 - Text from mail is cleaned of control characters and direction overrides where it is printed (the TUI's `fit`/`row`, the CLI's stdout/stderr), not when stored: mail already cached is covered, and nothing escapes through a path that forgot to clean.
 - Dependency `golang.org/x/sys` v0.50.0 (already in the module graph via `x/term`) sets the macOS quarantine mark on saved attachments, as Mail and browsers do.
+- All accounts merges each account's newest conversations in the service (no cross-account SQL): the store stays per account, and N accounts × one page is cheap. Only system mailboxes are shown there; user labels belong to one account.
+- The TUI tells conversations apart by account and ID: two accounts' IDs can collide (the demo's do).
+- Account colors follow the order accounts were added, from Google Calendar's event palette; not configurable until someone needs it.
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

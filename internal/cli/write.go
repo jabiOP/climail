@@ -61,7 +61,7 @@ func newActionCmds(app *App) []*cobra.Command {
 					}
 					threads = append(threads, t)
 				}
-				if _, err := svc.Apply(ctx, acct, threads, a.action); err != nil {
+				if _, err := svc.Apply(ctx, threads, a.action); err != nil {
 					return err
 				}
 				fmt.Fprintf(app.Stderr, "%s %s.\n", a.action.Done, conversations(len(threads)))

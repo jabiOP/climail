@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -83,6 +84,32 @@ type seg struct {
 }
 
 func s(text string, style lipgloss.Style) seg { return seg{text, style} }
+
+// accountColors are Google Calendar's event colors (as clindar draws them),
+// given to accounts in the order they were added, so their mail is told
+// apart at a glance.
+var accountColors = []string{
+	"#039be5", // Peacock
+	"#d50000", // Tomato
+	"#0b8043", // Basil
+	"#f6bf26", // Banana
+	"#8e24aa", // Grape
+	"#f4511e", // Tangerine
+	"#3f51b5", // Blueberry
+	"#e67c73", // Flamingo
+	"#33b679", // Sage
+	"#7986cb", // Lavender
+	"#616161", // Graphite
+}
+
+// accountStyle draws in the account's color.
+func (m Model) accountStyle(account string) lipgloss.Style {
+	i := slices.Index(m.accounts, account)
+	if i < 0 {
+		return dim
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(accountColors[i%len(accountColors)]))
+}
 
 // labelStyle draws a label in its Gmail color, if it has one.
 func labelStyle(color string) lipgloss.Style {

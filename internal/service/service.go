@@ -21,8 +21,28 @@ func New(s *store.Store) *Service { return &Service{store: s} }
 
 func (s *Service) Accounts(ctx context.Context) ([]string, error) { return s.store.Accounts(ctx) }
 
+// AllAccounts, as an account, reads every account at once: their
+// conversations merged newest first, their system mailboxes added up.
+const AllAccounts = ""
+
 func (s *Service) Threads(ctx context.Context, account string, v store.View, limit, offset int) ([]model.Thread, error) {
-	return s.store.Threads(ctx, account, v, limit, offset)
+	if account != AllAccounts {
+		return s.store.Threads(ctx, account, v, limit, offset)
+	}
+	accounts, err := s.store.Accounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var all []model.Thread
+	for _, a := range accounts {
+		threads, err := s.store.Threads(ctx, a, v, limit+offset, 0)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, threads...)
+	}
+	slices.SortStableFunc(all, func(a, b model.Thread) int { return b.Latest().Date.Compare(a.Latest().Date) })
+	return all[min(offset, len(all)):min(offset+limit, len(all))], nil
 }
 
 // ThreadsByID loads threads in the given order (search results).
@@ -54,33 +74,54 @@ var (
 
 // Undo reverses one Apply exactly, whatever the messages looked like before.
 type Undo struct {
-	Account string
 	Done    string
-	changes []store.Change
+	changes []change
+}
+
+type change struct {
+	account string
+	store.Change
 }
 
 // Empty reports whether the Apply changed nothing (so there's nothing to undo).
 func (u Undo) Empty() bool { return len(u.changes) == 0 }
 
-// Apply changes the threads' messages locally and queues the change for Gmail.
-func (s *Service) Apply(ctx context.Context, account string, threads []model.Thread, a Action) (Undo, error) {
-	var ids []string
+// Apply changes the threads' messages locally, in each thread's account,
+// and queues the change for Gmail.
+func (s *Service) Apply(ctx context.Context, threads []model.Thread, a Action) (Undo, error) {
+	ids := map[string][]string{} // by account
+	var accounts []string
 	for _, t := range threads {
+		if ids[t.Account] == nil {
+			accounts = append(accounts, t.Account)
+		}
 		if a.LatestOnly {
-			ids = append(ids, t.Latest().ID)
+			ids[t.Account] = append(ids[t.Account], t.Latest().ID)
 		} else {
-			ids = append(ids, t.MessageIDs()...)
+			ids[t.Account] = append(ids[t.Account], t.MessageIDs()...)
 		}
 	}
-	changes, err := s.store.ApplyLabels(ctx, account, ids, a.Add, a.Remove)
-	return Undo{Account: account, Done: a.Done, changes: changes}, err
+	undo := Undo{Done: a.Done}
+	err := s.store.InTx(ctx, func(tx *store.Store) error {
+		for _, account := range accounts {
+			changes, err := tx.ApplyLabels(ctx, account, ids[account], a.Add, a.Remove)
+			if err != nil {
+				return err
+			}
+			for _, c := range changes {
+				undo.changes = append(undo.changes, change{account, c})
+			}
+		}
+		return nil
+	})
+	return undo, err
 }
 
 // Undo puts back what an Apply changed.
 func (s *Service) Undo(ctx context.Context, u Undo) error {
 	return s.store.InTx(ctx, func(tx *store.Store) error {
 		for _, c := range u.changes {
-			if _, err := tx.ApplyLabels(ctx, u.Account, []string{c.MessageID}, c.Removed, c.Added); err != nil {
+			if _, err := tx.ApplyLabels(ctx, c.account, []string{c.MessageID}, c.Removed, c.Added); err != nil {
 				return err
 			}
 		}
@@ -109,8 +150,12 @@ var systemMailboxes = []Mailbox{
 // counted are the system mailboxes Gmail shows an unread count for.
 var counted = []string{model.Inbox, model.Spam}
 
-// Mailboxes lists the system mailboxes, then user labels by name.
+// Mailboxes lists the system mailboxes, then user labels by name. For
+// AllAccounts: the system mailboxes, their unread counts added up.
 func (s *Service) Mailboxes(ctx context.Context, account string) ([]Mailbox, error) {
+	if account == AllAccounts {
+		return s.allMailboxes(ctx)
+	}
 	labels, err := s.store.Labels(ctx, account)
 	if err != nil {
 		return nil, err
@@ -141,6 +186,27 @@ func (s *Service) Mailboxes(ctx context.Context, account string) ([]Mailbox, err
 	return append(out, user...), nil
 }
 
+func (s *Service) allMailboxes(ctx context.Context) ([]Mailbox, error) {
+	accounts, err := s.store.Accounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := slices.Clone(systemMailboxes)
+	for i := range out {
+		out[i].Path = out[i].Name
+	}
+	for _, a := range accounts {
+		boxes, err := s.Mailboxes(ctx, a)
+		if err != nil {
+			return nil, err
+		}
+		for i := range out {
+			out[i].Unread += boxes[i].Unread // the system mailboxes come first, in the same order
+		}
+	}
+	return out, nil
+}
+
 // ResolveLabel finds a mailbox by its name (any case, "Work/Clients" for
 // nested labels) or label ID.
 func (s *Service) ResolveLabel(ctx context.Context, account, name string) (Mailbox, error) {
@@ -162,7 +228,12 @@ type Status struct {
 	LastSync time.Time // zero if never
 }
 
+// Status is one account's; for AllAccounts, theirs added up, as of the
+// least recent sync.
 func (s *Service) Status(ctx context.Context, account string) (Status, error) {
+	if account == AllAccounts {
+		return s.allStatus(ctx)
+	}
 	var st Status
 	var err error
 	if st.Pending, err = s.store.PendingCount(ctx, account); err != nil {
@@ -176,6 +247,26 @@ func (s *Service) Status(ctx context.Context, account string) (Status, error) {
 	st.Unsent = unsent
 	st.LastSync, err = s.store.LastSync(ctx, account)
 	return st, err
+}
+
+func (s *Service) allStatus(ctx context.Context) (Status, error) {
+	accounts, err := s.store.Accounts(ctx)
+	if err != nil {
+		return Status{}, err
+	}
+	var out Status
+	for i, a := range accounts {
+		st, err := s.Status(ctx, a)
+		if err != nil {
+			return Status{}, err
+		}
+		out.Pending += st.Pending
+		out.Unsent += st.Unsent
+		if i == 0 || st.LastSync.Before(out.LastSync) {
+			out.LastSync = st.LastSync
+		}
+	}
+	return out, nil
 }
 
 // Send queues a draft; it goes with the next sync.

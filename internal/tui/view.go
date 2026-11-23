@@ -10,6 +10,7 @@ import (
 
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/output"
+	"github.com/jabiOP/climail/internal/service"
 )
 
 // layout is the width of each pane; 0 means hidden.
@@ -114,15 +115,18 @@ func (m Model) sidebar(w, h int) []string {
 		if i == m.side && m.focus == paneSidebar {
 			base = lipgloss.NewStyle().Background(cursorBg)
 		}
-		if r.box == nil { // an account
-			mark, st, count := "▸ ", dim, ""
-			if r.account == m.account {
+		if r.box == nil { // an account, or all of them
+			mark, st, count, dot := "▸ ", dim, "", "● "
+			if r.account == service.AllAccounts {
+				dot = ""
+			}
+			if r.account == m.shown() {
 				mark, st = "▾ ", bold
-			} else if n := m.others[r.account]; n > 0 {
+			} else if n := m.unreadIn(r.account); n > 0 {
 				count = fmt.Sprint(n)
 			}
-			lines = append(lines, row(base, s(" "+mark, st), s(fit(r.account, w-4-width(count)), st),
-				s(count+" ", accentFg)))
+			lines = append(lines, row(base, s(" "+mark, st), s(dot, m.accountStyle(r.account)),
+				s(fit(accountName(r.account), w-4-width(dot)-width(count)), st), s(count+" ", accentFg)))
 			continue
 		}
 		b := r.box
@@ -143,6 +147,18 @@ func (m Model) sidebar(w, h int) []string {
 			s(count, st), s(" ", plain)))
 	}
 	return pad(lines, w, h)
+}
+
+// unreadIn is how many conversations are unread in an account's Inbox, or in all of them.
+func (m Model) unreadIn(account string) int {
+	if account != service.AllAccounts {
+		return m.others[account]
+	}
+	n := 0
+	for _, c := range m.others {
+		n += c
+	}
+	return n
 }
 
 // --- conversation list ---
@@ -175,11 +191,16 @@ func (m Model) listTitle(w int) string {
 	if len(notes) > 0 {
 		left += " · " + strings.Join(notes, " · ")
 	}
-	right := ""
+	right, rightStyle := "", dim
 	if len(m.accounts) > 1 || !m.sidebarShown() {
-		right = m.account
+		right, rightStyle = accountName(m.shown()), m.accountStyle(m.shown())
 	}
-	return m.paneTitle(paneList, left, right, w)
+	st := bold
+	if m.focus == paneList {
+		st = title
+	}
+	rw := width(right)
+	return row(plain, s(" ", plain), s(fit(left, max(w-rw-2, 0)), st), s(fitRight(right, rw)+" ", rightStyle))
 }
 
 func plural(n int, what string) string {
@@ -220,6 +241,8 @@ func (m Model) list(w, h int) []string {
 // listRow draws one conversation:
 //
 //	▌● ★ Alice, Bob (3)   Subject — snippet               📎 Nov 3
+//
+// Showing every account, a stripe in the account's color follows the bar.
 func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Time) string {
 	base := plain
 	bar := " "
@@ -229,9 +252,14 @@ func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Tim
 			base = lipgloss.NewStyle().Background(cursorBg)
 		}
 	}
+	stripe := ""
+	if m.all {
+		stripe = "▌ "
+		w -= width(stripe)
+	}
 	mark, markStyle := "  ", accentFg
 	switch {
-	case m.selected[t.ID]:
+	case m.selected[threadKey(t)]:
 		mark = "✓ "
 	case t.Unread():
 		mark = "● "
@@ -265,7 +293,7 @@ func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Tim
 	}
 	fromText := fit(from, fromW-width(count))
 	return row(base,
-		s(bar, accentFg), s(mark, markStyle), s(star, starStyle),
+		s(bar, accentFg), s(stripe, m.accountStyle(t.Account)), s(mark, markStyle), s(star, starStyle),
 		s(fromText, text), s(count, dim), s("  ", plain),
 		s(fit(subject, subjW), text), s(snippet, dim),
 		s(" "+clip+" ", dim), s(fitRight(output.ShortDate(t.Latest().Date, now), dateW), text), s(" ", plain))
@@ -297,7 +325,7 @@ func (m Model) reader(w, h int) []string {
 // shownLabels are the labels worth showing on a conversation, by name.
 func (m Model) shownLabels(t model.Thread) []string {
 	names := map[string]string{}
-	for _, b := range m.boxes {
+	for _, b := range m.boxesOf[t.Account] {
 		names[b.ID] = b.Path
 	}
 	var out []string
@@ -331,19 +359,20 @@ func (m Model) readerLines(w int) []string {
 		if i > 0 {
 			out = append(out, strings.Repeat(" ", w))
 		}
+		current := threadKey(o) == threadKey(t)
 		mark := "  "
-		if o.ID == t.ID {
+		if current {
 			mark = "▶ "
 		}
 		pointed := ""
-		if o.ID == t.ID {
+		if current {
 			msg, _ := m.pointed()
 			pointed = msg.ID
 		}
 		body, _ := m.threadLines(o, w, pointed)
 		lines := append([]string{row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},
 			body...)
-		if o.ID == t.ID {
+		if current {
 			barLines(lines)
 		}
 		out = append(out, lines...)
