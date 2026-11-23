@@ -1004,3 +1004,56 @@ func TestReader_OneMessageIsntMarked(t *testing.T) {
 		t.Errorf("marked %q, %q", barred, arrow)
 	}
 }
+
+// top is the reader's first line shown.
+func (f *fixture) top() string {
+	return f.model().readerLines(f.model().readerWidth())[f.model().scroll]
+}
+
+func TestReader_OpensOnTheMessageReplyAnswersAndFollowsTheScroll(t *testing.T) {
+	f := newFixture(t, 80, 24)
+
+	f.keys("enter") // the launch plan: Maya, Tom, Maya
+
+	if !strings.Contains(f.top(), "▶ Maya Chen <maya@work.example>") {
+		t.Errorf("top %q, want Maya's latest, marked", f.top())
+	}
+	f.keys("k")
+	if _, arrow := f.marked(); !strings.Contains(arrow, "▶ Tom Okafor") {
+		t.Errorf("k: ▶ on %q, want Tom's", arrow)
+	}
+	f.keys("g", "g")
+	if _, arrow := f.marked(); !strings.Contains(arrow, "▶ Maya Chen") || !strings.Contains(arrow, "Hi both") {
+		t.Errorf("gg: ▶ on %q, want Maya's first", arrow)
+	}
+	f.keys("G")
+	if _, arrow := f.marked(); !strings.Contains(arrow, "<maya@work.example>") {
+		t.Errorf("G: ▶ on %q, want Maya's latest", arrow)
+	}
+}
+
+func TestReader_ActionsApplyToTheMarkedMessage(t *testing.T) {
+	for _, tc := range []struct{ keys, want string }{
+		{"r", "To: Tom Okafor <tom@work.example>"},
+		{"f", "From: Tom Okafor <tom@work.example>"},
+	} {
+		f := newFixture(t, 80, 24)
+		f.keys("enter", "k") // Tom's message
+
+		f.keys(tc.keys)
+
+		c := f.model().composing
+		if c == nil {
+			t.Fatalf("%s: not composing", tc.keys)
+		}
+		if text := "To: " + c.base.To + "\n" + c.base.Body; !strings.Contains(text, tc.want) {
+			t.Errorf("%s: want %q in\n%s", tc.keys, tc.want, text)
+		}
+	}
+
+	f := newFixture(t, 80, 24)
+	f.keys("enter", "k", "D") // Tom's message has none; Maya's latest has one
+	if !strings.Contains(f.view(), "no attachments here") {
+		t.Errorf("D on Tom's message:\n%s", f.view())
+	}
+}

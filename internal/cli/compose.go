@@ -80,7 +80,7 @@ func newReplyCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return app.editAndSend(ctx, compose.Reply(t, acct, all, app.Now()))
+			return app.editAndSend(ctx, compose.Reply(t, compose.ReplyTarget(t, acct), acct, all, app.Now()))
 		},
 	}
 	addAccountFlag(cmd, &account)
@@ -109,7 +109,7 @@ func newForwardCmd(app *App) *cobra.Command {
 			if err != nil {
 				fmt.Fprintf(app.Stderr, "climail: warning: the attachments aren't included: %v\n", err)
 			}
-			return app.editAndSend(ctx, f.over(compose.Forward(t, acct, files, app.Now())))
+			return app.editAndSend(ctx, f.over(compose.Forward(t.Latest(), acct, files, app.Now())))
 		},
 	}
 	addAccountFlag(cmd, &account)

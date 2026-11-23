@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/service"
 	"github.com/jabiOP/climail/internal/store"
@@ -280,6 +281,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.clampOffset()
+		m.readerID = "" // lines wrap anew: back to the message a reply answers
+		m.followReader()
 		return m, nil
 	case loadedMsg:
 		if msg.seq != m.loadSeq {
@@ -453,6 +456,33 @@ func (m *Model) followReader() {
 			m.expanded[msg.ID] = true
 		}
 	}
+	if len(t.Messages) > 1 { // the message a reply answers at the top: ▶
+		_, starts := m.threadLines(t, m.readerWidth(), "")
+		target := compose.ReplyTarget(t, t.Account).ID
+		m.scroll = starts[slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == target })]
+		m.scrollBy(0)
+	}
+}
+
+// pointed is the message ▶ marks, which reply, forward and the attachment
+// keys act on: the one at the top of the reader (reading together: the one a
+// reply answers).
+func (m Model) pointed() (model.Message, bool) {
+	t, ok := m.current()
+	if !ok {
+		return model.Message{}, false
+	}
+	if m.reading() || len(t.Messages) == 1 {
+		return compose.ReplyTarget(t, t.Account), true
+	}
+	_, starts := m.threadLines(t, m.readerWidth(), "")
+	i := 0
+	for j, s := range starts {
+		if s <= m.scroll {
+			i = j
+		}
+	}
+	return t.Messages[i], true
 }
 
 // Run starts the TUI full-screen and blocks until the user quits.

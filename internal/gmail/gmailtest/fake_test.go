@@ -61,7 +61,7 @@ func TestConnect_DeliversBetweenAccountsInTheSameConversation(t *testing.T) {
 		t.Error("delivered to an account not connected")
 	}
 
-	reply := compose.Reply(model.Thread{ID: m.ThreadID, Messages: got}, home.Email, false, time.Now())
+	reply := compose.Reply(model.Thread{ID: m.ThreadID, Messages: got}, got[len(got)-1], home.Email, false, time.Now())
 	reply.Body = "Sounds good.\n" + reply.Body
 	send(t, home, reply, reply.ThreadID)
 

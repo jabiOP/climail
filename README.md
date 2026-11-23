@@ -36,8 +36,8 @@ time. `?` lists every key.
 | `o`, `O` | expand/collapse all messages, open in Gmail on the web |
 | `/` | search mail as you type (local cache); `enter` then searches all of Gmail, with its syntax (`from:maya has:attachment`); `esc` cancels |
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
-| `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor); in a conversation of several messages, the one a reply answers is marked with `▶` and a bar |
-| `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir` |
+| `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor); in a conversation of several messages, they act on the message at the top of the reader, marked with `▶` and a bar (it opens on the one a reply answers: the latest from someone else; scroll to pick another) |
+| `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
 | `[`/`]`, `b`, `s`, `q` | previous/next account, hide mailboxes, sync now, quit |
 
 Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `To:`, `Cc:`, `Bcc:`, `Subject:` and `Attach:`

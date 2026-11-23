@@ -244,7 +244,8 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openInBrowser(targets[0])
 	case key.Matches(msg, keys.Reply), key.Matches(msg, keys.ReplyAll):
 		t, _ := m.current()
-		return m.startCompose(compose.Reply(t, m.account, key.Matches(msg, keys.ReplyAll), m.deps.Now()))
+		orig, _ := m.pointed()
+		return m.startCompose(compose.Reply(t, orig, m.account, key.Matches(msg, keys.ReplyAll), m.deps.Now()))
 	case key.Matches(msg, keys.Forward):
 		return m.forward()
 	case key.Matches(msg, keys.SaveFiles):
@@ -386,7 +387,8 @@ func (m Model) togetherStarts(w int) []int {
 			n++ // the blank line between them
 		}
 		starts = append(starts, n)
-		n += len(m.threadLines(t, w, false)) + 1 // and its subject (marks add no lines)
+		lines, _ := m.threadLines(t, w, "")
+		n += len(lines) + 1 // and its subject
 	}
 	return starts
 }
@@ -575,7 +577,11 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) scrollBy(n int) {
 	w := m.readerWidth()
 	end := len(m.readerLines(w)) - m.listRows()
-	if !m.reading() {
+	if !m.reading() { // the last message can come to the top, to be ▶
+		if t, ok := m.current(); ok && len(t.Messages) > 1 {
+			_, starts := m.threadLines(t, w, "")
+			end = max(end, starts[len(starts)-1])
+		}
 		m.scroll = max(min(m.scroll+n, end), 0)
 		return
 	}

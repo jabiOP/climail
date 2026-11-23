@@ -67,23 +67,40 @@ func tilde(path string) string {
 	return path
 }
 
-// saveAll saves every attachment of the current conversation.
+// pointedAttachments are the attachments of the message ▶ marks.
+func (m Model) pointedAttachments() []model.AttachmentRef {
+	t, _ := m.current()
+	msg, _ := m.pointed()
+	return attachmentsOf(t, msg.ID)
+}
+
+// attachmentsOf are the attachments of one of the conversation's messages.
+func attachmentsOf(t model.Thread, messageID string) []model.AttachmentRef {
+	var refs []model.AttachmentRef
+	for _, r := range t.Attachments() {
+		if r.MessageID == messageID {
+			refs = append(refs, r)
+		}
+	}
+	return refs
+}
+
+// saveAll saves every attachment of the message ▶ marks.
 func (m Model) saveAll() (tea.Model, tea.Cmd) {
-	t, ok := m.current()
-	if !ok || len(t.Attachments()) == 0 {
+	refs := m.pointedAttachments()
+	if len(refs) == 0 {
 		m.message = "no attachments here"
 		return m, nil
 	}
 	m.message = "Downloading…"
-	return m, m.download(t.Attachments(), m.deps.DownloadDir, false)
+	return m, m.download(refs, m.deps.DownloadDir, false)
 }
 
 // openAttachment opens the attachment, or asks which when there are several.
 func (m Model) openAttachment() (tea.Model, tea.Cmd) {
-	t, ok := m.current()
-	refs := t.Attachments()
+	refs := m.pointedAttachments()
 	switch {
-	case !ok || len(refs) == 0:
+	case len(refs) == 0:
 		m.message = "no attachments here"
 		return m, nil
 	case len(refs) == 1:
@@ -112,11 +129,12 @@ func (m Model) choosePrompt() string {
 	return "Open: " + strings.Join(parts, " · ") + " · esc cancel"
 }
 
-// forward drafts a forward, fetching the latest message's attachments first.
+// forward drafts a forward of the message ▶ marks, fetching its attachments first.
 func (m Model) forward() (tea.Model, tea.Cmd) {
 	t, _ := m.current()
-	return m.composeWith(t, t.Latest().ID, "forward-", func(paths []string) compose.Draft {
-		return compose.Forward(t, m.account, paths, m.deps.Now())
+	msg, _ := m.pointed()
+	return m.composeWith(t, msg.ID, "forward-", func(paths []string) compose.Draft {
+		return compose.Forward(msg, m.account, paths, m.deps.Now())
 	})
 }
 
@@ -161,12 +179,7 @@ func (m Model) editDraft(t model.Thread, d model.Message) (tea.Model, tea.Cmd) {
 // composeWith opens a draft made with the attachments of one of the
 // conversation's messages, downloaded into a folder of their own.
 func (m Model) composeWith(t model.Thread, messageID, dirPrefix string, draft func(paths []string) compose.Draft) (tea.Model, tea.Cmd) {
-	var refs []model.AttachmentRef
-	for _, r := range t.Attachments() {
-		if r.MessageID == messageID {
-			refs = append(refs, r)
-		}
-	}
+	refs := attachmentsOf(t, messageID)
 	if len(refs) == 0 || m.deps.Download == nil {
 		return m.startCompose(draft(nil))
 	}

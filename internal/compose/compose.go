@@ -47,9 +47,9 @@ func ReplyTarget(t model.Thread, account string) model.Message {
 	return t.Latest()
 }
 
-// Reply drafts a reply to ReplyTarget, quoting it; all replies to everyone on it.
-func Reply(t model.Thread, account string, all bool, now time.Time) Draft {
-	orig := ReplyTarget(t, account)
+// Reply drafts a reply to orig, one of the conversation's messages (usually
+// its ReplyTarget), quoting it; all replies to everyone on it.
+func Reply(t model.Thread, orig model.Message, account string, all bool, now time.Time) Draft {
 	var to, cc []model.Address
 	switch {
 	case orig.From.Email == account: // replying to my own message: to its recipients
@@ -74,10 +74,9 @@ func Reply(t model.Thread, account string, all bool, now time.Time) Draft {
 	}
 }
 
-// Forward drafts a forward of a conversation's latest message. attach are
-// its attachments, downloaded, to send along.
-func Forward(t model.Thread, account string, attach []string, now time.Time) Draft {
-	orig := t.Latest()
+// Forward drafts a forward of a message. attach are its attachments,
+// downloaded, to send along.
+func Forward(orig model.Message, account string, attach []string, now time.Time) Draft {
 	header := fmt.Sprintf("---------- Forwarded message ---------\nFrom: %s\nDate: %s\nSubject: %s\nTo: %s\n",
 		orig.From, output.MessageDate(orig.Date, now), orig.Subject, addresses(orig.To))
 	if len(orig.Cc) > 0 {

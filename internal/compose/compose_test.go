@@ -36,7 +36,7 @@ func TestReply_ToSenderQuoted(t *testing.T) {
 	orig := model.Message{From: alice, To: []model.Address{self, bob}, Cc: []model.Address{carol}, Subject: "Plan",
 		Body: "Line one\n> older", MessageID: "<a@x>", References: "<z@x>", Date: now.Add(-time.Hour)}
 
-	d := compose.Reply(thread(orig), me, false, now)
+	d := reply(thread(orig), me, false, now)
 
 	want := compose.Draft{Account: me, To: "Alice <alice@x.com>", Subject: "Re: Plan", ThreadID: "t1",
 		InReplyTo: "<a@x>", References: "<z@x> <a@x>",
@@ -49,7 +49,7 @@ func TestReply_ToSenderQuoted(t *testing.T) {
 func TestReply_AllSkipsMeAndDuplicates(t *testing.T) {
 	orig := model.Message{From: alice, To: []model.Address{self, bob, alice}, Cc: []model.Address{carol, bob}, Subject: "Re: Plan"}
 
-	d := compose.Reply(thread(orig), me, true, now)
+	d := reply(thread(orig), me, true, now)
 
 	if d.To != "Alice <alice@x.com>, bob@x.com" || d.Cc != "Carol <carol@x.com>" || d.Subject != "Re: Plan" {
 		t.Errorf("To %q, Cc %q, Subject %q", d.To, d.Cc, d.Subject)
@@ -57,7 +57,7 @@ func TestReply_AllSkipsMeAndDuplicates(t *testing.T) {
 }
 
 func TestReply_SkipsMyOwnLatestMessage(t *testing.T) {
-	d := compose.Reply(thread(
+	d := reply(thread(
 		model.Message{From: alice, To: []model.Address{self}, Subject: "Plan"},
 		model.Message{From: self, To: []model.Address{alice}, Subject: "Re: Plan"},
 	), me, false, now)
@@ -68,7 +68,7 @@ func TestReply_SkipsMyOwnLatestMessage(t *testing.T) {
 }
 
 func TestReply_ToMyOwnMessageGoesToItsRecipients(t *testing.T) {
-	d := compose.Reply(thread(model.Message{From: self, To: []model.Address{bob}, Subject: "Hi"}), me, false, now)
+	d := reply(thread(model.Message{From: self, To: []model.Address{bob}, Subject: "Hi"}), me, false, now)
 
 	if d.To != "bob@x.com" {
 		t.Errorf("To = %q", d.To)
@@ -76,7 +76,7 @@ func TestReply_ToMyOwnMessageGoesToItsRecipients(t *testing.T) {
 }
 
 func TestReply_UsesReplyTo(t *testing.T) {
-	d := compose.Reply(thread(model.Message{From: alice, ReplyTo: []model.Address{bob}, Subject: "List"}), me, false, now)
+	d := reply(thread(model.Message{From: alice, ReplyTo: []model.Address{bob}, Subject: "List"}), me, false, now)
 
 	if d.To != "bob@x.com" {
 		t.Errorf("To = %q", d.To)
@@ -86,7 +86,7 @@ func TestReply_UsesReplyTo(t *testing.T) {
 func TestForward(t *testing.T) {
 	orig := model.Message{From: alice, To: []model.Address{self}, Subject: "Report", Body: "See attached.", Date: now}
 
-	d := compose.Forward(thread(orig), me, []string{"/tmp/r.pdf"}, now)
+	d := compose.Forward(orig, me, []string{"/tmp/r.pdf"}, now)
 
 	if d.Subject != "Fwd: Report" || d.To != "" || d.ThreadID != "" || len(d.Attach) != 1 {
 		t.Errorf("draft = %+v", d)
@@ -298,4 +298,9 @@ func TestBuildDraft_TakesUnfinishedRecipients(t *testing.T) {
 	if _, err := (compose.Draft{Account: me, Attach: []string{"/no/such/file"}}).BuildDraft(now); err == nil {
 		t.Error("a missing attachment: want an error")
 	}
+}
+
+// reply is compose.Reply to the conversation's ReplyTarget, as r does.
+func reply(t model.Thread, account string, all bool, now time.Time) compose.Draft {
+	return compose.Reply(t, compose.ReplyTarget(t, account), account, all, now)
 }

@@ -323,7 +323,9 @@ func (m Model) readerLines(w int) []string {
 		return nil
 	}
 	if !m.reading() {
-		return m.threadLines(t, w, true)
+		pointed, _ := m.pointed()
+		lines, _ := m.threadLines(t, w, pointed.ID)
+		return lines
 	}
 	var out []string
 	for i, o := range m.togetherThreads() {
@@ -334,8 +336,13 @@ func (m Model) readerLines(w int) []string {
 		if o.ID == t.ID {
 			mark = "▶ "
 		}
+		pointed := ""
+		if o.ID == t.ID {
+			pointed = compose.ReplyTarget(o, o.Account).ID
+		}
+		body, _ := m.threadLines(o, w, pointed)
 		lines := append([]string{row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},
-			m.threadLines(o, w, o.ID == t.ID)...)
+			body...)
 		if o.ID == t.ID {
 			barLines(lines)
 		}
@@ -344,20 +351,19 @@ func (m Model) readerLines(w int) []string {
 	return out
 }
 
-// threadLines draws one conversation, w cells wide.
-// The message a reply answers is marked when the conversation is current
-// and has more than one: ▶ on its sender, a bar down its left edge.
-func (m Model) threadLines(t model.Thread, w int, current bool) []string {
+// threadLines draws one conversation, w cells wide, and the line each
+// message starts on. The pointed message is marked when there is more than
+// one: ▶ on its sender, a bar down its left edge.
+func (m Model) threadLines(t model.Thread, w int, pointed string) (out []string, starts []int) {
 	target := ""
-	if current && len(t.Messages) > 1 {
-		target = compose.ReplyTarget(t, t.Account).ID
+	if len(t.Messages) > 1 {
+		target = pointed
 	}
 	cw := max(w-2, 10) // a space of margin each side
 	line := func(segs ...seg) string {
 		return row(plain, append([]seg{s(" ", plain)}, append(segs, s(" ", plain))...)...)
 	}
 	blank := line(s(fit("", cw), plain))
-	var out []string
 	if labels := m.shownLabels(t); len(labels) > 0 {
 		out = append(out, line(s(fit(strings.Join(labels, " · "), cw), dim)))
 	}
@@ -370,6 +376,7 @@ func (m Model) threadLines(t model.Thread, w int, current bool) []string {
 		if i > 0 || len(out) > 0 {
 			out = append(out, line(s(strings.Repeat("─", cw), ruleStyle)))
 		}
+		starts = append(starts, len(out))
 		if msg.ID == target {
 			from = len(out)
 		}
@@ -405,7 +412,7 @@ func (m Model) threadLines(t model.Thread, w int, current bool) []string {
 		}
 		barLines(out[from:to])
 	}
-	return out
+	return out, starts
 }
 
 // barLines draws an accent bar down the left edge of lines, in their margin.
