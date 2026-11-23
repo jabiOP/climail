@@ -1130,3 +1130,29 @@ func TestReader_JKScrollFirst(t *testing.T) {
 		t.Errorf("k at the top: scroll %d, ▶ on %q; want Tom's", f.model().scroll, arrow())
 	}
 }
+
+func TestQuit_NeedsZZ(t *testing.T) {
+	quits := func(keys ...tea.KeyMsg) bool {
+		var m tea.Model = newFixture(t, 80, 24).model()
+		var cmd tea.Cmd
+		for _, k := range keys {
+			m, cmd = m.Update(k)
+		}
+		if cmd == nil {
+			return false
+		}
+		_, ok := cmd().(tea.QuitMsg)
+		return ok
+	}
+	r := func(s string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)} }
+
+	if quits(r("q")) {
+		t.Error("q quits")
+	}
+	if !quits(r("Z"), r("Z")) {
+		t.Error("ZZ doesn't quit")
+	}
+	if !quits(tea.KeyMsg{Type: tea.KeyCtrlC}) {
+		t.Error("ctrl+c doesn't quit")
+	}
+}

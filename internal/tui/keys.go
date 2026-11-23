@@ -16,7 +16,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 var keys = struct {
 	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev, NextMessage, PrevMessage,
 	Archive, Trash, Inbox, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
-	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit key.Binding
+	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit, ForceQuit key.Binding
 }{
 	Up:          bind("k", "up", "k", "up"),
 	Down:        bind("j", "down", "j", "down"),
@@ -56,7 +56,8 @@ var keys = struct {
 	NextAccount: bind("]", "next account", "]"),
 	Sidebar:     bind("b", "show / hide mailboxes (wide screens)", "b"),
 	Help:        bind("?", "help", "?"),
-	Quit:        bind("q", "quit", "q", "ctrl+c"),
+	Quit:        bind("ZZ", "quit", "Z"),
+	ForceQuit:   bind("^c", "quit", "ctrl+c"),
 }
 
 // goTo lists the mailboxes the key after g opens, like Gmail's shortcuts.

@@ -16,7 +16,7 @@
    │ [/]       previous / next account   Go to                              │   
    │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   
    │ ?         this help                 gt/gd     Sent / Drafts            │   
-   │ q         quit                      ga/g#     All Mail / Trash         │   
+   │ ZZ        quit                      ga/g#     All Mail / Trash         │   
    │                                     g!        Spam                     │   
    │                                                                        │   
    │ Press any key to close.                                                │   

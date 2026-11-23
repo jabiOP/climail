@@ -56,14 +56,19 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.act(service.Trash)
 		case p == "g" && k == "g":
 			return m.top()
+		case p == "Z" && k == "Z":
+			return m, tea.Quit
 		case p == "g" && i >= 0:
 			return m.openBox(goTo[i].box)
 		}
 		return m, nil // an unknown pair does nothing, like vim
 	}
 	switch {
-	case key.Matches(msg, keys.Quit):
+	case key.Matches(msg, keys.ForceQuit):
 		return m, tea.Quit
+	case msg.String() == "q": // too easy to hit by mistake
+		m.message = "ZZ quits"
+		return m, nil
 	case key.Matches(msg, keys.Help):
 		m.help = true
 		return m, nil
@@ -98,7 +103,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		e := m.undos[len(m.undos)-1]
 		m.undos = m.undos[:len(m.undos)-1]
 		return m, m.undoCmd(e)
-	case key.Matches(msg, keys.Top), key.Matches(msg, keys.Trash):
+	case key.Matches(msg, keys.Top), key.Matches(msg, keys.Trash), key.Matches(msg, keys.Quit):
 		m.pending = msg.String()
 		return m, nil
 	}
