@@ -329,7 +329,11 @@ func (m Model) readerLines(w int) []string {
 		if i > 0 {
 			out = append(out, strings.Repeat(" ", w))
 		}
-		lines := append([]string{row(plain, s(" ", plain), s(fit(output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},
+		mark := "  "
+		if o.ID == t.ID {
+			mark = "▶ "
+		}
+		lines := append([]string{row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},
 			m.threadLines(o, w)...)
 		if o.ID == t.ID {
 			for j, l := range lines { // every line starts with a space of margin

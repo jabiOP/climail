@@ -949,6 +949,9 @@ func TestReadTogether_CurrentIsMarkedAllAlong(t *testing.T) {
 		}
 		if strings.Contains(l, output.Subject(cur.Subject())) {
 			inCurrent = true
+			if !strings.Contains(l, "▶ "+output.Subject(cur.Subject())) {
+				t.Errorf("current subject without ▶: %q", l)
+			}
 		}
 		if strings.TrimSpace(l) != "" && strings.HasPrefix(l, "▌") != inCurrent { // not the gaps between
 			t.Errorf("bar %v, want %v: %q", !inCurrent, inCurrent, l)
