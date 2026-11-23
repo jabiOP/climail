@@ -35,6 +35,7 @@ func All(ctx context.Context, fetch Fetch, refs []model.AttachmentRef, dir strin
 
 // Save writes data into dir as name, private to the user, never overwriting:
 // a second "report.pdf" becomes "report (1).pdf". The name can't leave dir.
+// On macOS the file is marked as downloaded (see quarantine).
 func Save(dir, name string, data []byte) (string, error) {
 	name = filepath.Base(strings.NewReplacer("/", "_", "\\", "_", "\x00", "").Replace(name))
 	if name == "." || name == "" {
@@ -61,6 +62,9 @@ func Save(dir, name string, data []byte) (string, error) {
 		_, err = f.Write(data)
 		if cerr := f.Close(); err == nil {
 			err = cerr
+		}
+		if err == nil {
+			err = quarantine(path)
 		}
 		return path, err
 	}
