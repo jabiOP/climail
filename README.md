@@ -26,7 +26,7 @@ time. `?` lists every key.
 
 | Keys | Action |
 |---|---|
-| `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls; when it can't scroll further, `j`/`k` move `▶` like `tab`/`shift+tab`) |
+| `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls; when it can't scroll further, `j`/`k` move `▶` like `tab`/`shift+tab`; in the reader `J`/`K` read the next/previous message: `▶` moves to it, opens it and brings it to the top) |
 | `h`/`l`, `enter`, `esc` | move between panes; open (in Drafts: continue the draft; in the reader: open or close the `▶` message); back (also clears a selection or search) |
 | `n`/`p`, `tab`/`shift+tab` | next/previous conversation, from the reader; next/previous message, which `▶` marks (read together: on into the next/previous conversation) |
 | `a`, `dd`, `I` | archive, move to Trash, move to Inbox |

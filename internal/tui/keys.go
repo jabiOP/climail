@@ -14,7 +14,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 // keys is the single source of truth for bindings: Update matches on them
 // and the help screen lists them.
 var keys = struct {
-	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev, NextMessage, PrevMessage,
+	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev, NextMessage, PrevMessage, ReadNext, ReadPrev,
 	Archive, Trash, Inbox, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
 	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit, ForceQuit key.Binding
 }{
@@ -34,6 +34,8 @@ var keys = struct {
 	Prev:        bind("p", "previous conversation (reader)", "p"),
 	NextMessage: bind("tab", "next message (reader)", "tab"),
 	PrevMessage: bind("⇧tab", "previous message (reader)", "shift+tab"),
+	ReadNext:    bind("J", "read the next message (reader)", "J"),
+	ReadPrev:    bind("K", "read the previous message (reader)", "K"),
 	Archive:     bind("a", "archive", "a"),
 	Trash:       bind("dd", "move to Trash", "d"),
 	Inbox:       bind("I", "move to Inbox", "I"),
@@ -87,7 +89,7 @@ func helpText() string {
 	}
 	left := helpColumn(
 		"Move", []helpRow{
-			pair(keys.Down, keys.Up, "down / up"), pair(keys.PageDown, keys.PageUp, "page down / up"),
+			pair(keys.Down, keys.Up, "down / up"), pair(keys.PageDown, keys.PageUp, "page / next msg (reader)"),
 			pair(keys.HalfDown, keys.HalfUp, "half page down / up"), pair(keys.Top, keys.Bottom, "top / bottom"),
 			pair(keys.Left, keys.Right, "pane left / right"), pair(keys.Open, keys.Back, "open / back"),
 			pair(keys.Next, keys.Prev, "next / prev (reader)"),

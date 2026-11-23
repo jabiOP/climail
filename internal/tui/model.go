@@ -491,16 +491,36 @@ func (m *Model) pointBy(n int) {
 	}
 	i = max(min(i, len(t.Messages)-1), 0)
 	m.pointedID = t.Messages[i].ID
-	w := m.readerWidth()
-	_, starts := m.threadLines(t, w, "")
-	line := starts[i]
-	if m.reading() {
-		line += m.togetherStarts(w)[m.togetherAt()] + 1 // under its subject
-	}
-	if line < m.scroll || line >= m.scroll+m.listRows()-1 {
+	if line := m.pointedLine(); line < m.scroll || line >= m.scroll+m.listRows()-1 {
 		m.scroll = line
 		m.scrollBy(0)
 	}
+}
+
+// pointedLine is the reader line the ▶ message starts on.
+func (m Model) pointedLine() int {
+	t, _ := m.current()
+	p, _ := m.pointed()
+	w := m.readerWidth()
+	_, starts := m.threadLines(t, w, "")
+	line := starts[max(slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == p.ID }), 0)]
+	if m.reading() {
+		line += m.togetherStarts(w)[m.togetherAt()] + 1 // under its subject
+	}
+	return line
+}
+
+// readBy moves ▶ n messages along, like tab, and opens that message at the
+// top of the reader, even below the end of the conversation.
+func (m *Model) readBy(n int) {
+	m.pointBy(n)
+	p, ok := m.pointed()
+	if !ok {
+		return
+	}
+	m.expanded[p.ID] = true
+	m.scroll = m.pointedLine()
+	m.scrollBy(0)
 }
 
 // Run starts the TUI full-screen and blocks until the user quits.

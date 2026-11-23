@@ -1156,3 +1156,53 @@ func TestQuit_NeedsZZ(t *testing.T) {
 		t.Error("ctrl+c doesn't quit")
 	}
 }
+
+func TestReader_JKReadTheNextMessage(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	top := func() string { return f.model().readerLines(80)[f.model().scroll] }
+	f.keys("enter") // the launch plan, ▶ on Maya's latest
+
+	f.keys("K")
+	if !strings.Contains(top(), "▶ Tom Okafor <tom@work.example>") {
+		t.Errorf("K: top %q, want Tom's message, open", top())
+	}
+	f.keys("K")
+	if !strings.Contains(top(), "▶ Maya Chen <maya@work.example>") || !f.model().expanded["t-launch-01"] {
+		t.Errorf("K: top %q, want Maya's first, open", top())
+	}
+	f.keys("J")
+	if !strings.Contains(top(), "▶ Tom Okafor <tom@work.example>") || !f.model().expanded["t-launch-01"] {
+		t.Errorf("J: top %q, want Tom's, Maya's first still open", top())
+	}
+	scroll := f.model().scroll
+	f.keys("j") // the rest fits below: j moves ▶ on, without scrolling back
+	if _, arrow := f.marked(); f.model().scroll != scroll || !strings.Contains(arrow, "▶ Maya Chen <maya@work.example>") {
+		t.Errorf("j after J: scroll %d (was %d), ▶ on %q; want Maya's latest", f.model().scroll, scroll, arrow)
+	}
+	f.keys("J") // the last: J keeps it, at the top
+	if !strings.Contains(top(), "▶ Maya Chen <maya@work.example>") {
+		t.Errorf("J at the last: top %q", top())
+	}
+}
+
+func TestReadTogether_JGoesOnToTheNextConversation(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	unread := f.unreadListed()
+	f.keys("T")
+
+	f.keys("J")
+
+	if f.currentID() != unread[1] {
+		t.Errorf("J at the last message: current %s, want %s", f.currentID(), unread[1])
+	}
+}
+
+func TestList_JKStillPage(t *testing.T) {
+	f := newFixture(t, 80, 10)
+
+	f.keys("J")
+
+	if f.model().cursor < 5 {
+		t.Errorf("J in the list: cursor %d, want a page down", f.model().cursor)
+	}
+}

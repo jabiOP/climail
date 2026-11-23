@@ -1,7 +1,7 @@
    ╭────────────────────────────────────────────────────────────────────────╮   
    │ Move                                Conversations                      │   
    │ j/k       down / up                 r/R       reply / reply all        │   
-   │ J/K       page down / up            f         forward                  │   
+   │ J/K       page / next msg (reader)  f         forward                  │   
    │ ^d/^u     half page down / up       A/D       open / save attachments  │   
    │ gg/G      top / bottom              a         archive                  │   
    │ h/l       pane left / right         dd        move to Trash            │   
