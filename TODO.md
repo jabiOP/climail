@@ -41,6 +41,7 @@ Last updated: 2026-11-23
 
 ## Known issues
 
+- Security: sanitize untrusted email subjects, sender names, snippets, and bodies before TUI/CLI terminal rendering to prevent ANSI/OSC/control-sequence injection. Add focused tests for ESC, CSI, OSC, multiline text, and ordinary Unicode.
 
 ## Decisions
 
