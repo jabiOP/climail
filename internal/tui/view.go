@@ -283,7 +283,7 @@ func (m Model) reader(w, h int) []string {
 		right = plural(n, "message")
 	}
 	if m.reading() {
-		left, right = plural(len(m.togetherThreads()), "conversation")+" together", ""
+		left, right = fmt.Sprintf("Together %d/%d · %s", m.togetherAt()+1, len(m.togetherThreads()), left), ""
 	}
 	lines := []string{m.paneTitle(paneReader, left, right, w)}
 	body := m.readerLines(w)
@@ -314,7 +314,8 @@ func (m Model) shownLabels(t model.Thread) []string {
 }
 
 // readerLines draws the whole conversation, or the ones read together under
-// their subjects (the current one marked), w cells wide; the reader scrolls over it.
+// their subjects, the current one with a bar down its left edge, w cells
+// wide; the reader scrolls over it.
 func (m Model) readerLines(w int) []string {
 	t, ok := m.current()
 	if !ok {
@@ -328,12 +329,14 @@ func (m Model) readerLines(w int) []string {
 		if i > 0 {
 			out = append(out, strings.Repeat(" ", w))
 		}
-		mark := "  "
+		lines := append([]string{row(plain, s(" ", plain), s(fit(output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},
+			m.threadLines(o, w)...)
 		if o.ID == t.ID {
-			mark = "▶ "
+			for j, l := range lines { // every line starts with a space of margin
+				lines[j] = accentFg.Render("▌") + strings.TrimPrefix(l, " ")
+			}
 		}
-		out = append(out, row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain)))
-		out = append(out, m.threadLines(o, w)...)
+		out = append(out, lines...)
 	}
 	return out
 }

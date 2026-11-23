@@ -57,10 +57,8 @@ After each task, briefly report:
 4. Remaining issues or important decisions.
 
 ## Git workflow
-- Before starting a task on `main`, create a short-lived branch for it.
-- Commit and push that branch after completing the originally requested scope, once tests and lint pass.
+- Commit and push after completing the originally requested scope, once tests and lint pass.
 - If manual verification is still pending, commit and push the branch anyway, keep the task open in TODO.md and say so in the completion report.
-- Merge into `main` and push `main` only after the user confirms; then mark the task done and delete the branch.
 - Review changes with git diff.
 - Use concise, descriptive commit messages.
 - Do not include unrelated changes in a commit.

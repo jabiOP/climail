@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/jabiOP/climail/internal/demo"
 	"github.com/jabiOP/climail/internal/model"
+	"github.com/jabiOP/climail/internal/output"
 	"github.com/jabiOP/climail/internal/service"
 	"github.com/jabiOP/climail/internal/store"
 )
@@ -797,7 +799,7 @@ func TestReadTogether_UnreadOnOnePageMarkedRead(t *testing.T) {
 
 	f.keys("T")
 
-	if f.model().focus != paneReader || !strings.Contains(f.view(), plural(len(unread), "conversation")+" together") {
+	if f.model().focus != paneReader || !strings.Contains(f.view(), f.togetherTitle(1, len(unread))) {
 		t.Fatalf("not reading together:\n%s", f.view())
 	}
 	if f.currentID() != unread[0] {
@@ -831,7 +833,7 @@ func TestReadTogether_ArchiveOneAtATime(t *testing.T) {
 	if f.model().focus != paneReader || f.currentID() != unread[1] || f.model().scroll != 0 {
 		t.Fatalf("focus %v, current %s, scroll %d; want the reader on %s at the top", f.model().focus, f.currentID(), f.model().scroll, unread[1])
 	}
-	if !slices.Contains(f.listed(), unread[1]) || !strings.Contains(f.view(), plural(len(unread)-1, "conversation")+" together") {
+	if !slices.Contains(f.listed(), unread[1]) || !strings.Contains(f.view(), f.togetherTitle(1, len(unread)-1)) {
 		t.Errorf("archived more than one: listed %v\n%s", f.listed(), f.view())
 	}
 
@@ -850,7 +852,7 @@ func TestReadTogether_ArchiveOneAtATime(t *testing.T) {
 
 	f.keys("u") // undo brings the first back to the Inbox and to the page, current
 	if !slices.Contains(f.listed(), unread[0]) || !f.model().reading() || f.currentID() != unread[0] ||
-		!strings.Contains(f.view(), plural(len(unread), "conversation")+" together") {
+		!strings.Contains(f.view(), f.togetherTitle(1, len(unread))) {
 		t.Errorf("undo: listed %v, reading %v, current %s\n%s", f.listed(), f.model().reading(), f.currentID(), f.view())
 	}
 
@@ -893,11 +895,11 @@ func TestReadTogether_UndoAfterTheLastReopensThePage(t *testing.T) {
 
 	f.keys("u")
 
-	if !f.model().reading() || f.currentID() != unread[len(unread)-1] || !strings.Contains(f.view(), "1 conversation together") {
+	if !f.model().reading() || f.currentID() != unread[len(unread)-1] || !strings.Contains(f.view(), f.togetherTitle(1, 1)) {
 		t.Errorf("reading %v, current %s; want the page back with %s\n%s", f.model().reading(), f.currentID(), unread[len(unread)-1], f.view())
 	}
 	f.keys("u")
-	if f.currentID() != unread[len(unread)-2] || !strings.Contains(f.view(), "2 conversations together") {
+	if f.currentID() != unread[len(unread)-2] || !strings.Contains(f.view(), f.togetherTitle(1, 2)) {
 		t.Errorf("second undo: current %s, want %s\n%s", f.currentID(), unread[len(unread)-2], f.view())
 	}
 }
@@ -922,5 +924,38 @@ func TestUndo_History(t *testing.T) {
 	f.keys("u")
 	if !strings.Contains(f.view(), "nothing to undo") {
 		t.Errorf("view:\n%s", f.view())
+	}
+}
+
+// togetherTitle is the reader's title reading together: at which of n, and its subject.
+func (f *fixture) togetherTitle(at, n int) string {
+	t, _ := f.model().current()
+	return fmt.Sprintf("Together %d/%d · %s", at, n, output.Subject(t.Subject()))
+}
+
+func TestReadTogether_CurrentIsMarkedAllAlong(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	unread := f.unreadListed()
+	f.keys("T", "n")
+
+	if !strings.Contains(f.view(), f.togetherTitle(2, len(unread))) {
+		t.Errorf("title doesn't name the current one:\n%s", f.view())
+	}
+	cur := f.thread(unread[1])
+	inCurrent := false
+	for _, l := range f.model().readerLines(80) {
+		if strings.Contains(l, output.Subject(f.thread(unread[2]).Subject())) {
+			inCurrent = false // the next one starts
+		}
+		if strings.Contains(l, output.Subject(cur.Subject())) {
+			inCurrent = true
+		}
+		if strings.TrimSpace(l) != "" && strings.HasPrefix(l, "▌") != inCurrent { // not the gaps between
+			t.Errorf("bar %v, want %v: %q", !inCurrent, inCurrent, l)
+		}
+	}
+	f.keys("j", "j", "j") // scrolled into it: still marked
+	if top := f.model().readerLines(80)[f.model().scroll]; !strings.HasPrefix(top, "▌") {
+		t.Errorf("top line not marked: %q", top)
 	}
 }

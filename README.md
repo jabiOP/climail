@@ -32,7 +32,7 @@ time. `?` lists every key.
 | `a`, `dd`, `I` | archive, move to Trash, move to Inbox |
 | `N`, `*` | mark read/unread, star/unstar |
 | `x`, `u` | select (actions then apply to every selected conversation), undo the last change (again: the ones before, up to 50) |
-| `T` | read together: the selected conversations, else every unread one listed, on one page, marked read. The one at the top is current (`▶`): `a`, `dd`, `r`… act on it alone, and the next one moves up (`u` puts it back); `n`/`p` jump between them, `esc` goes back |
+| `T` | read together: the selected conversations, else every unread one listed, on one page, marked read. The one at the top is current, with a bar down its left edge and its subject in the title (`Together 2/4 · …`): `a`, `dd`, `r`… act on it alone, and the next one moves up (`u` puts it back); `n`/`p` jump between them, `esc` goes back |
 | `o`, `O` | expand/collapse all messages, open in Gmail on the web |
 | `/` | search mail as you type (local cache); `enter` then searches all of Gmail, with its syntax (`from:maya has:attachment`); `esc` cancels |
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
