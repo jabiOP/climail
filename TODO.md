@@ -70,3 +70,4 @@ Last updated: 2026-11-23
 - Only drafts keep their HTML in the cache, to be continued with their formatting. A draft whose HTML is what its text renders to was saved by climail: its text is continued as typed, not converted back.
 - Text from mail is cleaned of control characters and direction overrides where it is printed (the TUI's `fit`/`row`, the CLI's stdout/stderr), not when stored: mail already cached is covered, and nothing escapes through a path that forgot to clean.
 - Dependency `golang.org/x/sys` v0.50.0 (already in the module graph via `x/term`) sets the macOS quarantine mark on saved attachments, as Mail and browsers do.
+- Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

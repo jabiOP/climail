@@ -129,3 +129,9 @@ Lint/format:
 ```bash
 make lint      # gofmt check and go vet
 ```
+
+Vulnerabilities (needs the network):
+
+```bash
+make vuln      # govulncheck: the code and its dependencies against the Go vulnerability database
+```

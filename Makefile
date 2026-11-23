@@ -1,4 +1,4 @@
-.PHONY: install test lint
+.PHONY: install test lint vuln
 
 BIN := $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
 
@@ -13,3 +13,7 @@ test:
 lint:
 	test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
 	go vet ./...
+
+# vuln checks the code and its dependencies against the Go vulnerability database (needs the network).
+vuln:
+	go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
