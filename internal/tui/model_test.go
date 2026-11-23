@@ -962,3 +962,45 @@ func TestReadTogether_CurrentIsMarkedAllAlong(t *testing.T) {
 		t.Errorf("top line not marked: %q", top)
 	}
 }
+
+// marked are the reader's lines with the bar, and the one with ▶.
+func (f *fixture) marked() (barred []string, arrow string) {
+	for _, l := range f.model().readerLines(80) {
+		if strings.HasPrefix(l, "▌") {
+			barred = append(barred, l)
+		}
+		if strings.Contains(l, "▶") {
+			arrow = l
+		}
+	}
+	return barred, arrow
+}
+
+func TestReader_MarksTheMessageReplyAnswers(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	mine := model.Message{Account: workAcct, ID: "t-launch-me", ThreadID: "t-launch", Subject: "Re: Launch plan",
+		Date: now.Add(-time.Minute), From: model.Address{Name: "Me", Email: workAcct}, Body: "On it.",
+		Labels: []string{model.Inbox, model.Sent}}
+	f.st.UpsertMessages(context.Background(), []model.Message{mine})
+	f.keys("g", "i") // reload
+
+	f.keys("enter") // the launch plan: Maya, Tom, Maya, then me
+
+	barred, arrow := f.marked()
+	if !strings.Contains(arrow, "▶ Maya Chen") || !strings.Contains(arrow, "<maya@work.example>") {
+		t.Errorf("▶ on %q, want Maya's latest message", arrow)
+	}
+	page := strings.Join(barred, "\n")
+	if !strings.Contains(page, "migration guide") || strings.Contains(page, "On it.") || strings.Contains(page, "Looks good") || strings.Contains(page, "Hi both") {
+		t.Errorf("the bar isn't on Maya's latest message alone:\n%s", page)
+	}
+}
+
+func TestReader_OneMessageIsntMarked(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	f.keys("j", "enter") // the CI mail: one message
+
+	if barred, arrow := f.marked(); len(barred) > 0 || arrow != "" {
+		t.Errorf("marked %q, %q", barred, arrow)
+	}
+}

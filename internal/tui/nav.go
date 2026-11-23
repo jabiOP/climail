@@ -386,7 +386,7 @@ func (m Model) togetherStarts(w int) []int {
 			n++ // the blank line between them
 		}
 		starts = append(starts, n)
-		n += len(m.threadLines(t, w)) + 1 // and its subject
+		n += len(m.threadLines(t, w, false)) + 1 // and its subject (marks add no lines)
 	}
 	return starts
 }

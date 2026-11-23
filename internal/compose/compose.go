@@ -36,16 +36,20 @@ type Draft struct {
 	DraftID string
 }
 
-// Reply drafts a reply to a conversation's latest message from someone
-// else, quoting it; all replies to everyone on it.
-func Reply(t model.Thread, account string, all bool, now time.Time) Draft {
-	orig := t.Latest()
+// ReplyTarget is the message a reply answers: the conversation's latest
+// from someone else, else its latest.
+func ReplyTarget(t model.Thread, account string) model.Message {
 	for i := len(t.Messages) - 1; i >= 0; i-- {
 		if t.Messages[i].From.Email != account {
-			orig = t.Messages[i]
-			break
+			return t.Messages[i]
 		}
 	}
+	return t.Latest()
+}
+
+// Reply drafts a reply to ReplyTarget, quoting it; all replies to everyone on it.
+func Reply(t model.Thread, account string, all bool, now time.Time) Draft {
+	orig := ReplyTarget(t, account)
 	var to, cc []model.Address
 	switch {
 	case orig.From.Email == account: // replying to my own message: to its recipients

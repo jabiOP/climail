@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/output"
 )
@@ -322,7 +323,7 @@ func (m Model) readerLines(w int) []string {
 		return nil
 	}
 	if !m.reading() {
-		return m.threadLines(t, w)
+		return m.threadLines(t, w, true)
 	}
 	var out []string
 	for i, o := range m.togetherThreads() {
@@ -334,11 +335,9 @@ func (m Model) readerLines(w int) []string {
 			mark = "▶ "
 		}
 		lines := append([]string{row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},
-			m.threadLines(o, w)...)
+			m.threadLines(o, w, o.ID == t.ID)...)
 		if o.ID == t.ID {
-			for j, l := range lines { // every line starts with a space of margin
-				lines[j] = accentFg.Render("▌") + strings.TrimPrefix(l, " ")
-			}
+			barLines(lines)
 		}
 		out = append(out, lines...)
 	}
@@ -346,7 +345,13 @@ func (m Model) readerLines(w int) []string {
 }
 
 // threadLines draws one conversation, w cells wide.
-func (m Model) threadLines(t model.Thread, w int) []string {
+// The message a reply answers is marked when the conversation is current
+// and has more than one: ▶ on its sender, a bar down its left edge.
+func (m Model) threadLines(t model.Thread, w int, current bool) []string {
+	target := ""
+	if current && len(t.Messages) > 1 {
+		target = compose.ReplyTarget(t, t.Account).ID
+	}
 	cw := max(w-2, 10) // a space of margin each side
 	line := func(segs ...seg) string {
 		return row(plain, append([]seg{s(" ", plain)}, append(segs, s(" ", plain))...)...)
@@ -357,21 +362,32 @@ func (m Model) threadLines(t model.Thread, w int) []string {
 		out = append(out, line(s(fit(strings.Join(labels, " · "), cw), dim)))
 	}
 	now := m.deps.Now()
+	from, to := -1, -1 // the target's lines
 	for i, msg := range t.Messages {
+		if from >= 0 && to < 0 {
+			to = len(out)
+		}
 		if i > 0 || len(out) > 0 {
 			out = append(out, line(s(strings.Repeat("─", cw), ruleStyle)))
 		}
+		if msg.ID == target {
+			from = len(out)
+		}
 		date := output.MessageDate(msg.Date, now)
+		arrow := ""
+		if msg.ID == target {
+			arrow = "▶ "
+		}
 		if !m.expanded[msg.ID] {
 			nameW := min(max(cw/3, 12), 24)
 			snipW := max(cw-nameW-width(date)-2, 0)
-			out = append(out, line(s(fit(msg.From.Short(), nameW)+" ", bold), s(fit(msg.Snippet, snipW)+" ", dim),
+			out = append(out, line(s(fit(arrow+msg.From.Short(), nameW)+" ", bold), s(fit(msg.Snippet, snipW)+" ", dim),
 				s(date, dim)))
 			continue
 		}
-		name, email := msg.From.Name, " <"+msg.From.Email+">"
-		if name == "" {
-			name, email = msg.From.Email, ""
+		name, email := arrow+msg.From.Name, " <"+msg.From.Email+">"
+		if msg.From.Name == "" {
+			name, email = arrow+msg.From.Email, ""
 		}
 		nameW := max(cw-width(date)-1, 0)
 		name = fit(name, min(width(name), nameW))
@@ -383,7 +399,22 @@ func (m Model) threadLines(t model.Thread, w int) []string {
 		out = append(out, bodyLines(msg.Body, cw, line)...)
 		out = append(out, blank)
 	}
+	if from >= 0 {
+		if to < 0 {
+			to = len(out)
+		}
+		barLines(out[from:to])
+	}
 	return out
+}
+
+// barLines draws an accent bar down the left edge of lines, in their margin.
+func barLines(lines []string) {
+	for i, l := range lines {
+		if strings.HasPrefix(l, " ") { // not already barred
+			lines[i] = accentFg.Render("▌") + strings.TrimPrefix(l, " ")
+		}
+	}
 }
 
 // recipientLines are Gmail's compact "to me, Tom Okafor" lines, and the attachments.
