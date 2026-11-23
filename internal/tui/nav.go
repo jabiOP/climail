@@ -553,6 +553,18 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		_, open := m.openThread()
 		return m, tea.Batch(cmd, open)
+	case key.Matches(msg, keys.Open): // only the ▶ message open; again: closed
+		t, ok := m.current()
+		p, _ := m.pointed()
+		if !ok {
+			return m, nil
+		}
+		only := m.expanded[p.ID] && !slices.ContainsFunc(t.Messages, func(msg model.Message) bool { return msg.ID != p.ID && m.expanded[msg.ID] })
+		for _, msg := range t.Messages { // read together, the other conversations stay as they are
+			m.expanded[msg.ID] = msg.ID == p.ID && !only
+		}
+		m.pointedID = p.ID
+		m.pointBy(0)
 	case key.Matches(msg, keys.NextMessage):
 		m.pointBy(1)
 	case key.Matches(msg, keys.PrevMessage):

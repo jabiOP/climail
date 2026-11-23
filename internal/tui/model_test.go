@@ -1071,3 +1071,35 @@ func TestReader_ActionsApplyToTheMarkedMessage(t *testing.T) {
 		t.Errorf("D on Tom's message:\n%s", f.view())
 	}
 }
+
+func TestReadTogether_TabGoesOnToTheNextConversation(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	unread := f.unreadListed()
+	f.keys("T") // the launch plan first, ▶ on its last message
+
+	f.keys("tab")
+
+	if f.currentID() != unread[1] || !strings.Contains(f.view(), f.togetherTitle(2, len(unread))) {
+		t.Errorf("tab at the last message: current %s, want %s\n%s", f.currentID(), unread[1], f.view())
+	}
+	f.keys("shift+tab")
+	if _, arrow := f.marked(); f.currentID() != unread[0] || !strings.Contains(arrow, "<maya@work.example>") {
+		t.Errorf("shift+tab: current %s, ▶ on %q; want Maya's latest in %s", f.currentID(), arrow, unread[0])
+	}
+}
+
+func TestReader_EnterOpensOnlyTheMarkedMessage(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	f.keys("enter", "shift+tab") // the launch plan, ▶ on Tom's message
+
+	f.keys("enter")
+
+	page := strings.Join(f.model().readerLines(80), "\n")
+	if !strings.Contains(page, "last time they took longer") || strings.Contains(page, "migration guide") {
+		t.Errorf("not Tom's message alone:\n%s", page)
+	}
+	f.keys("enter")
+	if page := strings.Join(f.model().readerLines(80), "\n"); strings.Contains(page, "last time they took longer") {
+		t.Errorf("enter again: Tom's message still open:\n%s", page)
+	}
+}

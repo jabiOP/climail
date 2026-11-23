@@ -27,8 +27,8 @@ time. `?` lists every key.
 | Keys | Action |
 |---|---|
 | `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls) |
-| `h`/`l`, `enter`, `esc` | move between panes; open (in Drafts: continue the draft); back (also clears a selection or search) |
-| `n`/`p`, `tab`/`shift+tab` | next/previous conversation, from the reader; next/previous message, which `▶` marks |
+| `h`/`l`, `enter`, `esc` | move between panes; open (in Drafts: continue the draft; in the reader: only the `▶` message, again: close it); back (also clears a selection or search) |
+| `n`/`p`, `tab`/`shift+tab` | next/previous conversation, from the reader; next/previous message, which `▶` marks (read together: on into the next/previous conversation) |
 | `a`, `dd`, `I` | archive, move to Trash, move to Inbox |
 | `N`, `*` | mark read/unread, star/unstar |
 | `x`, `u` | select (actions then apply to every selected conversation), undo the last change (again: the ones before, up to 50) |

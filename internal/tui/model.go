@@ -471,16 +471,25 @@ func (m Model) pointed() (model.Message, bool) {
 	return compose.ReplyTarget(t, t.Account), true
 }
 
-// pointBy moves ▶ n messages along the current conversation, scrolling the
-// reader to it when it's out of view.
+// pointBy moves ▶ n messages along the current conversation (reading
+// together, on into the next or previous one), scrolling the reader to it
+// when it's out of view.
 func (m *Model) pointBy(n int) {
 	t, ok := m.current()
 	cur, _ := m.pointed()
 	if !ok {
 		return
 	}
-	i := slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == cur.ID })
-	i = max(min(i+n, len(t.Messages)-1), 0)
+	i := slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == cur.ID }) + n
+	if at := m.togetherAt() + n; m.reading() && (i < 0 || i >= len(t.Messages)) && at >= 0 && at < len(m.togetherThreads()) {
+		m.showTogether(at)
+		t, _ = m.current()
+		i = 0
+		if n < 0 {
+			i = len(t.Messages) - 1
+		}
+	}
+	i = max(min(i, len(t.Messages)-1), 0)
 	m.pointedID = t.Messages[i].ID
 	w := m.readerWidth()
 	_, starts := m.threadLines(t, w, "")
