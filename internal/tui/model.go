@@ -378,7 +378,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.saving:
 			m.message, m.isError = "Saved in Drafts", false
 		default:
-			m.message, m.isError = "Sending "+msg.summary, false
+			m.message, m.isError = "From "+msg.from+": sending "+msg.summary, false
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())

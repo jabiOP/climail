@@ -27,6 +27,7 @@ func setup(t *testing.T, msgs ...model.Message) (*service.Service, *store.Store)
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
+	st.EnsureAccount(ctx, acct)
 	if err := st.UpsertMessages(ctx, msgs); err != nil {
 		t.Fatal(err)
 	}
@@ -206,6 +207,24 @@ func TestPrepare_ResolvesNamesThenChecks(t *testing.T) {
 	}
 	if _, err := svc.Prepare(ctx, compose.Draft{Account: acct}); err == nil {
 		t.Error("no recipients: want an error")
+	}
+}
+
+func TestPrepare_FromTakesAnAccountOrItsStart(t *testing.T) {
+	svc, st := setup(t)
+	st.EnsureAccount(ctx, "me@other.example")
+
+	d, err := svc.Prepare(ctx, compose.Draft{Account: "me@o", To: "b@x.com"})
+	if err != nil || d.Account != "me@other.example" {
+		t.Errorf("From me@o: %q, %v", d.Account, err)
+	}
+	for _, from := range []string{"me@", "nobody@x.com", ""} {
+		if _, err := svc.Prepare(ctx, compose.Draft{Account: from, To: "b@x.com"}); err == nil {
+			t.Errorf("From %q: want an error", from)
+		}
+	}
+	if err := svc.SaveDraft(ctx, compose.Draft{Account: "nobody"}, time.Now()); err == nil {
+		t.Error("draft saved in no account: want an error")
 	}
 }
 

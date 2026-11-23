@@ -564,7 +564,7 @@ func TestReply_EditConfirmSend(t *testing.T) {
 	f.keys("r")
 	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
 
-	if !strings.Contains(f.view(), "Send “Re: Launch plan for the 2.0 release” to Maya Chen?") {
+	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen?") {
 		t.Fatalf("no confirmation:\n%s", f.view())
 	}
 	f.keys("y")
@@ -578,12 +578,12 @@ func TestReply_EditConfirmSend(t *testing.T) {
 }
 
 func TestReplyAll_IncludesEveryone(t *testing.T) {
-	f := newFixture(t, 100, 24)
+	f := newFixture(t, 130, 24)
 
 	f.keys("R")
 	f.editDraft(func(old string) string { return old + "ok\n" })
 
-	if !strings.Contains(f.view(), "to Maya Chen, Tom Okafor?") {
+	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen, Tom Okafor?") {
 		t.Errorf("view:\n%s", f.view())
 	}
 }
@@ -816,7 +816,7 @@ func TestCompose_NamesBecomeAddressesInTheDraft(t *testing.T) {
 		return strings.Replace(strings.Replace(old, "To: ", "To: maya, tom", 1), "Subject: ", "Subject: Hi", 1) + "hello\n"
 	})
 
-	if !strings.Contains(f.view(), "Send “Hi” to Maya Chen, Tom Okafor?") {
+	if !strings.Contains(f.view(), "From you@work.example: send “Hi” to Maya Chen, Tom Okafor?") {
 		t.Fatalf("view:\n%s", f.view())
 	}
 	text, _ := os.ReadFile(f.model().composing.path)

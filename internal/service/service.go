@@ -298,6 +298,10 @@ func (s *Service) queue(ctx context.Context, d compose.Draft, raw []byte, o stor
 // one it continues. It may be unfinished; names that match one person
 // become their address, the rest stay as typed.
 func (s *Service) SaveDraft(ctx context.Context, d compose.Draft, now time.Time) error {
+	var err error
+	if d.Account, err = s.resolveAccount(ctx, d.Account); err != nil {
+		return err
+	}
 	if all, err := s.store.Contacts(ctx, d.Account); err == nil {
 		d = compose.ResolveWhatCan(d, func(query string) []model.Address { return matching(all, query) })
 	}
@@ -326,6 +330,10 @@ func matching(people []model.Address, query string) []model.Address {
 // Prepare readies an edited draft for sending: recipients typed as a name
 // ("maya") become the person's address, then the draft is checked.
 func (s *Service) Prepare(ctx context.Context, d compose.Draft) (compose.Draft, error) {
+	var err error
+	if d.Account, err = s.resolveAccount(ctx, d.Account); err != nil {
+		return d, err
+	}
 	all, err := s.store.Contacts(ctx, d.Account)
 	if err != nil {
 		return d, err
@@ -335,6 +343,31 @@ func (s *Service) Prepare(ctx context.Context, d compose.Draft) (compose.Draft, 
 		return d, err
 	}
 	return resolved, resolved.Check()
+}
+
+// resolveAccount finds the account a draft's From names: its address (any
+// case) or the start of it ("work" for work@example.com).
+func (s *Service) resolveAccount(ctx context.Context, from string) (string, error) {
+	accounts, err := s.store.Accounts(ctx)
+	if err != nil {
+		return "", err
+	}
+	var matches []string
+	for _, a := range accounts {
+		switch {
+		case strings.EqualFold(a, from):
+			return a, nil
+		case from != "" && strings.HasPrefix(strings.ToLower(a), strings.ToLower(from)):
+			matches = append(matches, a)
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("From: %q could be %s", from, strings.Join(matches, " or "))
+	}
+	return "", fmt.Errorf("From: no account %q (yours: %s)", from, strings.Join(accounts, ", "))
 }
 
 // Outbox lists mail waiting to be sent and mail Gmail refused.

@@ -29,6 +29,7 @@ Last updated: 2026-11-23
 - Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 - All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
+- Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it
 - Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts
 
 ## Next
@@ -39,7 +40,8 @@ Last updated: 2026-11-23
   drafts (save, continue one started on the web, send), recipients by name,
   formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
-  All accounts with real accounts (actions and replies in the right account; the colors readable on light and dark terminals)
+  All accounts with real accounts (actions and replies in the right account; the colors readable on light and dark terminals),
+  `From:` changed to another account on a new mail
 
 ## Later
 

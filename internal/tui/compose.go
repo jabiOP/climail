@@ -25,6 +25,7 @@ type editedMsg struct{ err error }
 // sentMsg reports a mail queued to send, or a draft queued to save.
 type sentMsg struct {
 	summary string
+	from    string // the account it goes from
 	saving  bool
 	path    string // the draft file, kept when saving failed
 	err     error
@@ -98,7 +99,7 @@ func (m Model) composeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if err == nil {
 				os.Remove(path)
 			}
-			return sentMsg{summary: d.Summary(), err: err}
+			return sentMsg{summary: d.Summary(), from: d.Account, err: err}
 		}
 	case "e":
 		return m, m.editCmd()
@@ -129,5 +130,5 @@ func (m Model) composePrompt() (string, bool) {
 	case c.err != nil:
 		return c.err.Error() + " · e edit · q save to Drafts", true
 	}
-	return "Send " + c.draft.Summary() + "? y send · e edit · q save to Drafts", false
+	return "From " + c.draft.Account + ": send " + c.draft.Summary() + "? y send · e edit · q save to Drafts", false
 }

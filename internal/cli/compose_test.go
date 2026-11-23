@@ -28,7 +28,7 @@ func TestCompose_EditThenSend(t *testing.T) {
 
 	_, errOut, code := h.run("compose", "-s", "Lunch")
 
-	if code != 0 || !strings.Contains(errOut, "Send “Lunch” to bob?") {
+	if code != 0 || !strings.Contains(errOut, "From "+work+": send “Lunch” to bob?") {
 		t.Fatalf("exit %d, stderr %q", code, errOut)
 	}
 	if raw := h.sentText(work); !strings.Contains(raw, "To: <bob@example.com>") || !strings.Contains(raw, "Hello Bob") {
