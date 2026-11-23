@@ -263,3 +263,16 @@ func TestSearch_OnGmailFindsMailOutsideTheCache(t *testing.T) {
 		t.Errorf("not cached after the search: %q", out)
 	}
 }
+
+func TestOutput_DropsTerminalControlSequences(t *testing.T) {
+	h := newHarness(t, work)
+	evil := msg("e1", "e", "Hi\x1b]52;c;cHduZWQ=\x07 there", 10, "INBOX")
+	evil.From.Name, evil.Body = "Eve\x1b[2J", "body\x1b[1A\x1b[2Kfake\r"
+	h.gmail[work].Deliver(evil)
+
+	for _, args := range [][]string{{"list"}, {"show", "e"}} {
+		if out := h.mustRun(args...); strings.ContainsAny(out, "\x1b\x07\r") {
+			t.Errorf("climail %v: %q", args, out)
+		}
+	}
+}

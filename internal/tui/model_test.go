@@ -1206,3 +1206,22 @@ func TestList_JKStillPage(t *testing.T) {
 		t.Errorf("J in the list: cursor %d, want a page down", f.model().cursor)
 	}
 }
+
+func TestView_DropsTerminalControlSequences(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	evil := model.Message{Account: workAcct, ID: "evil1", ThreadID: "tevil", Date: now, Labels: []string{model.Inbox, model.Unread},
+		Subject: "Hi\x1b]52;c;cHduZWQ=\x07 there", From: model.Address{Name: "Eve\x1b[31m", Email: "eve@x.example"},
+		Snippet: "snip\x1b]8;;http://evil\x07link", Body: "body\x1b]0;title\x07\r\nfake\x1b[1A\x1b[2K",
+		Attachments: []model.Attachment{{Filename: "invoice‮fdp.exe\x1b[8m"}}}
+	f.st.UpsertMessages(context.Background(), []model.Message{evil})
+	f.keys("g", "i", "g", "g") // the newest: on top
+
+	for _, k := range []string{"", "enter"} { // the list, then the reader
+		if k != "" {
+			f.keys(k)
+		}
+		if v := f.view(); strings.ContainsAny(v, "\x1b\x07\r‮") {
+			t.Errorf("after %q: %q", k, v)
+		}
+	}
+}

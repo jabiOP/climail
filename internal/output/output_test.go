@@ -111,3 +111,32 @@ func TestConversation(t *testing.T) {
 		}
 	}
 }
+
+func TestClean(t *testing.T) {
+	for _, tc := range []struct{ name, in, want string }{
+		{"ESC and CSI", "\x1b[31mred\x1b[0m", "[31mred[0m"},
+		{"OSC clipboard write", "a\x1b]52;c;cHduZWQ=\x07b", "a]52;c;cHduZWQ=b"},
+		{"OSC 8 link, ST", "\x1b]8;;http://x\x1b\\link\x1b]8;;\x1b\\", "]8;;http://x\\link]8;;\\"},
+		{"8-bit CSI", "a\u009b2Jb", "a2Jb"},
+		{"invalid byte read as CSI by some terminals", "a\x9b2Jb", "a�2Jb"},
+		{"carriage return, backspace, bell, DEL", "fake\r\bline\a\x7f", "fakeline"},
+		{"lines and tabs stay", "a\nb\tc", "a\nb\tc"},
+		{"ordinary Unicode stays", "héllo 日本 🙂 — “q”", "héllo 日本 🙂 — “q”"},
+		{"direction overrides", "invoice‮fdp.exe ⁦x⁩", "invoicefdp.exe x"},
+	} {
+		if got := output.Clean(tc.in); got != tc.want {
+			t.Errorf("%s: Clean(%q) = %q, want %q", tc.name, tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCleanWriter(t *testing.T) {
+	var b strings.Builder
+	w := output.CleanWriter(&b)
+
+	n, err := w.Write([]byte("x\x1b]0;t\x07y\n"))
+
+	if err != nil || n != 9 || b.String() != "x]0;ty\n" {
+		t.Errorf("wrote %d, %v: %q", n, err, b.String())
+	}
+}

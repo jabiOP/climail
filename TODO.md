@@ -24,6 +24,7 @@ Last updated: 2026-11-23
 - Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Read Together (HEY-style): `T` shows the selected conversations, else the unread ones listed, on one page; each is archived (or replied to…) on its own as you read on, and undoing puts it back on the page
+- Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next
@@ -41,7 +42,6 @@ Last updated: 2026-11-23
 
 ## Known issues
 
-- Security: sanitize untrusted email subjects, sender names, snippets, and bodies before TUI/CLI terminal rendering to prevent ANSI/OSC/control-sequence injection. Add focused tests for ESC, CSI, OSC, multiline text, and ordinary Unicode.
 
 ## Decisions
 
@@ -65,3 +65,4 @@ Last updated: 2026-11-23
 - Contacts come from the cached mail (no Contacts API, no extra scope); each message's addresses are also kept in their own column so listing them doesn't read bodies (1.3 s → 0.1 s on 10k messages).
 - Dependency `github.com/yuin/goldmark` v1.8.7 renders Markdown as HTML (CommonMark, no dependencies of its own). HTML typed in a body stays text, and no font is set, so Gmail's defaults apply.
 - Only drafts keep their HTML in the cache, to be continued with their formatting. A draft whose HTML is what its text renders to was saved by climail: its text is continued as typed, not converted back.
+- Text from mail is cleaned of control characters and direction overrides where it is printed (the TUI's `fit`/`row`, the CLI's stdout/stderr), not when stored: mail already cached is covered, and nothing escapes through a path that forgot to clean.

@@ -16,6 +16,7 @@ import (
 	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/gmail"
+	"github.com/jabiOP/climail/internal/output"
 	"github.com/jabiOP/climail/internal/service"
 	"github.com/jabiOP/climail/internal/syncer"
 	"github.com/jabiOP/climail/internal/tui"
@@ -40,6 +41,9 @@ func Main() int {
 // Run executes one command line against app and returns the exit code.
 // Main and the tests both go through here.
 func Run(ctx context.Context, app *App, args []string) int {
+	// Mail can carry terminal escape sequences: none reaches the terminal.
+	// (The TUI writes to the terminal itself, and cleans what it draws.)
+	app.Stdout, app.Stderr = output.CleanWriter(app.Stdout), output.CleanWriter(app.Stderr)
 	root := NewRootCmd(app)
 	root.SetArgs(args)
 	err := root.ExecuteContext(ctx)

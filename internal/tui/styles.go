@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/jabiOP/climail/internal/output"
 )
 
 // Colors adapt to light and dark terminals.
@@ -41,6 +43,7 @@ func fit(s string, w int) string {
 	if w <= 0 {
 		return ""
 	}
+	s = output.Clean(s) // mail can carry terminal escape sequences
 	if sw := width(s); sw <= w {
 		return s + strings.Repeat(" ", w-sw)
 	}
@@ -69,7 +72,7 @@ func fitRight(s string, w int) string {
 func row(base lipgloss.Style, segs ...seg) string {
 	var b strings.Builder
 	for _, s := range segs {
-		b.WriteString(s.style.Inherit(base).Render(s.text))
+		b.WriteString(s.style.Inherit(base).Render(output.Clean(s.text))) // also what didn't go through fit
 	}
 	return b.String()
 }

@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jabiOP/climail/internal/model"
 )
@@ -201,4 +202,60 @@ func Addresses(as []model.Address) string {
 		s[i] = a.String()
 	}
 	return strings.Join(s, ", ")
+}
+
+// Clean makes text from mail safe to print on a terminal: it drops control
+// characters (escape sequences start with them: colours, cursor moves,
+// clipboard writes, links) except newlines and tabs, and the characters that
+// reverse the direction of text ("invoice\u202efdp.exe" shows as
+// "invoiceexe.pdf"). Invalid bytes become U+FFFD: some terminals read a lone
+// 0x9b as an escape.
+func Clean(s string) string {
+	if !needsCleaning(s) {
+		return s
+	}
+	var b strings.Builder
+	for i, r := range s {
+		switch {
+		case r == utf8.RuneError && !strings.HasPrefix(s[i:], "\uFFFD"):
+			b.WriteRune(utf8.RuneError)
+		case unsafeRune(r):
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func needsCleaning(s string) bool {
+	if !utf8.ValidString(s) {
+		return true
+	}
+	return strings.IndexFunc(s, unsafeRune) >= 0
+}
+
+func unsafeRune(r rune) bool {
+	switch {
+	case r == '\n' || r == '\t':
+		return false
+	case r < 0x20 || r == 0x7f || r >= 0x80 && r <= 0x9f: // C0, DEL, C1
+		return true
+	case r >= 0x202a && r <= 0x202e || r >= 0x2066 && r <= 0x2069: // direction embeddings, overrides, isolates
+		return true
+	}
+	return false
+}
+
+// CleanWriter is a writer that Cleans what goes through it, for output that
+// prints text from mail. Each Write is cleaned on its own, so a character
+// split between two writes would be lost: write whole lines.
+func CleanWriter(w io.Writer) io.Writer { return cleanWriter{w} }
+
+type cleanWriter struct{ w io.Writer }
+
+func (c cleanWriter) Write(p []byte) (int, error) {
+	if _, err := io.WriteString(c.w, Clean(string(p))); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
