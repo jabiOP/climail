@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 )
@@ -31,6 +33,9 @@ type Store struct {
 // _txlock=immediate takes the write lock up front, so two processes that
 // read then write don't fail with SQLITE_BUSY.
 func Open(path string) (*Store, error) {
+	if err := private(path); err != nil {
+		return nil, err
+	}
 	dsn := "file:" + path +
 		"?_pragma=journal_mode(WAL)" +
 		"&_pragma=busy_timeout(5000)" +
@@ -48,6 +53,22 @@ func Open(path string) (*Store, error) {
 }
 
 func (s *Store) Close() error { return s.db.Close() }
+
+// private makes the cache readable by the user alone, creating it so: it
+// holds mail. SQLite gives its -wal and -shm files the database's mode.
+func private(path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	f.Close()
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Chmod(p, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("make %s private: %w", p, err)
+		}
+	}
+	return nil
+}
 
 // InTx runs fn inside one transaction. If fn returns an error, nothing it did
 // is saved. Calling InTx on a Store already inside a transaction joins it.

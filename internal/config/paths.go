@@ -43,11 +43,15 @@ func (p Paths) TokenFile() string  { return filepath.Join(p.DataDir, "token.json
 func (p Paths) DraftDir() string   { return filepath.Join(p.DataDir, "drafts") }
 func (p Paths) OpenDir() string    { return filepath.Join(p.DataDir, "opened") } // attachments opened or forwarded
 
-// EnsureDirs creates both directories, private to the user.
+// EnsureDirs creates both directories, private to the user, and makes them
+// private if they already exist (they hold mail and credentials).
 func (p Paths) EnsureDirs() error {
 	for _, d := range []string{p.ConfigDir, p.DataDir} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return fmt.Errorf("create %s: %w", d, err)
+		}
+		if err := os.Chmod(d, 0o700); err != nil {
+			return fmt.Errorf("make %s private: %w", d, err)
 		}
 	}
 	return nil

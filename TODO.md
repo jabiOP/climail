@@ -24,6 +24,8 @@ Last updated: 2026-11-23
 - Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Read Together (HEY-style): `T` shows the selected conversations, else the unread ones listed, on one page; each is archived (or replied to…) on its own as you read on, and undoing puts it back on the page
+- Attachments saved on macOS are marked as downloaded (quarantine), so macOS asks before opening a risky one
+- The config and data folders and the mail cache are private to the user, made so even if an earlier run left them open
 - Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
@@ -33,7 +35,8 @@ Last updated: 2026-11-23
   sending (new, reply in the right conversation, forward with attachments, Bcc), daemon install on macOS,
   attachment download and open, Gmail search, display name on sent mail,
   drafts (save, continue one started on the web, send), recipients by name,
-  formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together
+  formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together,
+  macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`
 
 ## Later
 
@@ -66,3 +69,4 @@ Last updated: 2026-11-23
 - Dependency `github.com/yuin/goldmark` v1.8.7 renders Markdown as HTML (CommonMark, no dependencies of its own). HTML typed in a body stays text, and no font is set, so Gmail's defaults apply.
 - Only drafts keep their HTML in the cache, to be continued with their formatting. A draft whose HTML is what its text renders to was saved by climail: its text is continued as typed, not converted back.
 - Text from mail is cleaned of control characters and direction overrides where it is printed (the TUI's `fit`/`row`, the CLI's stdout/stderr), not when stored: mail already cached is covered, and nothing escapes through a path that forgot to clean.
+- Dependency `golang.org/x/sys` v0.50.0 (already in the module graph via `x/term`) sets the macOS quarantine mark on saved attachments, as Mail and browsers do.

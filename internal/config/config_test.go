@@ -75,3 +75,21 @@ func TestDefaultPaths_EnvOverrides(t *testing.T) {
 		t.Errorf("paths = %+v", p)
 	}
 }
+
+func TestEnsureDirs_MakesExistingDirsPrivate(t *testing.T) {
+	base := t.TempDir()
+	p := config.Paths{ConfigDir: filepath.Join(base, "config"), DataDir: filepath.Join(base, "data")}
+	if err := os.MkdirAll(p.DataDir, 0o755); err != nil { // made earlier, open to others
+		t.Fatal(err)
+	}
+
+	if err := p.EnsureDirs(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, d := range []string{p.ConfigDir, p.DataDir} {
+		if fi, err := os.Stat(d); err != nil || fi.Mode().Perm() != 0o700 {
+			t.Errorf("%s: %v, %v; want 0700", d, fi.Mode().Perm(), err)
+		}
+	}
+}
