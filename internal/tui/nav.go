@@ -519,10 +519,10 @@ func (m *Model) clampOffset() {
 func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	page := m.listRows()
 	switch {
-	case key.Matches(msg, keys.Down):
-		m.scrollBy(1)
+	case key.Matches(msg, keys.Down): // scroll; with nothing more to scroll, ▶ moves
+		m.scrollOrPoint(1)
 	case key.Matches(msg, keys.Up):
-		m.scrollBy(-1)
+		m.scrollOrPoint(-1)
 	case key.Matches(msg, keys.PageDown):
 		m.scrollBy(page - 1)
 	case key.Matches(msg, keys.PageUp):
@@ -586,6 +586,16 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // scrollBy scrolls the reader. Read together, the conversation at the top is
 // current, and the last one can be scrolled to the top.
+// scrollOrPoint scrolls the reader a line, or, when it can't scroll that
+// way, moves ▶ to the next or previous message.
+func (m *Model) scrollOrPoint(n int) {
+	before := m.scroll
+	m.scrollBy(n)
+	if m.scroll == before {
+		m.pointBy(n)
+	}
+}
+
 func (m *Model) scrollBy(n int) {
 	w := m.readerWidth()
 	end := len(m.readerLines(w)) - m.listRows()

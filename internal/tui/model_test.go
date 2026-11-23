@@ -1022,10 +1022,6 @@ func TestReader_TabMovesBetweenMessages(t *testing.T) {
 	if !strings.Contains(arrow(), "Hi both") {
 		t.Errorf("shift+tab at the first: ▶ on %q, want Maya's first", arrow())
 	}
-	f.keys("j")
-	if !strings.Contains(arrow(), "Hi both") {
-		t.Errorf("j moved ▶ to %q", arrow())
-	}
 	f.keys("tab", "tab", "tab")
 	if !strings.Contains(arrow(), "<maya@work.example>") {
 		t.Errorf("tab at the last: ▶ on %q, want Maya's latest", arrow())
@@ -1102,5 +1098,35 @@ func TestReader_EnterOpensAndClosesTheMarkedMessage(t *testing.T) {
 	f.keys("tab", "enter")
 	if p := page(); strings.Contains(p, "last time they took longer") || !strings.Contains(p, "Freeze features") {
 		t.Errorf("enter again: Tom's should close, the others stay:\n%s", p)
+	}
+}
+
+func TestReader_JKMoveTheMarkWhenThereIsNothingToScroll(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	f.keys("enter") // the launch plan fits: nothing to scroll
+	arrow := func() string { _, a := f.marked(); return a }
+
+	f.keys("k")
+	if !strings.Contains(arrow(), "▶ Tom Okafor") {
+		t.Errorf("k: ▶ on %q, want Tom's", arrow())
+	}
+	f.keys("k", "j", "enter")
+	if !strings.Contains(arrow(), "▶ Tom Okafor") || !f.model().expanded["t-launch-02"] {
+		t.Errorf("k, j, enter: ▶ on %q, open %v; want Tom's, open", arrow(), f.model().expanded)
+	}
+}
+
+func TestReader_JKScrollFirst(t *testing.T) {
+	f := newFixture(t, 80, 10)
+	f.keys("enter") // the launch plan doesn't fit in 9 lines
+	arrow := func() string { _, a := f.marked(); return a }
+
+	f.keys("j")
+	if f.model().scroll != 1 || !strings.Contains(arrow(), "<maya@work.example>") {
+		t.Errorf("j: scroll %d, ▶ on %q; want scrolled, ▶ where it was", f.model().scroll, arrow())
+	}
+	f.keys("k", "k") // at the top: k moves ▶
+	if f.model().scroll != 0 || !strings.Contains(arrow(), "▶ Tom Okafor") {
+		t.Errorf("k at the top: scroll %d, ▶ on %q; want Tom's", f.model().scroll, arrow())
 	}
 }
