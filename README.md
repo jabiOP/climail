@@ -38,7 +38,7 @@ time. `?` lists every key.
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
 | `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
 | `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
-| `[`/`]`, `b`, `s`, `ZZ` | previous/next account, hide mailboxes, sync now, quit (as in vim; `q` alone doesn't) |
+| `[`/`]`, `b`, `s`, `ZZ` | previous/next account, hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
 
 Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `To:`, `Cc:`, `Bcc:`, `Subject:` and `Attach:`
 lines (one file per `Attach:` line), a blank line, then the body, in Markdown (`**bold**`, `_italic_`,

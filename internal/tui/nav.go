@@ -66,8 +66,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.ForceQuit):
 		return m, tea.Quit
-	case msg.String() == "q": // too easy to hit by mistake
-		m.message = "ZZ quits"
+	case msg.String() == "q" && m.focus != paneReader: // from the list (and mailboxes)
+		return m, tea.Quit
+	case msg.String() == "q": // reading, too easy to hit by mistake
+		m.message = "ZZ quits (q in the list)"
 		return m, nil
 	case key.Matches(msg, keys.Help):
 		m.help = true

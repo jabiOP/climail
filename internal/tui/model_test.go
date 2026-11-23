@@ -1131,7 +1131,7 @@ func TestReader_JKScrollFirst(t *testing.T) {
 	}
 }
 
-func TestQuit_NeedsZZ(t *testing.T) {
+func TestQuit_QInTheListElseZZ(t *testing.T) {
 	quits := func(keys ...tea.KeyMsg) bool {
 		var m tea.Model = newFixture(t, 80, 24).model()
 		var cmd tea.Cmd
@@ -1146,8 +1146,11 @@ func TestQuit_NeedsZZ(t *testing.T) {
 	}
 	r := func(s string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)} }
 
-	if quits(r("q")) {
-		t.Error("q quits")
+	if !quits(r("q")) {
+		t.Error("q in the list doesn't quit")
+	}
+	if quits(r("l"), r("q")) || quits(tea.KeyMsg{Type: tea.KeyEnter}, r("q")) {
+		t.Error("q in the reader quits")
 	}
 	if !quits(r("Z"), r("Z")) {
 		t.Error("ZZ doesn't quit")

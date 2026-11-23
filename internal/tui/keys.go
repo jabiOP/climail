@@ -98,7 +98,7 @@ func helpText() string {
 		"Everywhere", []helpRow{
 			one(keys.Compose, "write a new mail"), one(keys.Search, "search all mail"), one(keys.Sync, "sync now"),
 			pair(keys.PrevAccount, keys.NextAccount, "previous / next account"),
-			one(keys.Sidebar, "show / hide mailboxes"), one(keys.Help, "this help"), one(keys.Quit, "quit"),
+			one(keys.Sidebar, "show / hide mailboxes"), one(keys.Help, "this help"), one(keys.Quit, "quit (q: in the list)"),
 		})
 	right := helpColumn(
 		"Conversations", []helpRow{
