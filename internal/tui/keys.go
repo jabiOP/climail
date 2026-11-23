@@ -39,7 +39,7 @@ var keys = struct {
 	Star:        bind("*", "star / unstar", "*"),
 	Select:      bind("x", "select (then act on all selected)", "x"),
 	Together:    bind("T", "read the selected, else the unread, together", "T"),
-	Undo:        bind("u", "undo the last change", "u"),
+	Undo:        bind("u", "undo the last change (again: the ones before)", "u"),
 	Expand:      bind("o", "expand / collapse messages (reader)", "o"),
 	Browser:     bind("O", "open in Gmail on the web", "O"),
 	Compose:     bind("c", "write a new mail", "c"),
@@ -100,7 +100,7 @@ func helpText() string {
 			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"),
 			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),
-			pair(keys.Select, keys.Together, "select / read together"), one(keys.Undo, "undo the last change"),
+			pair(keys.Select, keys.Together, "select / read together"), one(keys.Undo, "undo (again: earlier)"),
 			one(keys.Expand, "expand / collapse all"), one(keys.Browser, "open in Gmail (web)"),
 		},
 		"Go to", gotoRows)

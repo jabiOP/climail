@@ -848,18 +848,19 @@ func TestReadTogether_ArchiveOneAtATime(t *testing.T) {
 		t.Errorf("G: current %s, want the last, %s", f.currentID(), unread[len(unread)-1])
 	}
 
-	f.keys("u") // undo brings the first back to the Inbox, not to the page
-	if !slices.Contains(f.listed(), unread[0]) || f.model().focus != paneReader {
-		t.Errorf("undo: listed %v, focus %v", f.listed(), f.model().focus)
+	f.keys("u") // undo brings the first back to the Inbox and to the page, current
+	if !slices.Contains(f.listed(), unread[0]) || !f.model().reading() || f.currentID() != unread[0] ||
+		!strings.Contains(f.view(), plural(len(unread), "conversation")+" together") {
+		t.Errorf("undo: listed %v, reading %v, current %s\n%s", f.listed(), f.model().reading(), f.currentID(), f.view())
 	}
 
-	for range len(unread) - 1 {
+	for range len(unread) {
 		f.keys("a")
 	}
 	if f.model().focus != paneList || f.model().reading() {
 		t.Errorf("all archived: focus %v, still reading together", f.model().focus)
 	}
-	for _, id := range unread[1:] {
+	for _, id := range unread {
 		if slices.Contains(f.listed(), id) {
 			t.Errorf("%s not archived", id)
 		}
@@ -879,5 +880,47 @@ func TestReadTogether_SelectedOnes(t *testing.T) {
 	f.keys("esc")
 	if f.model().focus != paneList || f.model().reading() {
 		t.Errorf("esc: focus %v, still reading together", f.model().focus)
+	}
+}
+
+func TestReadTogether_UndoAfterTheLastReopensThePage(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	unread := f.unreadListed()
+	f.keys("T")
+	for range unread {
+		f.keys("a")
+	}
+
+	f.keys("u")
+
+	if !f.model().reading() || f.currentID() != unread[len(unread)-1] || !strings.Contains(f.view(), "1 conversation together") {
+		t.Errorf("reading %v, current %s; want the page back with %s\n%s", f.model().reading(), f.currentID(), unread[len(unread)-1], f.view())
+	}
+	f.keys("u")
+	if f.currentID() != unread[len(unread)-2] || !strings.Contains(f.view(), "2 conversations together") {
+		t.Errorf("second undo: current %s, want %s\n%s", f.currentID(), unread[len(unread)-2], f.view())
+	}
+}
+
+func TestUndo_History(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	before := f.listed()
+
+	f.keys("a", "*", "a", "a") // archive the 1st; star, archive the 2nd; archive the 3rd
+
+	f.keys("u", "u", "u") // the 3rd and 2nd back, the star undone
+	if l := f.listed(); slices.Contains(l, before[0]) || !slices.Contains(l, before[1]) || !slices.Contains(l, before[2]) {
+		t.Errorf("three undos: listed %v, want %v back, not %s", l, before[1:3], before[0])
+	}
+	if f.thread(before[1]).Starred() {
+		t.Errorf("%s still starred", before[1])
+	}
+	f.keys("u")
+	if !slices.Equal(f.listed(), before) {
+		t.Errorf("four undos: listed %v, want %v", f.listed(), before)
+	}
+	f.keys("u")
+	if !strings.Contains(f.view(), "nothing to undo") {
+		t.Errorf("view:\n%s", f.view())
 	}
 }

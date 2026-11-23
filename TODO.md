@@ -10,7 +10,7 @@ Last updated: 2026-11-23
 - Gmail adapter (HTML-to-text bodies, charsets) and in-memory fake
 - Sync engine: push outbox, pull history (full resync when expired), cross-process lock
 - OAuth (loopback + PKCE), per-account tokens in the keyring with a 0600 file fallback
-- Service: thread actions (archive, trash, read/unread, star) with exact undo; mailbox list with unread counts
+- Service: thread actions (archive, trash, read/unread, star) with exact undo (the TUI keeps the last 50); mailbox list with unread counts
 - CLI: auth, sync, labels, list, show, archive/trash/inbox/read/unread/star/unstar; TTY/TSV/JSON output; multi-account `-a`
 - TUI: adaptive layout (sidebar | list | reader, or one pane), Gmail-style reader, triage keys, selection, undo, live search, accounts
 - `climail demo`: the TUI on made-up mailboxes, no Google account needed; mail between its two accounts is delivered
@@ -22,7 +22,7 @@ Last updated: 2026-11-23
 - Drafts written in Gmail are continued with their formatting as Markdown; climail asks first when fonts, colours or images would be lost
 - Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
-- Read Together (HEY-style): `T` shows the selected conversations, else the unread ones listed, on one page; each is archived (or replied to…) on its own as you read on
+- Read Together (HEY-style): `T` shows the selected conversations, else the unread ones listed, on one page; each is archived (or replied to…) on its own as you read on, and undoing puts it back on the page
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 
 ## Next

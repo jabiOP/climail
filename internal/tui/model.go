@@ -81,6 +81,7 @@ type Model struct {
 	expanded   map[string]bool // reader: message IDs shown in full
 	openOnLoad bool            // after archiving from the reader: open the next conversation
 	together   []string        // T: the conversations the reader shows on one page, by ID; nil: one
+	showOnLoad string          // reading together: the conversation to make current after the next load
 
 	search    string   // the search shown ("" for a mailbox)
 	searching bool     // typing a search
@@ -96,8 +97,8 @@ type Model struct {
 	retrying  bool // a retryMsg is on its way
 	message   string
 	isError   bool
-	undo      *service.Undo
-	pending   string // first key of a two-key command: "d" or "g"
+	undos     []undoEntry // the changes u undoes, the newest last
+	pending   string      // first key of a two-key command: "d" or "g"
 	help      bool
 	composing *composing            // a mail being written
 	choosing  []model.AttachmentRef // A: which attachment to open
@@ -129,8 +130,32 @@ var pushRetry = 3 * time.Second
 type actionDoneMsg struct {
 	undo   service.Undo
 	record bool // offer it for undo
+	page   page
 	err    error
 }
+
+// page is where a change was made while reading together, so that undoing it
+// puts the conversation back on the page.
+type page struct {
+	box    string   // the mailbox read
+	ids    []string // the conversations on the page then
+	thread string   // the one changed
+}
+
+// undoEntry is one change u can undo.
+type undoEntry struct {
+	undo service.Undo
+	page page
+}
+
+// undoneMsg reports an undo.
+type undoneMsg struct {
+	page page
+	err  error
+}
+
+// maxUndos is how many changes u can undo, newest first.
+const maxUndos = 50
 
 type searchedMsg struct {
 	query string
@@ -231,13 +256,10 @@ func (m Model) apply(threads []model.Thread, a service.Action, record bool) tea.
 	}
 }
 
-func (m Model) undoCmd(u service.Undo) tea.Cmd {
+func (m Model) undoCmd(e undoEntry) tea.Cmd {
 	svc, ctx := m.deps.Service, m.ctx
 	return func() tea.Msg {
-		if err := svc.Undo(ctx, u); err != nil {
-			return infoMsg{text: "undo failed: " + err.Error(), isErr: true}
-		}
-		return infoMsg{text: "Undone"}
+		return undoneMsg{page: e.page, err: svc.Undo(ctx, e.undo)}
 	}
 }
 
@@ -285,7 +307,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.load()
 		}
 		if msg.record && !msg.undo.Empty() {
-			m.undo = &msg.undo
+			m.undos = append(m.undos, undoEntry{msg.undo, msg.page})
+			m.undos = m.undos[max(len(m.undos)-maxUndos, 0):]
 			m.message, m.isError = msg.undo.Done+" · u to undo", false
 		}
 		m.syncing = m.deps.Sync != nil
@@ -330,6 +353,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.message, m.isError = "Saved in Drafts", false
 		default:
 			m.message, m.isError = "Sending "+msg.summary, false
+		}
+		m.syncing = m.deps.Sync != nil
+		return m, tea.Batch(m.load(), m.syncCmd())
+	case undoneMsg:
+		m.message, m.isError = "Undone", false
+		if msg.err != nil {
+			m.message, m.isError = "undo failed: "+msg.err.Error(), true
+		} else {
+			m.backOnPage(msg.page)
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())

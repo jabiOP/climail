@@ -91,13 +91,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Compose):
 		return m.startCompose(compose.Draft{Account: m.account, Body: "\n"})
 	case key.Matches(msg, keys.Undo):
-		if m.undo == nil {
+		if len(m.undos) == 0 {
 			m.message = "nothing to undo"
 			return m, nil
 		}
-		u := *m.undo
-		m.undo = nil
-		return m, m.undoCmd(u)
+		e := m.undos[len(m.undos)-1]
+		m.undos = m.undos[:len(m.undos)-1]
+		return m, m.undoCmd(e)
 	case key.Matches(msg, keys.Top), key.Matches(msg, keys.Trash):
 		m.pending = msg.String()
 		return m, nil
@@ -281,6 +281,10 @@ func (m Model) act(a service.Action) (tea.Model, tea.Cmd) {
 	if len(targets) == 0 {
 		return m, nil
 	}
+	var on page
+	if m.reading() {
+		on = page{box: m.box.ID, ids: slices.Clone(m.together), thread: targets[0].ID}
+	}
 	switch {
 	case m.reading() && a.Leaves:
 		m.dropTogether(targets[0].ID)
@@ -288,7 +292,15 @@ func (m Model) act(a service.Action) (tea.Model, tea.Cmd) {
 		m.openOnLoad = true
 	}
 	m.selected = map[string]bool{}
-	return m, m.apply(targets, a, true)
+	cmd := m.apply(targets, a, true)
+	return m, func() tea.Msg {
+		msg := cmd()
+		if done, ok := msg.(actionDoneMsg); ok {
+			done.page = on
+			return done
+		}
+		return msg
+	}
 }
 
 func (m Model) openInBrowser(t model.Thread) tea.Cmd {
@@ -418,7 +430,41 @@ func (m *Model) keepTogether() {
 		return
 	}
 	m.together = ids
-	m.scrollBy(0)
+	for _, t := range m.togetherThreads() { // back on the page: as it opened
+		if !slices.ContainsFunc(t.Messages, func(msg model.Message) bool { return m.expanded[msg.ID] }) {
+			m.expanded[t.Latest().ID] = true
+		}
+	}
+	if i := slices.Index(ids, m.showOnLoad); i >= 0 {
+		m.showTogether(i)
+	} else {
+		m.scrollBy(0)
+	}
+	m.showOnLoad = ""
+}
+
+// backOnPage, after undoing a change made while reading together, puts the
+// conversation back on that page, current: on the page read now, else, still
+// in that mailbox's list, the page reopens.
+func (m *Model) backOnPage(p page) {
+	if p.thread == "" || !m.reading() && (m.focus != paneList || m.box.ID != p.box) {
+		return
+	}
+	keep := map[string]bool{p.thread: true}
+	for _, id := range p.ids {
+		keep[id] = !m.reading() || keep[id]
+	}
+	for _, id := range m.together {
+		keep[id] = true
+	}
+	var ids []string
+	for _, id := range append(slices.Clone(p.ids), m.together...) {
+		if keep[id] {
+			ids = append(ids, id)
+			keep[id] = false
+		}
+	}
+	m.together, m.focus, m.showOnLoad = ids, paneReader, p.thread
 }
 
 // listRows is how many conversations fit on screen.
@@ -534,6 +580,9 @@ func (m *Model) scrollBy(n int) {
 		return
 	}
 	starts := m.togetherStarts(w)
+	if len(starts) == 0 {
+		return // before the load that puts them back
+	}
 	m.scroll = max(min(m.scroll+n, max(end, starts[len(starts)-1])), 0)
 	at := 0
 	for i, s := range starts {
@@ -630,7 +679,7 @@ func (m Model) switchAccount(step int) (tea.Model, tea.Cmd) {
 
 func (m Model) useAccount(account string) (tea.Model, tea.Cmd) {
 	m.account, m.boxes, m.threads = account, nil, nil
-	m.undo = nil // undo is per account
+	m.undos = nil // undo is per account
 	m.message = account
 	return m.openBox(model.Inbox)
 }

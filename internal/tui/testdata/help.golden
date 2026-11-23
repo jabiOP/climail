@@ -9,7 +9,7 @@
    │ n/p       next / prev (reader)      N         mark read / unread       │   
    │                                     *         star / unstar            │   
    │ Everywhere                          x/T       select / read together   │   
-   │ c         write a new mail          u         undo the last change     │   
+   │ c         write a new mail          u         undo (again: earlier)    │   
    │ /         search all mail           o         expand / collapse all    │   
    │ s         sync now                  O         open in Gmail (web)      │   
    │ [/]       previous / next account                                      │   
