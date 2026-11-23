@@ -1,19 +1,19 @@
  climail                    │ Inbox · 4 unread                          you@work.example │ Launch plan for the 2.0 release                 3 messages 
- ▾ you@work.example         │▌●   Maya Chen, T… 3  Launch plan for the 2.0 rel… 📎  14:35 │▌▶ Maya Chen <maya@work.example>           Fri 20 Nov 14:35 
-   Inbox                  4 │     CI               ✓ main passed (#4822) — Bui…     14:30 │▌to me, Tom Okafor                                          
-   Starred                  │ ●   CI               ✗ main failed: integration …     14:10 │▌📎 launch-plan-v2.pdf · 607 B                              
-   Sent                     │ ●   Calendar         Invitation: Design review @…     12:00 │▌                                                           
-   Drafts                   │ ●   Priya Raman      Northwind: questions about …     11:00 │▌Agreed, added. @you: could you own the migration guide?    
-   All Mail                 │   ★ Tom Okafor       Can you review #312 when yo…     09:00 │▌I've put a first outline in the shared folder.             
-   Spam                     │     People Team      Team offsite: pick your ses…    Nov 19 │▌                                                           
-   Trash                    │     The Weekly Ter…  Issue 142: the joy of keybo…    Nov 18 │▌> I'd add a day for the release notes                      
-   ● Builds               1 │     Maya Chen        Weekly sync notes — Older m…    Nov 14 │▌                                                           
-   ● Clients              1 │     Tom Okafor       Quick question about the API    Nov 13 │                                                            
-     ● Northwind          1 │     People Team      Reminder: expenses — Older …    Nov 12 │                                                            
-   ● Receipts               │     The Weekly Ter…  Issue 141 of The Weekly Ter…    Nov 11 │                                                            
- ▸ you@home.example       2 │     Maya Chen        Weekly sync notes — Older m…    Nov 10 │                                                            
-                            │     Tom Okafor       Quick question about the API     Nov 9 │                                                            
-                            │     People Team      Reminder: expenses — Older …     Nov 8 │                                                            
+ ▾ you@work.example         │▌●   Maya Chen, T… 3  Launch plan for the 2.0 rel… 📎  14:35 │ Inbox                                                      
+   Inbox                  4 │     CI               ✓ main passed (#4822) — Bui…     14:30 │ ────────────────────────────────────────────────────────── 
+   Starred                  │ ●   CI               ✗ main failed: integration …     14:10 │ Maya Chen           Hi both, Here's the … Tue 17 Nov 15:00 
+   Sent                     │ ●   Calendar         Invitation: Design review @…     12:00 │ ────────────────────────────────────────────────────────── 
+   Drafts                   │ ●   Priya Raman      Northwind: questions about …     11:00 │ Tom Okafor          Looks good. I'd add … Wed 18 Nov 15:00 
+   All Mail                 │   ★ Tom Okafor       Can you review #312 when yo…     09:00 │ ────────────────────────────────────────────────────────── 
+   Spam                     │     People Team      Team offsite: pick your ses…    Nov 19 │▌▶ Maya Chen <maya@work.example>           Fri 20 Nov 14:35 
+   Trash                    │     The Weekly Ter…  Issue 142: the joy of keybo…    Nov 18 │▌to me, Tom Okafor                                          
+   ● Builds               1 │     Maya Chen        Weekly sync notes — Older m…    Nov 14 │▌📎 launch-plan-v2.pdf · 607 B                              
+   ● Clients              1 │     Tom Okafor       Quick question about the API    Nov 13 │▌                                                           
+     ● Northwind          1 │     People Team      Reminder: expenses — Older …    Nov 12 │▌Agreed, added. @you: could you own the migration guide?    
+   ● Receipts               │     The Weekly Ter…  Issue 141 of The Weekly Ter…    Nov 11 │▌I've put a first outline in the shared folder.             
+ ▸ you@home.example       2 │     Maya Chen        Weekly sync notes — Older m…    Nov 10 │▌                                                           
+                            │     Tom Okafor       Quick question about the API     Nov 9 │▌> I'd add a day for the release notes                      
+                            │     People Team      Reminder: expenses — Older …     Nov 8 │▌                                                           
                             │     The Weekly Ter…  Issue 140 of The Weekly Ter…     Nov 7 │                                                            
                             │     Maya Chen        Weekly sync notes — Older m…     Nov 6 │                                                            
                             │     Tom Okafor       Quick question about the API     Nov 5 │                                                            

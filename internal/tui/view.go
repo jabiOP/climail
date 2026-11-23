@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/output"
 )
@@ -338,7 +337,8 @@ func (m Model) readerLines(w int) []string {
 		}
 		pointed := ""
 		if o.ID == t.ID {
-			pointed = compose.ReplyTarget(o, o.Account).ID
+			msg, _ := m.pointed()
+			pointed = msg.ID
 		}
 		body, _ := m.threadLines(o, w, pointed)
 		lines := append([]string{row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},

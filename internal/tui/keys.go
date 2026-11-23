@@ -14,7 +14,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 // keys is the single source of truth for bindings: Update matches on them
 // and the help screen lists them.
 var keys = struct {
-	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev,
+	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev, NextMessage, PrevMessage,
 	Archive, Trash, Inbox, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
 	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit key.Binding
 }{
@@ -32,6 +32,8 @@ var keys = struct {
 	Back:        bind("esc", "back; clear selection or search", "esc"),
 	Next:        bind("n", "next conversation (reader)", "n"),
 	Prev:        bind("p", "previous conversation (reader)", "p"),
+	NextMessage: bind("tab", "next message (reader)", "tab"),
+	PrevMessage: bind("⇧tab", "previous message (reader)", "shift+tab"),
 	Archive:     bind("a", "archive", "a"),
 	Trash:       bind("dd", "move to Trash", "d"),
 	Inbox:       bind("I", "move to Inbox", "I"),
@@ -88,6 +90,7 @@ func helpText() string {
 			pair(keys.HalfDown, keys.HalfUp, "half page down / up"), pair(keys.Top, keys.Bottom, "top / bottom"),
 			pair(keys.Left, keys.Right, "pane left / right"), pair(keys.Open, keys.Back, "open / back"),
 			pair(keys.Next, keys.Prev, "next / prev (reader)"),
+			pair(keys.NextMessage, keys.PrevMessage, "next / prev message"),
 		},
 		"Everywhere", []helpRow{
 			one(keys.Compose, "write a new mail"), one(keys.Search, "search all mail"), one(keys.Sync, "sync now"),

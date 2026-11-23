@@ -83,6 +83,7 @@ type Model struct {
 	openOnLoad bool            // after archiving from the reader: open the next conversation
 	together   []string        // T: the conversations the reader shows on one page, by ID; nil: one
 	showOnLoad string          // reading together: the conversation to make current after the next load
+	pointedID  string          // tab, shift+tab: the message ▶ marks, when in the current conversation
 
 	search    string   // the search shown ("" for a mailbox)
 	searching bool     // typing a search
@@ -281,8 +282,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.clampOffset()
-		m.readerID = "" // lines wrap anew: back to the message a reply answers
-		m.followReader()
 		return m, nil
 	case loadedMsg:
 		if msg.seq != m.loadSeq {
@@ -449,40 +448,50 @@ func (m *Model) followReader() {
 	if t.ID == m.readerID {
 		return
 	}
-	m.readerID, m.scroll = t.ID, 0
+	m.readerID, m.scroll, m.pointedID = t.ID, 0, ""
 	m.expanded = map[string]bool{t.Latest().ID: true}
 	for _, msg := range t.Messages {
 		if msg.Unread() {
 			m.expanded[msg.ID] = true
 		}
 	}
-	if len(t.Messages) > 1 { // the message a reply answers at the top: ▶
-		_, starts := m.threadLines(t, m.readerWidth(), "")
-		target := compose.ReplyTarget(t, t.Account).ID
-		m.scroll = starts[slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == target })]
-		m.scrollBy(0)
-	}
 }
 
 // pointed is the message ▶ marks, which reply, forward and the attachment
-// keys act on: the one at the top of the reader (reading together: the one a
-// reply answers).
+// keys act on: the one tab and shift+tab moved to in the current
+// conversation, else the one a reply answers.
 func (m Model) pointed() (model.Message, bool) {
 	t, ok := m.current()
 	if !ok {
 		return model.Message{}, false
 	}
-	if m.reading() || len(t.Messages) == 1 {
-		return compose.ReplyTarget(t, t.Account), true
+	if i := slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == m.pointedID }); i >= 0 {
+		return t.Messages[i], true
 	}
-	_, starts := m.threadLines(t, m.readerWidth(), "")
-	i := 0
-	for j, s := range starts {
-		if s <= m.scroll {
-			i = j
-		}
+	return compose.ReplyTarget(t, t.Account), true
+}
+
+// pointBy moves ▶ n messages along the current conversation, scrolling the
+// reader to it when it's out of view.
+func (m *Model) pointBy(n int) {
+	t, ok := m.current()
+	cur, _ := m.pointed()
+	if !ok {
+		return
 	}
-	return t.Messages[i], true
+	i := slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == cur.ID })
+	i = max(min(i+n, len(t.Messages)-1), 0)
+	m.pointedID = t.Messages[i].ID
+	w := m.readerWidth()
+	_, starts := m.threadLines(t, w, "")
+	line := starts[i]
+	if m.reading() {
+		line += m.togetherStarts(w)[m.togetherAt()] + 1 // under its subject
+	}
+	if line < m.scroll || line >= m.scroll+m.listRows()-1 {
+		m.scroll = line
+		m.scrollBy(0)
+	}
 }
 
 // Run starts the TUI full-screen and blocks until the user quits.

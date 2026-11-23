@@ -28,7 +28,7 @@ time. `?` lists every key.
 |---|---|
 | `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls) |
 | `h`/`l`, `enter`, `esc` | move between panes; open (in Drafts: continue the draft); back (also clears a selection or search) |
-| `n`/`p` | next/previous conversation, from the reader |
+| `n`/`p`, `tab`/`shift+tab` | next/previous conversation, from the reader; next/previous message, which `▶` marks |
 | `a`, `dd`, `I` | archive, move to Trash, move to Inbox |
 | `N`, `*` | mark read/unread, star/unstar |
 | `x`, `u` | select (actions then apply to every selected conversation), undo the last change (again: the ones before, up to 50) |
@@ -36,7 +36,7 @@ time. `?` lists every key.
 | `o`, `O` | expand/collapse all messages, open in Gmail on the web |
 | `/` | search mail as you type (local cache); `enter` then searches all of Gmail, with its syntax (`from:maya has:attachment`); `esc` cancels |
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
-| `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor); in a conversation of several messages, they act on the message at the top of the reader, marked with `▶` and a bar (it opens on the one a reply answers: the latest from someone else; scroll to pick another) |
+| `c`, `r`, `R`, `f` | write a new mail, reply, reply all, forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
 | `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
 | `[`/`]`, `b`, `s`, `q` | previous/next account, hide mailboxes, sync now, quit |
 

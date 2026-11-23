@@ -118,7 +118,7 @@ func (f *fixture) send(msgs ...tea.Msg) {
 func (f *fixture) keys(names ...string) {
 	f.t.Helper()
 	special := map[string]tea.KeyType{"enter": tea.KeyEnter, "esc": tea.KeyEsc, "tab": tea.KeyTab,
-		"ctrl+d": tea.KeyCtrlD, "ctrl+u": tea.KeyCtrlU, "backspace": tea.KeyBackspace, "space": tea.KeySpace}
+		"ctrl+d": tea.KeyCtrlD, "shift+tab": tea.KeyShiftTab, "ctrl+u": tea.KeyCtrlU, "backspace": tea.KeyBackspace, "space": tea.KeySpace}
 	for _, n := range names {
 		if k, ok := special[n]; ok {
 			f.send(tea.KeyMsg{Type: k})
@@ -1005,30 +1005,44 @@ func TestReader_OneMessageIsntMarked(t *testing.T) {
 	}
 }
 
-// top is the reader's first line shown.
-func (f *fixture) top() string {
-	return f.model().readerLines(f.model().readerWidth())[f.model().scroll]
-}
-
-func TestReader_OpensOnTheMessageReplyAnswersAndFollowsTheScroll(t *testing.T) {
+func TestReader_TabMovesBetweenMessages(t *testing.T) {
 	f := newFixture(t, 80, 24)
 
-	f.keys("enter") // the launch plan: Maya, Tom, Maya
+	f.keys("enter") // the launch plan: Maya, Tom, Maya; opens on the one a reply answers
 
-	if !strings.Contains(f.top(), "▶ Maya Chen <maya@work.example>") {
-		t.Errorf("top %q, want Maya's latest, marked", f.top())
+	arrow := func() string { _, a := f.marked(); return a }
+	if f.model().scroll != 0 || !strings.Contains(arrow(), "<maya@work.example>") {
+		t.Errorf("scroll %d, ▶ on %q; want the top, Maya's latest", f.model().scroll, arrow())
 	}
-	f.keys("k")
+	f.keys("shift+tab")
+	if !strings.Contains(arrow(), "▶ Tom Okafor") {
+		t.Errorf("shift+tab: ▶ on %q, want Tom's", arrow())
+	}
+	f.keys("shift+tab", "shift+tab")
+	if !strings.Contains(arrow(), "Hi both") {
+		t.Errorf("shift+tab at the first: ▶ on %q, want Maya's first", arrow())
+	}
+	f.keys("j")
+	if !strings.Contains(arrow(), "Hi both") {
+		t.Errorf("j moved ▶ to %q", arrow())
+	}
+	f.keys("tab", "tab", "tab")
+	if !strings.Contains(arrow(), "<maya@work.example>") {
+		t.Errorf("tab at the last: ▶ on %q, want Maya's latest", arrow())
+	}
+}
+
+func TestReadTogether_TabMovesWithinTheCurrentConversation(t *testing.T) {
+	f := newFixture(t, 80, 24)
+	f.keys("T") // the launch plan first
+
+	f.keys("shift+tab")
+
 	if _, arrow := f.marked(); !strings.Contains(arrow, "▶ Tom Okafor") {
-		t.Errorf("k: ▶ on %q, want Tom's", arrow)
+		t.Errorf("▶ on %q, want Tom's", arrow)
 	}
-	f.keys("g", "g")
-	if _, arrow := f.marked(); !strings.Contains(arrow, "▶ Maya Chen") || !strings.Contains(arrow, "Hi both") {
-		t.Errorf("gg: ▶ on %q, want Maya's first", arrow)
-	}
-	f.keys("G")
-	if _, arrow := f.marked(); !strings.Contains(arrow, "<maya@work.example>") {
-		t.Errorf("G: ▶ on %q, want Maya's latest", arrow)
+	if f.currentID() != "t-launch" {
+		t.Errorf("current %s, want t-launch", f.currentID())
 	}
 }
 
@@ -1038,7 +1052,7 @@ func TestReader_ActionsApplyToTheMarkedMessage(t *testing.T) {
 		{"f", "From: Tom Okafor <tom@work.example>"},
 	} {
 		f := newFixture(t, 80, 24)
-		f.keys("enter", "k") // Tom's message
+		f.keys("enter", "shift+tab") // Tom's message
 
 		f.keys(tc.keys)
 
@@ -1052,7 +1066,7 @@ func TestReader_ActionsApplyToTheMarkedMessage(t *testing.T) {
 	}
 
 	f := newFixture(t, 80, 24)
-	f.keys("enter", "k", "D") // Tom's message has none; Maya's latest has one
+	f.keys("enter", "shift+tab", "D") // Tom's message has none; Maya's latest has one
 	if !strings.Contains(f.view(), "no attachments here") {
 		t.Errorf("D on Tom's message:\n%s", f.view())
 	}

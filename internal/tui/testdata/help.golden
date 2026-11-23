@@ -7,16 +7,16 @@
    │ h/l       pane left / right         dd        move to Trash            │   
    │ enter/esc open / back               I         move to Inbox            │   
    │ n/p       next / prev (reader)      N         mark read / unread       │   
-   │                                     *         star / unstar            │   
-   │ Everywhere                          x/T       select / read together   │   
-   │ c         write a new mail          u         undo (again: earlier)    │   
-   │ /         search all mail           o         expand / collapse all    │   
-   │ s         sync now                  O         open in Gmail (web)      │   
-   │ [/]       previous / next account                                      │   
-   │ b         show / hide mailboxes     Go to                              │   
-   │ ?         this help                 gi/gs     Inbox / Starred          │   
-   │ q         quit                      gt/gd     Sent / Drafts            │   
-   │                                     ga/g#     All Mail / Trash         │   
+   │ tab/⇧tab  next / prev message       *         star / unstar            │   
+   │                                     x/T       select / read together   │   
+   │ Everywhere                          u         undo (again: earlier)    │   
+   │ c         write a new mail          o         expand / collapse all    │   
+   │ /         search all mail           O         open in Gmail (web)      │   
+   │ s         sync now                                                     │   
+   │ [/]       previous / next account   Go to                              │   
+   │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   
+   │ ?         this help                 gt/gd     Sent / Drafts            │   
+   │ q         quit                      ga/g#     All Mail / Trash         │   
    │                                     g!        Spam                     │   
    │                                                                        │   
    │ Press any key to close.                                                │   

@@ -359,7 +359,7 @@ func (m Model) readTogether() (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	m.focus, m.scroll, m.readerID, m.selected = paneReader, 0, "", map[string]bool{}
+	m.focus, m.scroll, m.readerID, m.selected, m.pointedID = paneReader, 0, "", map[string]bool{}, ""
 	m.scrollBy(0)
 	return m, m.apply(threads, service.MarkRead, false)
 }
@@ -553,6 +553,10 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		_, open := m.openThread()
 		return m, tea.Batch(cmd, open)
+	case key.Matches(msg, keys.NextMessage):
+		m.pointBy(1)
+	case key.Matches(msg, keys.PrevMessage):
+		m.pointBy(-1)
 	case key.Matches(msg, keys.Expand):
 		t, ok := m.current()
 		if !ok {
@@ -577,11 +581,7 @@ func (m Model) readerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) scrollBy(n int) {
 	w := m.readerWidth()
 	end := len(m.readerLines(w)) - m.listRows()
-	if !m.reading() { // the last message can come to the top, to be ▶
-		if t, ok := m.current(); ok && len(t.Messages) > 1 {
-			_, starts := m.threadLines(t, w, "")
-			end = max(end, starts[len(starts)-1])
-		}
+	if !m.reading() {
 		m.scroll = max(min(m.scroll+n, end), 0)
 		return
 	}
