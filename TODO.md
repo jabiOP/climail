@@ -15,7 +15,7 @@ Last updated: 2026-11-23
 - TUI: adaptive layout (sidebar | list | reader, or one pane), Gmail-style reader, triage keys, selection, undo, live search, accounts
 - `climail demo`: the TUI on made-up mailboxes, no Google account needed; mail between its two accounts is delivered
 - Compose, reply, reply all, forward in `$VISUAL`/`$EDITOR` (CLI and TUI); `send` for scripts; send queue with `outbox`
-- The reader marks a message (`▶` and a bar), which reply, forward and the attachment keys act on: the one a reply answers, until `tab`/`shift+tab` move it (read together: across conversations); `enter` opens it alone
+- The reader marks a message (`▶` and a bar), which reply, forward and the attachment keys act on: the one a reply answers, until `tab`/`shift+tab` move it (read together: across conversations); `enter` opens or closes it
 - Gmail search (`climail search`, `enter` in the TUI search) with Gmail's syntax; matches outside the cache are fetched into it
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
 - Mail goes out with the display name from Gmail's "Send mail as" settings

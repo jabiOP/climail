@@ -1088,18 +1088,19 @@ func TestReadTogether_TabGoesOnToTheNextConversation(t *testing.T) {
 	}
 }
 
-func TestReader_EnterOpensOnlyTheMarkedMessage(t *testing.T) {
+func TestReader_EnterOpensAndClosesTheMarkedMessage(t *testing.T) {
 	f := newFixture(t, 80, 24)
+	page := func() string { return strings.Join(f.model().readerLines(80), "\n") }
 	f.keys("enter", "shift+tab") // the launch plan, ▶ on Tom's message
 
-	f.keys("enter")
+	f.keys("enter", "shift+tab", "enter") // open Tom's, then Maya's first
 
-	page := strings.Join(f.model().readerLines(80), "\n")
-	if !strings.Contains(page, "last time they took longer") || strings.Contains(page, "migration guide") {
-		t.Errorf("not Tom's message alone:\n%s", page)
+	if p := page(); !strings.Contains(p, "last time they took longer") || !strings.Contains(p, "Freeze features") ||
+		!strings.Contains(p, "migration guide") {
+		t.Errorf("want all three open:\n%s", p)
 	}
-	f.keys("enter")
-	if page := strings.Join(f.model().readerLines(80), "\n"); strings.Contains(page, "last time they took longer") {
-		t.Errorf("enter again: Tom's message still open:\n%s", page)
+	f.keys("tab", "enter")
+	if p := page(); strings.Contains(p, "last time they took longer") || !strings.Contains(p, "Freeze features") {
+		t.Errorf("enter again: Tom's should close, the others stay:\n%s", p)
 	}
 }
