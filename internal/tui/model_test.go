@@ -1641,3 +1641,20 @@ func TestEsc_ClearsTheSelectionBeforeClosing(t *testing.T) {
 		t.Error("esc should clear the selection and keep the conversation open")
 	}
 }
+
+func TestLaunch_AllAccounts(t *testing.T) {
+	f := newFixtureWith(t, 150, 30, Deps{AllAtLaunch: true})
+
+	if m := f.model(); !m.all || m.box.ID != model.Inbox {
+		t.Errorf("all %v, box %s; want all accounts' Inbox", m.all, m.box.ID)
+	}
+}
+
+func TestLaunch_Account(t *testing.T) {
+	other := newFixture(t, 150, 30).model().accounts[1] // not the default
+	f := newFixtureWith(t, 150, 30, Deps{AccountAtLaunch: other})
+
+	if m := f.model(); m.all || m.account != other {
+		t.Errorf("all %v, account %s; want %s", m.all, m.account, other)
+	}
+}

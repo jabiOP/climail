@@ -117,7 +117,17 @@ func NewRootCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return tui.Run(cmd.Context(), tuiDeps(app, svc))
+			d := tuiDeps(app, svc)
+			switch name := app.Config.AccountAtLaunch; name {
+			case "all":
+				d.AllAtLaunch = true
+			case "":
+			default:
+				if d.AccountAtLaunch, err = app.Account(cmd.Context(), name); err != nil {
+					return fmt.Errorf("account_at_launch: %w", err)
+				}
+			}
+			return tui.Run(cmd.Context(), d)
 		},
 	}
 	root.SetIn(app.Stdin)

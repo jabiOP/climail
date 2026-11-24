@@ -109,6 +109,7 @@ sync_threads = 300     # conversations a first (or --full) sync downloads per ac
 download_dir = "~/Downloads"  # where attachments are saved
 preview_at_launch = false  # the TUI's reader shows the first conversation as soon as it opens
 sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
+account_at_launch = ""     # the account the TUI opens on: an address, its start ("work"), or "all"; "": the default account
 
 [account_colors]  # last: every key below it is an account's color. By address: one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
 "you@work.example" = "tomato"   # flamingo, tomato, tangerine, mango, pumpkin, citron, banana, avocado,

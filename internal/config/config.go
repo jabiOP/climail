@@ -34,6 +34,9 @@ type Config struct {
 	// PreviewAtLaunch shows the first conversation in the reader when the TUI opens.
 	PreviewAtLaunch bool `toml:"preview_at_launch"`
 	SidebarAtLaunch bool `toml:"sidebar_at_launch"` // the mailboxes are shown when the TUI opens
+	// AccountAtLaunch is the account the TUI opens on: an address or its start,
+	// or "all" for every account at once; "": the first account added.
+	AccountAtLaunch string `toml:"account_at_launch"`
 	// AccountColors gives accounts a color, by address: a Colors name or "#rrggbb".
 	AccountColors map[string]string `toml:"account_colors"`
 }
