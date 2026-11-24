@@ -120,6 +120,7 @@ type Model struct {
 	colors    map[string]string     // each account's color, if chosen (config.ColorHex values)
 	picking   string                // C: the account whose color is being chosen
 	pickAt    int                   // the color under the cursor, in config.Colors
+	pickCol   int                   // the grid column j/k keep to, through shorter rows
 }
 
 // --- messages ---

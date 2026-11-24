@@ -108,6 +108,12 @@ func TestLoad_AccountColors(t *testing.T) {
 	if got := config.ColorHex(c.AccountColors["d@e.f"]); got != "#123abc" {
 		t.Errorf("hex = %q", got)
 	}
+	if got := config.ColorHex("cherry Blossom"); got != "#d81b60" { // Google Calendar's extended palette
+		t.Errorf("cherry blossom = %q, want #d81b60", got)
+	}
+	if n := len(config.Colors); n != 24 {
+		t.Errorf("%d colors, want Google Calendar's 24", n)
+	}
 }
 
 func TestSetAccountColor_KeepsTheRestOfTheFile(t *testing.T) {

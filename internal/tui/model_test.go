@@ -459,10 +459,10 @@ func TestAccounts_PickAColor(t *testing.T) {
 	}
 
 	f.keys("C")
-	if !strings.Contains(f.view(), "Tomato") {
+	if !strings.Contains(f.view(), "Cherry blossom") {
 		t.Fatalf("no colors to pick from:\n%s", f.view())
 	}
-	f.keys("j", "enter") // peacock is first, then tomato
+	f.keys("kkkkk", "enter") // from peacock (blues) up to the reds: tomato
 
 	if !slices.Equal(saved, []string{workAcct + "=tomato"}) {
 		t.Errorf("saved %v", saved)
@@ -470,7 +470,7 @@ func TestAccounts_PickAColor(t *testing.T) {
 	if got := f.model().accountStyle(workAcct).GetForeground(); got != lipgloss.Color("#d50000") {
 		t.Errorf("work drawn in %v, want tomato", got)
 	}
-	if strings.Contains(f.view(), "Tomato") {
+	if strings.Contains(f.view(), "Cherry blossom") {
 		t.Error("the picker is still open")
 	}
 }

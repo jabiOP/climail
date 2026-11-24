@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -736,14 +737,35 @@ func (m Model) sidebarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.PickColor):
 		if m.side < len(rows) && rows[m.side].box == nil && rows[m.side].account != service.AllAccounts {
 			m.picking = rows[m.side].account
-			m.pickAt = max(slices.IndexFunc(config.Colors, func(c struct{ Name, Hex string }) bool {
+			m.pickAt = max(slices.IndexFunc(config.Colors, func(c config.Color) bool {
 				return c.Hex == m.accountHex(m.picking)
 			}), 0)
+			m.pickCol = pickColumn(m.pickAt)
 		}
 	case key.Matches(msg, keys.Back):
 		m.focus = paneList
 	}
 	return m, nil
+}
+
+// pickColumn is a color's column in the grid.
+func pickColumn(at int) int {
+	return at - slices.IndexFunc(config.Colors, func(c config.Color) bool { return c.Row == config.Colors[at].Row })
+}
+
+// pickRow moves the color grid's cursor a row down (or up), to column col,
+// or the row's last when it is shorter.
+func pickRow(at, by, col int) int {
+	row := config.Colors[at].Row + by
+	first := slices.IndexFunc(config.Colors, func(c config.Color) bool { return c.Row == row })
+	if first < 0 {
+		return at
+	}
+	last := first
+	for last+1 < len(config.Colors) && config.Colors[last+1].Row == row {
+		last++
+	}
+	return min(first+col, last)
 }
 
 // colorSavedMsg reports writing a chosen color into config.toml.
@@ -753,11 +775,19 @@ type colorSavedMsg struct{ err error }
 func (m Model) pickKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Down):
-		m.pickAt = min(m.pickAt+1, len(config.Colors)-1)
+		m.pickAt = pickRow(m.pickAt, 1, m.pickCol)
 	case key.Matches(msg, keys.Up):
-		m.pickAt = max(m.pickAt-1, 0)
+		m.pickAt = pickRow(m.pickAt, -1, m.pickCol)
+	case key.Matches(msg, keys.Right):
+		if i := m.pickAt + 1; i < len(config.Colors) && config.Colors[i].Row == config.Colors[m.pickAt].Row {
+			m.pickAt, m.pickCol = i, pickColumn(i)
+		}
+	case key.Matches(msg, keys.Left):
+		if i := m.pickAt - 1; i >= 0 && config.Colors[i].Row == config.Colors[m.pickAt].Row {
+			m.pickAt, m.pickCol = i, pickColumn(i)
+		}
 	case key.Matches(msg, keys.Open):
-		account, color := m.picking, config.Colors[m.pickAt].Name
+		account, color := m.picking, strings.ToLower(config.Colors[m.pickAt].Name)
 		m.picking = ""
 		m.colors[account] = color
 		save := m.deps.SaveAccountColor

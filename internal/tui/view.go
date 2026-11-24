@@ -594,15 +594,19 @@ func (m Model) logText() string {
 // pickText is the C pop-up: the colors to give an account.
 func (m Model) pickText() string {
 	lines := []string{title.Render("Color for " + accountName(m.picking)), ""}
+	line := ""
 	for i, c := range config.Colors {
+		if i > 0 && c.Row != config.Colors[i-1].Row {
+			lines, line = append(lines, line), ""
+		}
 		mark := "  "
 		if i == m.pickAt {
 			mark = "▶ "
 		}
-		name := strings.ToUpper(c.Name[:1]) + c.Name[1:]
-		lines = append(lines, accentFg.Render(mark)+lipgloss.NewStyle().Foreground(lipgloss.Color(c.Hex)).Render("● ")+fit(name, 12))
+		line += accentFg.Render(mark) + lipgloss.NewStyle().Foreground(lipgloss.Color(c.Hex)).Render("● ") + fit(c.Name, 15)
 	}
-	return strings.Join(append(lines, "", dim.Render("enter choose · esc cancel")), "\n")
+	lines = append(lines, line, "", dim.Render("h/j/k/l move · enter choose · esc cancel"))
+	return strings.Join(lines, "\n")
 }
 
 // --- status bar ---

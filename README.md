@@ -103,8 +103,10 @@ sync_timeout = "10s"   # how long a CLI command waits for that sync
 sync_threads = 300     # conversations a first (or --full) sync downloads per account
 download_dir = "~/Downloads"  # where attachments are saved
 
-[account_colors]  # by address: peacock, tomato, basil, banana, grape, tangerine,
-"you@work.example" = "tomato"   # blueberry, flamingo, sage, lavender, graphite or "#rrggbb"
+[account_colors]  # by address: one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
+"you@work.example" = "tomato"   # flamingo, tomato, tangerine, mango, pumpkin, citron, banana, avocado,
+# pistachio, sage, basil, eucalyptus, lavender, cobalt, blueberry, peacock, wisteria, amethyst, grape,
+# cherry blossom, radicchio, cocoa, birch, graphite
 ```
 
 To keep mail fresh, and changes flowing to Gmail, even when climail isn't open:

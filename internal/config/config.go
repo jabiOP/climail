@@ -79,17 +79,36 @@ func (c Config) validate() error {
 	return nil
 }
 
-// Colors are Google Calendar's event colors (as clindar draws them), by name.
-var Colors = []struct{ Name, Hex string }{
-	{"peacock", "#039be5"}, {"tomato", "#d50000"}, {"basil", "#0b8043"}, {"banana", "#f6bf26"},
-	{"grape", "#8e24aa"}, {"tangerine", "#f4511e"}, {"blueberry", "#3f51b5"}, {"flamingo", "#e67c73"},
-	{"sage", "#33b679"}, {"lavender", "#7986cb"}, {"graphite", "#616161"},
+// Color is one of Google Calendar's colors.
+type Color struct {
+	Name, Hex string
+	Row       int // its family, as clindar's color grid groups them: reds, oranges… greys
 }
+
+// Colors are Google Calendar's 24 colors, the extended palette clindar
+// offers, in the same shades: by family, light to dark.
+var Colors = []Color{
+	{"Flamingo", "#e67c73", 0}, {"Tomato", "#d50000", 0},
+	{"Tangerine", "#f4511e", 1}, {"Mango", "#f09300", 1}, {"Pumpkin", "#ef6c00", 1},
+	{"Citron", "#e4c441", 2}, {"Banana", "#f6bf26", 2}, {"Avocado", "#c0ca33", 2},
+	{"Pistachio", "#7cb342", 3}, {"Sage", "#33b679", 3}, {"Basil", "#0b8043", 3},
+	{"Eucalyptus", "#009688", 4},
+	{"Lavender", "#7986cb", 5}, {"Cobalt", "#4285f4", 5}, {"Blueberry", "#3f51b5", 5}, {"Peacock", "#039be5", 5},
+	{"Wisteria", "#b39ddb", 6}, {"Amethyst", "#9e69af", 6}, {"Grape", "#8e24aa", 6},
+	{"Cherry blossom", "#d81b60", 7}, {"Radicchio", "#ad1457", 7},
+	{"Cocoa", "#795548", 8},
+	{"Birch", "#a79b8e", 9}, {"Graphite", "#616161", 9},
+}
+
+// AutoColors are given to accounts without one, in the order they were
+// added: Google Calendar's classic colors, the most distinct first.
+var AutoColors = []string{"Peacock", "Tomato", "Basil", "Banana", "Grape", "Tangerine", "Blueberry", "Flamingo",
+	"Sage", "Lavender", "Graphite"}
 
 func colorNames() string {
 	names := make([]string, len(Colors))
 	for i, c := range Colors {
-		names[i] = c.Name
+		names[i] = strings.ToLower(c.Name)
 	}
 	return strings.Join(names, ", ")
 }

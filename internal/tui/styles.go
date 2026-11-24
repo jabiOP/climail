@@ -98,7 +98,7 @@ func (m Model) accountHex(account string) string {
 	if i < 0 {
 		return ""
 	}
-	return config.Colors[i%len(config.Colors)].Hex
+	return config.ColorHex(config.AutoColors[i%len(config.AutoColors)])
 }
 
 // accountStyle draws in the account's color.
