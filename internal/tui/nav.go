@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"net/url"
 	"slices"
 	"strings"
@@ -342,7 +341,13 @@ func (m Model) openInBrowser(t model.Thread) tea.Cmd {
 	if m.deps.OpenURL == nil {
 		return nil
 	}
-	return m.openLink(fmt.Sprintf("https://mail.google.com/mail/u/%s/#all/%s", url.PathEscape(t.Account), t.ID))
+	return m.openLink(gmailLink(t.Account, "all/"+t.ID))
+}
+
+// gmailLink is Gmail on the web, signed in as account, at fragment.
+// It names the account with authuser: Gmail answers /mail/u/<address>/ with a 404.
+func gmailLink(account, fragment string) string {
+	return "https://mail.google.com/mail/?authuser=" + url.QueryEscape(account) + "#" + fragment
 }
 
 // openLink opens a link in the browser.

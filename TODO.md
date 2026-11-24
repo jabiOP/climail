@@ -2,7 +2,7 @@
 
 Status: Initial development
 
-Last updated: 2026-11-23
+Last updated: 2026-11-24
 
 ## Done
 
@@ -39,16 +39,13 @@ Last updated: 2026-11-23
 
 ## Next
 
-- Manual check against real Gmail accounts: login, first sync, incremental sync, every action reaching Gmail;
-  sending (new, reply in the right conversation, forward with attachments, Bcc), daemon install on macOS,
-  attachment download and open, Gmail search, display name on sent mail,
-  drafts (save, continue one started on the web, send), recipients by name,
-  formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together,
+- Manual check against real Gmail accounts (done: login, first and incremental sync, actions, sending with attachments,
+  daemon on macOS, All accounts and colors, "Send mail as"): Bcc, reply in the right conversation,
+  forward with attachments, attachment open, Gmail search, drafts (save, continue one started on the web, send),
+  recipients by name, formatted mail as it looks in Gmail, Read Together,
+  `O` opening the conversation (and a draft's compose window) in Gmail,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
-  All accounts with real accounts (actions and replies in the right account; the colors readable on light and dark terminals),
-  `From:` changed to another account on a new mail,
-  first-sync progress on a fresh login, framed panes and account colors on a light terminal,
-  mail from a "Send mail as" address (default, reply to an alias) arriving with the right From
+  first-sync progress on a fresh login, framed panes and account colors on a light terminal
 
 ## Later
 
@@ -88,4 +85,5 @@ Last updated: 2026-11-23
 - Rejections are logged in the store when sync drops them (clindar's log table and `log`/`L`); the TUI counts those since it opened, so old ones don't nag.
 - Gmail calls that hit its rate limit (429, or 403 rateLimitExceeded) are retried in the client, waiting 1, 2, 4… 32 s: past the minute its per-user quota counts over, so a first sync of many threads finishes instead of failing. Google's errors are cut to one line (code and message).
 - Gmail requests start at most 20 a second. Real accounts can get far less quota than Gmail documents (one hit it after ~60 threads), so a rate limit pauses every request of the client for the quota's minute (retrying sooner only spends it again) and halves the pace. A first sync saves every 25 threads, so one cut short (even killed) keeps what it fetched, then fetches only the rest. The CLI's progress line is written past the cleaning of mail text (which drops its \r) and says when the quota holds it up.
+- Gmail web links name the account with `?authuser=<address>`: Gmail answers `/mail/u/<address>/` with a 404.
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.
