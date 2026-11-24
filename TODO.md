@@ -85,4 +85,5 @@ Last updated: 2026-11-23
 - The TUI tells conversations apart by account and ID: two accounts' IDs can collide (the demo's do).
 - Account colors follow the order accounts were added, from Google Calendar's event palette, unless config.toml's `[account_colors]` names one. `C` writes its choice there by editing the table's lines, so the user's comments and layout survive (a TOML encoder would drop them).
 - Rejections are logged in the store when sync drops them (clindar's log table and `log`/`L`); the TUI counts those since it opened, so old ones don't nag.
+- Gmail calls that hit its rate limit (429, or 403 rateLimitExceeded) are retried in the client, waiting 1, 2, 4… 32 s: past the minute its per-user quota counts over, so a first sync of many threads finishes instead of failing. Google's errors are cut to one line (code and message).
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.
