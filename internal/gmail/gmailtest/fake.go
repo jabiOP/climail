@@ -41,6 +41,7 @@ type Fake struct {
 	sent    [][]byte
 	peers   []*Fake           // other accounts mail is delivered to (Connect)
 	files   map[string][]byte // attachment data by "messageID/index"
+	refused map[string]bool   // messages whose changes are rejected (Refuse)
 }
 
 func New(email string) *Fake {
@@ -112,6 +113,17 @@ func (f *Fake) Calls(method string) int {
 }
 
 // begin counts a call; the caller holds f.mu.
+// Refuse makes Gmail reject every change to a message, as it does with
+// invalid ones (400).
+func (f *Fake) Refuse(id string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.refused == nil {
+		f.refused = map[string]bool{}
+	}
+	f.refused[id] = true
+}
+
 func (f *Fake) begin(method string) error {
 	f.calls[method]++
 	return f.Err
@@ -243,6 +255,9 @@ func (f *Fake) change(method, id string, add, remove []string) error {
 	m, ok := f.msgs[id]
 	if !ok {
 		return gmail.ErrNotFound
+	}
+	if f.refused[id] {
+		return fmt.Errorf("%w: 400 refused by the fake", gmail.ErrPermanent)
 	}
 	m.Labels = model.ApplyDelta(m.Labels, add, remove)
 	f.msgs[id] = m

@@ -644,6 +644,26 @@ func TestSync_ShowsHowTheDownloadGoes(t *testing.T) {
 	}
 }
 
+func TestLog_RejectedChangesShowWithL(t *testing.T) {
+	f := newFixture(t, 150, 24)
+	f.st.AddLog(context.Background(), store.LogEntry{Time: now, Kind: store.LogError, Account: workAcct,
+		Message: "“Plan”: Gmail rejected the change (archive); it shows as in Gmail again"})
+
+	f.keys("g", "i") // reload
+
+	if !strings.Contains(f.view(), "1 rejected: L to see") {
+		t.Fatalf("no notice:\n%s", f.view())
+	}
+	f.keys("L")
+	if !strings.Contains(f.view(), "“Plan”: Gmail rejected the change (archive)") {
+		t.Errorf("log not shown:\n%s", f.view())
+	}
+	f.keys("x") // any key closes it
+	if strings.Contains(f.view(), "“Plan”: Gmail rejected") {
+		t.Error("log still shown")
+	}
+}
+
 func TestReply_EditConfirmSend(t *testing.T) {
 	f := newFixture(t, 100, 24)
 

@@ -193,3 +193,17 @@ func TestSend_FormattedUnlessPlain(t *testing.T) {
 		t.Errorf("--plain sent HTML:\n%s", raw)
 	}
 }
+
+func TestLog_ShowsWhatGmailRejected(t *testing.T) {
+	h := newHarness(t, work)
+	h.gmail[work].Deliver(model.Message{ID: "m1", ThreadID: "t1", Date: now, Subject: "Plan", Labels: []string{"INBOX"}})
+	h.mustRun("sync")
+	h.gmail[work].Refuse("m1")
+
+	h.mustRun("archive", "t1")
+
+	out := h.mustRun("log")
+	if want := work + "  “Plan”: Gmail rejected the change (archive); it shows as in Gmail again\n"; !strings.HasSuffix(out, want) {
+		t.Errorf("log = %q, want it to end with %q", out, want)
+	}
+}

@@ -45,6 +45,7 @@ Spam and Trash, their unread counts added up. Actions, replies and attachments u
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
 | `c`, `r`, `R`, `f` | write a new mail, reply all, reply (to the sender only), forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
 | `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
+| `L` | what Gmail rejected lately (changes it refused, mail it wouldn't send); the status bar counts those since climail opened |
 | `[`/`]`, `b`, `s`, `ZZ` | previous/next account (or all accounts at once), hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
 
 Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `From:`, `To:`, `Cc:`, `Bcc:`, `Subject:` and
@@ -79,6 +80,7 @@ climail compose [--to A] [-s SUBJECT]       write a new mail in your editor
 climail reply ID [--all] | forward ID       reply or forward in your editor
 climail send --to A [-s S] [--attach F] [--plain] < BODY   send without an editor (--plain: not from Markdown)
 climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
+climail log [-n 20]                         changes and mail Gmail rejected, newest first
 climail contacts [QUERY...]                 people in your mail, those you write to most first
 climail attachments ID                      a conversation's attachments, numbered
 climail download ID [N...] [-o DIR] [--open]   save attachments (all, or by number); prints the paths

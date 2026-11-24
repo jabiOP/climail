@@ -35,6 +35,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.help = false
 		return m, nil
 	}
+	if m.log != nil {
+		m.log = nil
+		return m, nil
+	}
 	if m.searching {
 		return m.handleSearchKey(msg)
 	}
@@ -78,6 +82,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Help):
 		m.help = true
 		return m, nil
+	case key.Matches(msg, keys.Log):
+		return m, m.showLog()
 	case key.Matches(msg, keys.Sync):
 		if m.deps.Sync == nil {
 			return m, nil

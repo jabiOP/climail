@@ -249,6 +249,17 @@ func (s *Service) Status(ctx context.Context, account string) (Status, error) {
 	return st, err
 }
 
+// Logs are what sync couldn't do (changes and mail Gmail rejected), newest
+// first: one account's, or every account's.
+func (s *Service) Logs(ctx context.Context, account string, limit int) ([]store.LogEntry, error) {
+	return s.store.Logs(ctx, account, limit)
+}
+
+// RejectedSince counts those logged from since on.
+func (s *Service) RejectedSince(ctx context.Context, account string, since time.Time) (int, error) {
+	return s.store.CountLogsSince(ctx, account, since)
+}
+
 func (s *Service) allStatus(ctx context.Context) (Status, error) {
 	accounts, err := s.store.Accounts(ctx)
 	if err != nil {

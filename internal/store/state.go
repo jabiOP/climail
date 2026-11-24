@@ -40,3 +40,54 @@ func (s *Store) SetLastSync(ctx context.Context, account string, t time.Time) er
 		ON CONFLICT (account_id) DO UPDATE SET last_success = excluded.last_success`, account, t.Unix())
 	return err
 }
+
+// Log kinds.
+const (
+	LogError = "error" // a change or a mail Gmail rejected for good
+)
+
+// LogEntry is something sync did that the user should hear about.
+type LogEntry struct {
+	ID        int64
+	Time      time.Time
+	Kind      string
+	Account   string
+	MessageID string
+	Message   string
+	Detail    string
+}
+
+func (s *Store) AddLog(ctx context.Context, e LogEntry) error {
+	_, err := s.q.ExecContext(ctx, `INSERT INTO log (ts, kind, account_id, message_id, message, detail)
+		VALUES (?, ?, ?, ?, ?, ?)`, e.Time.Unix(), e.Kind, e.Account, e.MessageID, e.Message, e.Detail)
+	return err
+}
+
+// Logs returns an account's entries ("": every account's), newest first.
+func (s *Store) Logs(ctx context.Context, account string, limit int) ([]LogEntry, error) {
+	rows, err := s.q.QueryContext(ctx, `SELECT id, ts, kind, account_id, message_id, message, detail
+		FROM log WHERE ? IN ('', account_id) ORDER BY id DESC LIMIT ?`, account, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LogEntry
+	for rows.Next() {
+		var e LogEntry
+		var ts int64
+		if err := rows.Scan(&e.ID, &ts, &e.Kind, &e.Account, &e.MessageID, &e.Message, &e.Detail); err != nil {
+			return nil, err
+		}
+		e.Time = time.Unix(ts, 0)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// CountLogsSince counts an account's entries ("": every account's) from since on.
+func (s *Store) CountLogsSince(ctx context.Context, account string, since time.Time) (int, error) {
+	var n int
+	err := s.q.QueryRowContext(ctx, `SELECT count(*) FROM log WHERE ? IN ('', account_id) AND ts >= ?`,
+		account, since.Unix()).Scan(&n)
+	return n, err
+}

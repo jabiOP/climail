@@ -16,9 +16,9 @@
    │ [/]       previous / next account   Go to                              │   
    │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   
    │ C         account color (sidebar)   gt/gd     Sent / Drafts            │   
-   │ ?         this help                 ga/g#     All Mail / Trash         │   
-   │ ZZ        quit (q: in the list)     g!        Spam                     │   
+   │ L         what Gmail rejected       ga/g#     All Mail / Trash         │   
+   │ ?         this help                 g!        Spam                     │   
+   │ ZZ        quit (q: in the list)                                        │   
    │                                                                        │   
    │ Press any key to close.                                                │   
    ╰────────────────────────────────────────────────────────────────────────╯   
-                                                                                

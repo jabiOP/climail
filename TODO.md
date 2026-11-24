@@ -29,6 +29,7 @@ Last updated: 2026-11-23
 - Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
 - TUI: panes side by side are framed; the focused one has a double frame in the account's color, which also colors its title, the cursor row and the reader's bar (blue with All accounts)
 - TUI shows how a sync's download goes (`⟳ you@work.example: downloading 120/300`; on an empty first list, in its middle)
+- Log of what Gmail rejected (as in clindar): `climail log`, `L` in the TUI, and a count in the status bar; label changes refused or on mail deleted in Gmail, mail it won't send or save
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 - All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
 - Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it
@@ -43,11 +44,11 @@ Last updated: 2026-11-23
   formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
   All accounts with real accounts (actions and replies in the right account; the colors readable on light and dark terminals),
-  `From:` changed to another account on a new mail
+  `From:` changed to another account on a new mail,
+  first-sync progress on a fresh login, framed panes and account colors on a light terminal
 
 ## Later
 
-- Log of changes Google rejected
 - TUI: label picker to add/remove labels; mouse
 
 ## Known issues
@@ -81,4 +82,5 @@ Last updated: 2026-11-23
 - All accounts merges each account's newest conversations in the service (no cross-account SQL): the store stays per account, and N accounts × one page is cheap. Only system mailboxes are shown there; user labels belong to one account.
 - The TUI tells conversations apart by account and ID: two accounts' IDs can collide (the demo's do).
 - Account colors follow the order accounts were added, from Google Calendar's event palette, unless config.toml's `[account_colors]` names one. `C` writes its choice there by editing the table's lines, so the user's comments and layout survive (a TOML encoder would drop them).
+- Rejections are logged in the store when sync drops them (clindar's log table and `log`/`L`); the TUI counts those since it opened, so old ones don't nag.
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

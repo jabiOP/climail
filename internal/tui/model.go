@@ -114,6 +114,9 @@ type Model struct {
 	composing *composing            // a mail being written
 	choosing  []model.AttachmentRef // A: which attachment to open
 	askDraft  *model.Message        // a draft whose formatting Markdown can't hold: edit it anyway?
+	started   time.Time             // when the TUI opened: rejections since are announced
+	rejected  int                   // changes and mail Gmail rejected since then
+	log       []store.LogEntry      // L: shown while not nil
 	colors    map[string]string     // each account's color, if chosen (config.ColorHex values)
 	picking   string                // C: the account whose color is being chosen
 	pickAt    int                   // the color under the cursor, in config.Colors
@@ -131,6 +134,7 @@ type loadedMsg struct {
 	boxesOf  map[string][]service.Mailbox
 	threads  []model.Thread
 	status   service.Status
+	rejected int // log entries since the TUI started
 	err      error
 }
 
@@ -201,8 +205,8 @@ func New(ctx context.Context, d Deps) Model {
 		colors[a] = c
 	}
 	return Model{
-		colors: colors,
-		deps:   d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
+		colors: colors, started: d.Now(),
+		deps: d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
 		box: service.Mailbox{ID: model.Inbox, Name: "Inbox"}, selected: map[string]bool{}, input: in,
 		syncing: d.Sync != nil, // Init starts one
 		loadSeq: 1,             // Init's load
@@ -222,7 +226,7 @@ func (m *Model) load() tea.Cmd {
 }
 
 func (m Model) loadCmd(seq int) tea.Cmd {
-	svc, ctx := m.deps.Service, m.ctx
+	svc, ctx, started := m.deps.Service, m.ctx, m.started
 	account, all, view, limit, found := m.account, m.all, store.View{Label: m.box.ID, Search: m.search}, m.limit, m.found
 	return func() tea.Msg {
 		msg := loadedMsg{seq: seq, others: map[string]int{}, boxesOf: map[string][]service.Mailbox{}}
@@ -272,8 +276,26 @@ func (m Model) loadCmd(seq int) tea.Cmd {
 		if msg.err != nil {
 			return msg
 		}
-		msg.status, msg.err = svc.Status(ctx, shown)
+		if msg.status, msg.err = svc.Status(ctx, shown); msg.err != nil {
+			return msg
+		}
+		msg.rejected, msg.err = svc.RejectedSince(ctx, service.AllAccounts, started)
 		return msg
+	}
+}
+
+// logMsg carries the entries L shows.
+type logMsg struct {
+	entries []store.LogEntry
+	err     error
+}
+
+// showLog loads what Gmail rejected lately, for the L pop-up.
+func (m Model) showLog() tea.Cmd {
+	svc, ctx := m.deps.Service, m.ctx
+	return func() tea.Msg {
+		entries, err := svc.Logs(ctx, service.AllAccounts, 10)
+		return logMsg{entries, err}
 	}
 }
 
@@ -444,6 +466,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
+	case logMsg:
+		if msg.err != nil {
+			m.message, m.isError = "couldn't read the log: "+msg.err.Error(), true
+			return m, nil
+		}
+		m.log = msg.entries
+		if m.log == nil {
+			m.log = []store.LogEntry{}
+		}
+		return m, nil
 	case colorSavedMsg:
 		if msg.err != nil {
 			m.message, m.isError = "the color isn't saved in config.toml: "+msg.err.Error(), true
@@ -471,7 +503,7 @@ func (m Model) applyLoaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 	}
 	m.accounts, m.account, m.all, m.others, m.boxes, m.boxesOf, m.status =
 		msg.accounts, msg.account, msg.all, msg.others, msg.boxes, msg.boxesOf, msg.status
-	m.threads, m.loaded = msg.threads, true
+	m.threads, m.loaded, m.rejected = msg.threads, true, msg.rejected
 	if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return threadKey(t) == keep }); i >= 0 {
 		m.cursor = i
 	}

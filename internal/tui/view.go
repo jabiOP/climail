@@ -54,6 +54,10 @@ func (m Model) View() string {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(helpText()),
 			lipgloss.WithWhitespaceChars(" "))
 	}
+	if m.log != nil {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(m.logText()),
+			lipgloss.WithWhitespaceChars(" "))
+	}
 	if m.picking != "" {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(m.pickText()),
 			lipgloss.WithWhitespaceChars(" "))
@@ -573,6 +577,20 @@ func isFootnote(l string) bool {
 	return err == nil && strings.HasPrefix(rest, "http")
 }
 
+// logText is the L pop-up: what Gmail rejected lately, newest first.
+func (m Model) logText() string {
+	lines := []string{title.Render("What Gmail rejected"), ""}
+	w := max(min(m.width-8, 110), 20)
+	for _, e := range m.log {
+		when := e.Time.In(m.deps.Now().Location()).Format("Jan 2 15:04")
+		lines = append(lines, dim.Render(when+"  "+accountName(e.Account))+"  "+fit(e.Message, max(w-width(when+accountName(e.Account))-4, 10)))
+	}
+	if len(m.log) == 0 {
+		lines = append(lines, "Nothing yet.")
+	}
+	return strings.Join(append(lines, "", dim.Render("climail log shows more · press any key to close")), "\n")
+}
+
 // pickText is the C pop-up: the colors to give an account.
 func (m Model) pickText() string {
 	lines := []string{title.Render("Color for " + accountName(m.picking)), ""}
@@ -615,7 +633,7 @@ func (m Model) statusBar() string {
 		left = s(fit(m.hints(), leftW), dim)
 	}
 	rightStyle := dim
-	if m.syncError != "" {
+	if m.syncError != "" || m.rejected > 0 {
 		rightStyle = errStyle
 	}
 	return row(plain, s(" ", plain), left, s(" "+right+" ", rightStyle))
@@ -650,6 +668,9 @@ func (m Model) syncText() string {
 	}
 	if m.status.Pending > 0 {
 		parts = append(parts, fmt.Sprintf("%d to send", m.status.Pending))
+	}
+	if m.rejected > 0 {
+		parts = append(parts, fmt.Sprintf("%d rejected: L to see", m.rejected))
 	}
 	return strings.Join(parts, " · ")
 }

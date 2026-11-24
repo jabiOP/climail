@@ -172,6 +172,16 @@ UPDATE messages SET people = json_object('From', json_extract(data, '$.From'), '
 `, `
 ALTER TABLE outgoing ADD COLUMN draft TEXT NOT NULL DEFAULT '';  -- message ID of the Gmail draft it replaces or sends
 ALTER TABLE outgoing ADD COLUMN save INTEGER NOT NULL DEFAULT 0; -- 1: save it in Drafts instead of sending it
+`, `
+CREATE TABLE log (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	ts         INTEGER NOT NULL,          -- unix seconds
+	kind       TEXT NOT NULL,
+	account_id TEXT NOT NULL,
+	message_id TEXT NOT NULL DEFAULT '',  -- the message changed, if any
+	message    TEXT NOT NULL,             -- what happened, for people
+	detail     TEXT NOT NULL DEFAULT ''   -- Gmail's error
+);
 `}
 
 // notFound turns sql.ErrNoRows into ErrNotFound.
