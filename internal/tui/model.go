@@ -42,8 +42,10 @@ type Deps struct {
 	Search func(ctx context.Context, account, query string) ([]string, error)
 	// AccountColors are the colors config.toml gives accounts (config.ColorHex values).
 	AccountColors     map[string]string
-	NoPreviewAtLaunch bool // the reader stays empty until the cursor moves or a conversation opens
-	HideSidebar       bool // the mailboxes start hidden (b shows them)
+	NoPreviewAtLaunch bool   // the reader stays empty until the cursor moves or a conversation opens
+	HideSidebar       bool   // the mailboxes start hidden (b shows them)
+	AccountAtLaunch   string // the account shown at launch; "": the first one
+	AllAtLaunch       bool   // every account at once at launch
 	// SaveAccountColor writes a color chosen with C into config.toml; nil: not saved.
 	SaveAccountColor func(account, color string) error
 }
@@ -210,6 +212,7 @@ func New(ctx context.Context, d Deps) Model {
 	}
 	return Model{
 		colors: colors, started: d.Now(), hideSidebar: d.HideSidebar, noPreview: d.NoPreviewAtLaunch,
+		account: d.AccountAtLaunch, all: d.AllAtLaunch,
 		deps: d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
 		box: service.Mailbox{ID: model.Inbox, Name: "Inbox"}, selected: map[string]bool{}, input: in,
 		syncing: d.Sync != nil, // Init starts one

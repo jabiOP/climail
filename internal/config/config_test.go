@@ -167,3 +167,14 @@ func TestLoad_LaunchOptions(t *testing.T) {
 		t.Errorf("Load = %+v", c)
 	}
 }
+
+func TestLoad_AccountAtLaunch(t *testing.T) {
+	c, err := config.Load(writeConfig(t, "account_at_launch = \"all\"\n"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.AccountAtLaunch != "all" || config.Default().AccountAtLaunch != "" {
+		t.Errorf("account_at_launch %q, default %q", c.AccountAtLaunch, config.Default().AccountAtLaunch)
+	}
+}
