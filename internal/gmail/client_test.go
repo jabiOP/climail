@@ -232,3 +232,19 @@ func TestRateLimit_GivesUpWithAShortError(t *testing.T) {
 		t.Errorf("err = %q; want ErrRateLimited, on one line, without Google's details", err)
 	}
 }
+
+func TestRequests_ArePacedUnderGmailsQuota(t *testing.T) {
+	old := gmail.RequestInterval
+	gmail.RequestInterval = 20 * time.Millisecond
+	t.Cleanup(func() { gmail.RequestInterval = old })
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"id": "t1"}) })
+
+	start := time.Now()
+	for range 4 {
+		c.Thread(context.Background(), "t1")
+	}
+
+	if took := time.Since(start); took < 60*time.Millisecond {
+		t.Errorf("4 requests took %v; want them at least 20ms apart", took)
+	}
+}

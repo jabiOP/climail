@@ -44,6 +44,8 @@ type Fake struct {
 	peers   []*Fake           // other accounts mail is delivered to (Connect)
 	files   map[string][]byte // attachment data by "messageID/index"
 	refused map[string]bool   // messages whose changes are rejected (Refuse)
+	// ThreadErr makes fetching these threads fail (e.g. rate limited).
+	ThreadErr map[string]error
 }
 
 func New(email string) *Fake {
@@ -114,7 +116,6 @@ func (f *Fake) Calls(method string) int {
 	return f.calls[method]
 }
 
-// begin counts a call; the caller holds f.mu.
 // Refuse makes Gmail reject every change to a message, as it does with
 // invalid ones (400).
 func (f *Fake) Refuse(id string) {
@@ -126,6 +127,7 @@ func (f *Fake) Refuse(id string) {
 	f.refused[id] = true
 }
 
+// begin counts a call; the caller holds f.mu.
 func (f *Fake) begin(method string) error {
 	f.calls[method]++
 	return f.Err
@@ -190,6 +192,9 @@ func (f *Fake) Thread(ctx context.Context, id string) ([]model.Message, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.begin("Thread"); err != nil {
+		return nil, err
+	}
+	if err := f.ThreadErr[id]; err != nil {
 		return nil, err
 	}
 	var out []model.Message

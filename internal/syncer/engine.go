@@ -301,15 +301,32 @@ func (e *Engine) fullPull(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	msgs, err := e.fetchThreads(ctx, ids)
-	if err != nil {
+	// A first sync cut short (Gmail's rate limit, the TUI quit) kept what it
+	// fetched: fetch only the rest. (Resyncing an expired history refetches all.)
+	todo := ids
+	if start, err := e.Store.HistoryID(ctx, e.Account); err != nil {
 		return err
+	} else if start == 0 {
+		todo = nil
+		for _, id := range ids {
+			if cached, err := e.Store.HasThread(ctx, e.Account, id); err != nil {
+				return err
+			} else if !cached {
+				todo = append(todo, id)
+			}
+		}
+	}
+	if skipped, progress := len(ids)-len(todo), e.Progress; skipped > 0 && progress != nil {
+		e.Progress = func(done, total int) { progress(done+skipped, total+skipped) }
+		defer func() { e.Progress = progress }()
+	}
+	msgs, fetchErr := e.fetchThreads(ctx, todo)
+	// Keep what was fetched even when the rest failed or the sync was cancelled.
+	if err := e.save(context.WithoutCancel(ctx), msgs); err != nil || fetchErr != nil {
+		return errors.Join(fetchErr, err)
 	}
 	return e.Store.InTx(ctx, func(tx *store.Store) error {
-		if err := tx.ClearMessages(ctx, e.Account); err != nil {
-			return err
-		}
-		if err := (&Engine{Store: tx, Account: e.Account}).save(ctx, msgs); err != nil {
+		if err := tx.KeepThreads(ctx, e.Account, ids); err != nil { // gone from Gmail, or no longer among the newest
 			return err
 		}
 		return tx.SetHistoryID(ctx, e.Account, historyID)
