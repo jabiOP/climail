@@ -9,6 +9,7 @@ import (
 
 	"github.com/jabiOP/climail/internal/auth"
 	"github.com/jabiOP/climail/internal/gmail"
+	"github.com/jabiOP/climail/internal/output"
 )
 
 func newAuthCmd(app *App) *cobra.Command {
@@ -94,8 +95,16 @@ func newAuthLoginCmd(app *App) *cobra.Command {
 
 // progressPrinter shows a first sync's download on one updating line.
 func (a *App) progressPrinter() func(account string, done, total int) {
+	w := a.rawStderr // not cleaned: \r redraws the line; what's on it is ours, not mail's
+	if w == nil {
+		w = a.Stderr
+	}
+	line := ""
+	show := func(extra string) { fmt.Fprint(w, "\r"+line+extra+"\x1b[K") }
+	a.quotaWait = func() { show(" · Gmail's quota is spent: waiting a minute") }
 	return func(account string, done, total int) {
-		fmt.Fprintf(a.Stderr, "\r%s: %d/%d conversations", account, done, total)
+		line = fmt.Sprintf("%s: %d/%d conversations", output.Clean(account), done, total)
+		show("")
 	}
 }
 

@@ -69,9 +69,14 @@ func (s *Store) DeleteMessages(ctx context.Context, account string, ids []string
 	})
 }
 
-// ClearMessages forgets every cached message of the account (before a full resync).
-func (s *Store) ClearMessages(ctx context.Context, account string) error {
-	_, err := s.q.ExecContext(ctx, `DELETE FROM messages WHERE account_id = ?`, account)
+// KeepThreads deletes an account's cached messages outside the threads given.
+func (s *Store) KeepThreads(ctx context.Context, account string, threadIDs []string) error {
+	ids, err := json.Marshal(threadIDs)
+	if err != nil {
+		return err
+	}
+	_, err = s.q.ExecContext(ctx, `DELETE FROM messages WHERE account_id = ?
+		AND thread_id NOT IN (SELECT value FROM json_each(?))`, account, string(ids))
 	return err
 }
 

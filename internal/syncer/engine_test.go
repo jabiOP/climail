@@ -448,3 +448,58 @@ func TestSync_SendsFromAnAliasWithItsName(t *testing.T) {
 		t.Errorf("sent %q; want the alias with its name, and an address not ours replaced by the account's", sent)
 	}
 }
+
+// A first sync cut short (Gmail's rate limit, the TUI quit) keeps what it
+// fetched, and the next one fetches only the rest.
+func TestSync_FirstSyncResumesWhereItStopped(t *testing.T) {
+	w := newWorld(t)
+	w.fake.Deliver(msg("a1", "a", 0, "INBOX"), msg("b1", "b", 1, "INBOX"), msg("c1", "c", 2, "INBOX"))
+	w.fake.ThreadErr = map[string]error{"c": errors.New("rate limited")}
+
+	if err := w.engine.Sync(ctx); err == nil {
+		t.Fatal("want the sync to fail")
+	}
+	kept := 0 // it stops at the first error, so how many got through varies
+	for _, id := range []string{"a1", "b1"} {
+		if w.local(t, id) != nil {
+			kept++
+		}
+	}
+	if fetched := w.fake.Calls("Thread") - 1; kept != fetched {
+		t.Errorf("%d threads fetched, %d kept; want every one fetched kept", fetched, kept)
+	}
+	w.fake.ThreadErr = nil
+	before := w.fake.Calls("Thread")
+
+	w.sync(t)
+
+	if n := w.fake.Calls("Thread") - before; n != 3-kept || w.local(t, "a1") == nil || w.local(t, "c1") == nil {
+		t.Errorf("fetched %d threads; want only the %d not kept", n, 3-kept)
+	}
+}
+
+// A first sync saves as it goes, so one killed midway (the terminal closed)
+// keeps what it fetched.
+func TestSync_FirstSyncSavesAsItGoes(t *testing.T) {
+	old := syncer.SaveEvery
+	syncer.SaveEvery = 1
+	t.Cleanup(func() { syncer.SaveEvery = old })
+	w := newWorld(t)
+	w.fake.Deliver(msg("a1", "a", 0, "INBOX"), msg("b1", "b", 1, "INBOX"), msg("c1", "c", 2, "INBOX"))
+	var cachedAt []int // threads cached when each progress report came
+	w.engine.Progress = func(done, total int) {
+		n := 0
+		for _, id := range []string{"a1", "b1", "c1"} {
+			if w.local(t, id) != nil {
+				n++
+			}
+		}
+		cachedAt = append(cachedAt, n)
+	}
+
+	w.sync(t)
+
+	if !slices.Equal(cachedAt, []int{0, 1, 2}) {
+		t.Errorf("cached when each thread came: %v, want the ones before already saved", cachedAt)
+	}
+}

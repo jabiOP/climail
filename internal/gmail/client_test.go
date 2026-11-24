@@ -193,11 +193,11 @@ func TestSaveDraft_UpdatesTheDraftOrCreatesOne(t *testing.T) {
 	}
 }
 
-// quickRetries makes rate-limit retries wait a millisecond instead of seconds.
+// quickRetries makes rate-limit pauses a millisecond instead of a minute.
 func quickRetries(t *testing.T) {
-	old := gmail.RateLimitWait
-	gmail.RateLimitWait = time.Millisecond
-	t.Cleanup(func() { gmail.RateLimitWait = old })
+	old := gmail.RateLimitPause
+	gmail.RateLimitPause = time.Millisecond
+	t.Cleanup(func() { gmail.RateLimitPause = old })
 }
 
 const rateLimited = `{"error":{"code":429,"message":"Quota exceeded for quota metric 'Queries' and limit 'Queries per minute per user'",
@@ -230,5 +230,56 @@ func TestRateLimit_GivesUpWithAShortError(t *testing.T) {
 
 	if !errors.Is(err, gmail.ErrRateLimited) || strings.Contains(err.Error(), "@type") || strings.Contains(err.Error(), "\n") {
 		t.Errorf("err = %q; want ErrRateLimited, on one line, without Google's details", err)
+	}
+}
+
+func TestRequests_ArePacedUnderGmailsQuota(t *testing.T) {
+	old := gmail.RequestInterval
+	gmail.RequestInterval = 20 * time.Millisecond
+	t.Cleanup(func() { gmail.RequestInterval = old })
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"id": "t1"}) })
+
+	start := time.Now()
+	for range 4 {
+		c.Thread(context.Background(), "t1")
+	}
+
+	if took := time.Since(start); took < 60*time.Millisecond {
+		t.Errorf("4 requests took %v; want them at least 20ms apart", took)
+	}
+}
+
+// After a rate limit the whole client pauses, then goes on at half the pace.
+func TestRateLimit_PausesThenSlowsDown(t *testing.T) {
+	oldPause, oldInterval := gmail.RateLimitPause, gmail.RequestInterval
+	gmail.RateLimitPause, gmail.RequestInterval = 50*time.Millisecond, 10*time.Millisecond
+	t.Cleanup(func() { gmail.RateLimitPause, gmail.RequestInterval = oldPause, oldInterval })
+	calls := 0
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if calls++; calls == 1 {
+			http.Error(w, rateLimited, http.StatusTooManyRequests)
+			return
+		}
+		writeJSON(w, map[string]any{"id": "t1"})
+	})
+
+	var told time.Time
+	c.OnPause = func(until time.Time) { told = until }
+	start := time.Now()
+	c.Thread(context.Background(), "t1")
+	paused := time.Since(start)
+	if told.IsZero() {
+		t.Error("the pause wasn't reported")
+	}
+	start = time.Now()
+	for range 4 {
+		c.Thread(context.Background(), "t1")
+	}
+
+	if paused < 50*time.Millisecond {
+		t.Errorf("retried after %v; want the pause waited out", paused)
+	}
+	if took := time.Since(start); took < 60*time.Millisecond {
+		t.Errorf("4 requests took %v after the limit; want them 20ms apart (half the pace)", took)
 	}
 }
