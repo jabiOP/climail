@@ -23,14 +23,26 @@ type Client struct {
 	svc     *gmailapi.Service
 	account string
 
-	mu   sync.Mutex
-	next time.Time // when the next request may start (RequestInterval)
+	mu       sync.Mutex
+	next     time.Time     // when the next request may start
+	interval time.Duration // between request starts: RequestInterval, longer after a rate limit
 }
 
 // RequestInterval spaces requests out: at most 20 a second, each costing
-// at most 10 of Gmail's quota units, keeps under its 15,000 units a minute
-// per user. Tests lower it.
+// at most 10 of Gmail's quota units, keeps under the 15,000 units a minute
+// per user Gmail documents. Some accounts get less: a rate limit slows the
+// client down (see slowDown). Tests lower it.
 var RequestInterval = 50 * time.Millisecond
+
+// RateLimitPause is how long every request of the client waits after Gmail
+// says its quota is spent: the minute the quota counts over. Tests lower it.
+var RateLimitPause = time.Minute
+
+// rateLimitRetries is how many pauses one request waits out before giving up.
+const rateLimitRetries = 10
+
+// maxInterval: the slowest the client gets, 1 request a second.
+const maxInterval = time.Second
 
 // pace waits for the request's turn.
 func (c *Client) pace(ctx context.Context) error {
@@ -40,7 +52,10 @@ func (c *Client) pace(ctx context.Context) error {
 	if start.Before(now) {
 		start = now
 	}
-	c.next = start.Add(RequestInterval)
+	if c.interval == 0 {
+		c.interval = RequestInterval
+	}
+	c.next = start.Add(c.interval)
 	c.mu.Unlock()
 	select {
 	case <-time.After(time.Until(start)):
@@ -290,13 +305,6 @@ func (c *Client) AttachmentData(ctx context.Context, messageID string, index int
 	return decodeBase64(a.Data)
 }
 
-// RateLimitWait is how long the first retry waits when Gmail says too many
-// requests; each next one waits twice as long. Tests lower it.
-var RateLimitWait = time.Second
-
-// rateLimitRetries: 1+2+4+8+16+32 s, past the minute Gmail's per-user quota counts over.
-const rateLimitRetries = 6
-
 // do makes a Gmail call in its turn, retrying it while Gmail says too many requests.
 func do[T any](c *Client, ctx context.Context, call func(...googleapi.CallOption) (T, error)) (T, error) {
 	var out T
@@ -309,7 +317,6 @@ func do[T any](c *Client, ctx context.Context, call func(...googleapi.CallOption
 }
 
 func (c *Client) retry(ctx context.Context, call func(...googleapi.CallOption) error) error {
-	wait := RateLimitWait
 	for attempt := 0; ; attempt++ {
 		if err := c.pace(ctx); err != nil {
 			return err
@@ -318,11 +325,18 @@ func (c *Client) retry(ctx context.Context, call func(...googleapi.CallOption) e
 		if err == nil || attempt == rateLimitRetries || !rateLimited(err) {
 			return err
 		}
-		select {
-		case <-time.After(wait):
-		case <-ctx.Done():
-			return err
-		}
-		wait *= 2
+		c.slowDown()
+	}
+}
+
+// slowDown answers a rate limit: every request of the client waits out the
+// quota's minute (retrying sooner would only spend it again), and goes on
+// at half the pace, so it settles under what the account is allowed.
+func (c *Client) slowDown() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if resume := time.Now().Add(RateLimitPause); c.next.Before(resume) {
+		c.next = resume
+		c.interval = min(max(c.interval, RequestInterval)*2, maxInterval) // once per pause, not per request caught in it
 	}
 }
