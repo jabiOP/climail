@@ -35,7 +35,9 @@ type App struct {
 	// Edit opens a file in the user's editor and waits for it to close.
 	Edit func(path string, line int) error // opens path in the editor, at line (0: the top)
 
-	store *store.Store
+	store     *store.Store
+	rawStderr io.Writer // stderr before cleaning: for the progress line's \r
+	quotaWait func()    // tells the progress line that Gmail's quota holds the sync up
 }
 
 // Store opens the database on first use.

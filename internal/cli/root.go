@@ -43,6 +43,7 @@ func Main() int {
 func Run(ctx context.Context, app *App, args []string) int {
 	// Mail can carry terminal escape sequences: none reaches the terminal.
 	// (The TUI writes to the terminal itself, and cleans what it draws.)
+	app.rawStderr = app.Stderr
 	app.Stdout, app.Stderr = output.CleanWriter(app.Stdout), output.CleanWriter(app.Stderr)
 	root := NewRootCmd(app)
 	root.SetArgs(args)
@@ -63,7 +64,8 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &App{
+	var app *App // the Remote below reports Gmail's quota pauses to it
+	app = &App{
 		Paths: paths, Config: cfg, Now: time.Now,
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
 		IsTTY:   term.IsTerminal(int(os.Stdout.Fd())),
@@ -82,9 +84,18 @@ func NewApp() (*App, error) {
 			if err != nil {
 				return nil, err
 			}
-			return gmail.NewClient(ctx, account, hc)
+			c, err := gmail.NewClient(ctx, account, hc)
+			if err == nil {
+				c.OnPause = func(time.Time) {
+					if app.quotaWait != nil {
+						app.quotaWait()
+					}
+				}
+			}
+			return c, err
 		},
-	}, nil
+	}
+	return app, nil
 }
 
 // NewRootCmd builds the command tree. Tests call it with their own App.

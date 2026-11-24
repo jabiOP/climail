@@ -23,6 +23,9 @@ type Client struct {
 	svc     *gmailapi.Service
 	account string
 
+	// OnPause, if set, hears that requests wait until then for Gmail's quota.
+	OnPause func(until time.Time)
+
 	mu       sync.Mutex
 	next     time.Time     // when the next request may start
 	interval time.Duration // between request starts: RequestInterval, longer after a rate limit
@@ -334,9 +337,14 @@ func (c *Client) retry(ctx context.Context, call func(...googleapi.CallOption) e
 // at half the pace, so it settles under what the account is allowed.
 func (c *Client) slowDown() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if resume := time.Now().Add(RateLimitPause); c.next.Before(resume) {
+	resume := time.Now().Add(RateLimitPause)
+	paused := c.next.Before(resume)
+	if paused {
 		c.next = resume
 		c.interval = min(max(c.interval, RequestInterval)*2, maxInterval) // once per pause, not per request caught in it
+	}
+	c.mu.Unlock()
+	if paused && c.OnPause != nil {
+		c.OnPause(resume)
 	}
 }

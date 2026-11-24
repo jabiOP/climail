@@ -263,9 +263,14 @@ func TestRateLimit_PausesThenSlowsDown(t *testing.T) {
 		writeJSON(w, map[string]any{"id": "t1"})
 	})
 
+	var told time.Time
+	c.OnPause = func(until time.Time) { told = until }
 	start := time.Now()
 	c.Thread(context.Background(), "t1")
 	paused := time.Since(start)
+	if told.IsZero() {
+		t.Error("the pause wasn't reported")
+	}
 	start = time.Now()
 	for range 4 {
 		c.Thread(context.Background(), "t1")

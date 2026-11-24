@@ -285,6 +285,9 @@ func (e *Engine) relabel(ctx context.Context, id string, fetched []model.Message
 	return e.Store.SetLabels(ctx, e.Account, id, msgs[0].Labels)
 }
 
+// SaveEvery is how many threads a full sync fetches before saving them.
+var SaveEvery = 25
+
 func (e *Engine) fullPull(ctx context.Context) error {
 	// The history ID comes first, so changes made while we fetch are pulled next time.
 	_, historyID, err := e.Remote.Profile(ctx)
@@ -316,14 +319,19 @@ func (e *Engine) fullPull(ctx context.Context) error {
 			}
 		}
 	}
-	if skipped, progress := len(ids)-len(todo), e.Progress; skipped > 0 && progress != nil {
-		e.Progress = func(done, total int) { progress(done+skipped, total+skipped) }
-		defer func() { e.Progress = progress }()
-	}
-	msgs, fetchErr := e.fetchThreads(ctx, todo)
-	// Keep what was fetched even when the rest failed or the sync was cancelled.
-	if err := e.save(context.WithoutCancel(ctx), msgs); err != nil || fetchErr != nil {
-		return errors.Join(fetchErr, err)
+	// Saved as it goes, a batch at a time: a sync killed midway keeps what it fetched.
+	progress, skipped := e.Progress, len(ids)-len(todo)
+	defer func() { e.Progress = progress }()
+	for start := 0; start < len(todo); start += SaveEvery {
+		if progress != nil {
+			before := skipped + start
+			e.Progress = func(done, _ int) { progress(before+done, len(ids)) }
+		}
+		msgs, fetchErr := e.fetchThreads(ctx, todo[start:min(start+SaveEvery, len(todo))])
+		// Keep what was fetched even when the rest failed or the sync was cancelled.
+		if err := e.save(context.WithoutCancel(ctx), msgs); err != nil || fetchErr != nil {
+			return errors.Join(fetchErr, err)
+		}
 	}
 	return e.Store.InTx(ctx, func(tx *store.Store) error {
 		if err := tx.KeepThreads(ctx, e.Account, ids); err != nil { // gone from Gmail, or no longer among the newest

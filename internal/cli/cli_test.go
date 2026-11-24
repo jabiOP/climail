@@ -276,3 +276,16 @@ func TestOutput_DropsTerminalControlSequences(t *testing.T) {
 		}
 	}
 }
+
+// The progress line redraws itself with \r, which the cleaning of mail text
+// on stderr would drop, running every update into one long line.
+func TestSync_ProgressRedrawsOneLine(t *testing.T) {
+	h := newHarness(t, work)
+	h.gmail[work].Deliver(model.Message{ID: "m1", ThreadID: "t1", Date: now, Subject: "Hi", Labels: []string{"INBOX"}})
+
+	_, errOut, code := h.run("sync", "--full")
+
+	if code != 0 || !strings.Contains(errOut, "\r"+work+": 1/1 conversations") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+}
