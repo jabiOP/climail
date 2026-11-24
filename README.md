@@ -55,9 +55,11 @@ the text as typed for mail apps that show plain text; line breaks stay where you
 name or address (`maya, tom`): each becomes the one person in your mail it matches (when several do, the one whose
 name or address before the @ is exactly what you typed); otherwise climail lists who it could be and lets you edit. Replies quote the message and stay in its
 conversation; they, and drafts continued, open the editor on the message's first line (vi, vim, nvim, nano, emacs,
-micro, kak, mg, helix; other editors open at the top). `From:` is the account the mail goes from: change it to another of your accounts (its address or its start, `home`)
-on new mail and forwards; a reply, or a draft continued, stays in its conversation's account. When the editor closes,
-climail asks, naming that account first (`From you@work.example: send …?`): `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
+micro, kak, mg, helix; other editors open at the top). `From:` is the address the mail goes from, as in Gmail's "Send mail as"
+settings: new mail and forwards from your default one, a reply from the one the message was sent to (else the default).
+Change it to any address you send as, or another of your accounts (its address or its start, `home`), on new mail and
+forwards; a reply, or a draft continued, stays in its conversation's account (any of its addresses). When the editor
+closes, climail asks, naming that address first (`From you@work.example: send …?`): `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
 climail can't read as a mail stays on disk instead, and its path is shown), `d` discard it (neither sent nor saved; a
 draft continued from Drafts stays there as it was). In Drafts (`gd`), `enter` continues a draft,
 its attachments included; sending it takes it out of Drafts. A draft written in Gmail opens with its formatting as
@@ -80,7 +82,7 @@ climail show ID                             a conversation as plain text
 climail search QUERY... [--offline]         search all of Gmail, with Gmail's syntax
 climail compose [--to A] [-s SUBJECT]       write a new mail in your editor
 climail reply ID [--all] | forward ID       reply or forward in your editor
-climail send --to A [-s S] [--attach F] [--plain] < BODY   send without an editor (--plain: not from Markdown)
+climail send --to A [-s S] [--from F] [--attach F] [--plain] < BODY   send without an editor (--plain: not from Markdown)
 climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
 climail log [-n 20]                         changes and mail Gmail rejected, newest first
 climail contacts [QUERY...]                 people in your mail, those you write to most first
