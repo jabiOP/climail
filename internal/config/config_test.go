@@ -51,6 +51,10 @@ func TestLoad_Rejects(t *testing.T) {
 		{"interval too short", "sync_interval = \"2s\"\n", "at least 10s"},
 		{"bad sync_threads", "sync_threads = 0\n", "sync_threads"},
 		{"unknown color", "[account_colors]\n\"a@b.c\" = \"mauve\"\n", `"mauve"`},
+		{"setting under account_colors", "[account_colors]\n\"a@b.c\" = \"sage\"\n\npreview_at_launch = false\n",
+			"preview_at_launch must go above [account_colors]"},
+		{"string setting under account_colors", "[account_colors]\ndownload_dir = \"~/x\"\n",
+			"download_dir must go above [account_colors]"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

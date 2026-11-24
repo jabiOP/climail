@@ -110,7 +110,7 @@ download_dir = "~/Downloads"  # where attachments are saved
 preview_at_launch = false  # the TUI's reader shows the first conversation as soon as it opens
 sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
 
-[account_colors]  # by address: one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
+[account_colors]  # last: every key below it is an account's color. By address: one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
 "you@work.example" = "tomato"   # flamingo, tomato, tangerine, mango, pumpkin, citron, banana, avocado,
 # pistachio, sage, basil, eucalyptus, lavender, cobalt, blueberry, peacock, wisteria, amethyst, grape,
 # cherry blossom, radicchio, cocoa, birch, graphite
