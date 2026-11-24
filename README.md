@@ -27,7 +27,7 @@ you are in has a double frame, its title and cursor in the account's color. Narr
 time. `?` lists every key.
 
 With several accounts, each has its own color (Google Calendar's, as in clindar), on its dot in the sidebar and its
-name above the list; `C` on an account in the sidebar chooses another, saved in `config.toml`. `All accounts`, first in the sidebar and in the `[`/`]` round, shows every account's mail in one
+name above the list; `C` on an account in the sidebar chooses another (on `All accounts`, its frame's color), saved in `config.toml`. `All accounts`, first in the sidebar and in the `[`/`]` round, shows every account's mail in one
 list, newest first, each conversation with a stripe in its account's color: Inbox, Starred, Sent, Drafts, All Mail,
 Spam and Trash, their unread counts added up. Actions, replies and attachments use the conversation's own account;
 `c` writes from the default account (the first added), which the draft's `From:` line can change.
@@ -111,7 +111,7 @@ preview_at_launch = false  # the TUI's reader shows the first conversation as so
 sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
 account_at_launch = ""     # the account the TUI opens on: an address, its start ("work"), or "all"; "": the default account
 
-[account_colors]  # last: every key below it is an account's color. By address: one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
+[account_colors]  # last: every key below it is an account's color. By address ("all": All accounts): one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
 "you@work.example" = "tomato"   # flamingo, tomato, tangerine, mango, pumpkin, citron, banana, avocado,
 # pistachio, sage, basil, eucalyptus, lavender, cobalt, blueberry, peacock, wisteria, amethyst, grape,
 # cherry blossom, radicchio, cocoa, birch, graphite

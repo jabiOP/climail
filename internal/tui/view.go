@@ -594,7 +594,11 @@ func (m Model) logText() string {
 
 // pickText is the C pop-up: the colors to give an account.
 func (m Model) pickText() string {
-	lines := []string{title.Render("Color for " + accountName(m.picking)), ""}
+	name := m.picking
+	if name == config.AllColorKey {
+		name = accountName(service.AllAccounts)
+	}
+	lines := []string{title.Render("Color for " + name), ""}
 	line := ""
 	for i, c := range config.Colors {
 		if i > 0 && c.Row != config.Colors[i-1].Row {

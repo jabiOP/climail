@@ -791,11 +791,10 @@ func (m Model) sidebarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m.openBox(r.box.ID)
 	case key.Matches(msg, keys.PickColor):
-		if m.side < len(rows) && rows[m.side].box == nil && rows[m.side].account != service.AllAccounts {
-			m.picking = rows[m.side].account
-			m.pickAt = max(slices.IndexFunc(config.Colors, func(c config.Color) bool {
-				return c.Hex == m.accountHex(m.picking)
-			}), 0)
+		if m.side < len(rows) && rows[m.side].box == nil {
+			hex := m.accountHex(rows[m.side].account)
+			m.picking = colorKey(rows[m.side].account)
+			m.pickAt = max(slices.IndexFunc(config.Colors, func(c config.Color) bool { return c.Hex == hex }), 0)
 			m.pickCol = pickColumn(m.pickAt)
 		}
 	case key.Matches(msg, keys.Back):

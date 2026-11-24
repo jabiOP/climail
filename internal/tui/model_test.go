@@ -510,6 +510,40 @@ func TestAccounts_PickAColor(t *testing.T) {
 	}
 }
 
+func TestAllAccounts_ColorFromConfig(t *testing.T) {
+	f := newFixtureWith(t, 150, 24, Deps{AccountColors: map[string]string{"all": "Grape"}})
+
+	if got := f.model().hiFg().GetForeground(); got == lipgloss.Color("#8e24aa") {
+		t.Fatalf("one account shown, yet drawn in all's grape")
+	}
+	f.keys("[") // all accounts
+	if got := f.model().hiFg().GetForeground(); got != lipgloss.Color("#8e24aa") {
+		t.Errorf("all accounts drawn in %v, want grape", got)
+	}
+}
+
+func TestAllAccounts_PickAColor(t *testing.T) {
+	var saved []string
+	f := newFixtureWith(t, 130, 24, Deps{SaveAccountColor: func(account, color string) error {
+		saved = append(saved, account+"="+color)
+		return nil
+	}})
+	f.keys("h") // the mailboxes
+	for r := f.model().sideRows()[f.model().side]; r.box != nil || r.account != service.AllAccounts; r = f.model().sideRows()[f.model().side] {
+		f.keys("k")
+	}
+
+	f.keys("C")
+	if !strings.Contains(f.view(), "Color for All accounts") {
+		t.Fatalf("no picker for all accounts:\n%s", f.view())
+	}
+	f.keys("enter")
+
+	if len(saved) != 1 || !strings.HasPrefix(saved[0], "all=") {
+		t.Errorf("saved %v", saved)
+	}
+}
+
 func TestFocus_DoubleBorderInTheAccountsColor(t *testing.T) {
 	f := newFixture(t, 150, 24)
 

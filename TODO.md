@@ -27,7 +27,7 @@ Last updated: 2026-11-24
 - Attachments saved on macOS are marked as downloaded (quarantine), so macOS asks before opening a risky one
 - The config and data folders and the mail cache are private to the user, made so even if an earlier run left them open
 - Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
-- TUI: panes side by side are framed; the focused one has a double frame in the account's color, which also colors its title, the cursor row and the reader's bar (blue with All accounts)
+- TUI: panes side by side are framed; the focused one has a double frame in the account's color, which also colors its title, the cursor row and the reader's bar (blue with All accounts, unless it is given a color: `C` on it, or `"all"` in `[account_colors]`)
 - TUI shows how a sync's download goes (`⟳ you@work.example: downloading 120/300`; on an empty first list, in its middle)
 - Log of what Gmail rejected (as in clindar): `climail log`, `L` in the TUI, and a count in the status bar; label changes refused or on mail deleted in Gmail, mail it won't send or save
 - Sidebar: `J`/`K` go to the next/previous account
