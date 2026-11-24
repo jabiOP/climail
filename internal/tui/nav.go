@@ -716,6 +716,17 @@ func (m Model) boxRow() int {
 func (m Model) sidebarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	rows := m.sideRows()
 	switch {
+	case key.Matches(msg, keys.ReadNext), key.Matches(msg, keys.ReadPrev): // J/K: the next/previous account
+		by := 1
+		if key.Matches(msg, keys.ReadPrev) {
+			by = -1
+		}
+		for i := m.side + by; i >= 0 && i < len(rows); i += by {
+			if rows[i].box == nil {
+				m.side = i
+				break
+			}
+		}
 	case key.Matches(msg, keys.Down):
 		m.side = min(m.side+1, len(rows)-1)
 	case key.Matches(msg, keys.Up):

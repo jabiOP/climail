@@ -489,6 +489,25 @@ func TestFocus_DoubleBorderInTheAccountsColor(t *testing.T) {
 	}
 }
 
+func TestSidebar_JKMoveBetweenAccounts(t *testing.T) {
+	f := newFixture(t, 150, 24)
+	f.keys("h") // the mailboxes, on Inbox
+	row := func() sideRow { return f.model().sideRows()[f.model().side] }
+
+	f.keys("J")
+	if r := row(); r.box != nil || r.account != homeAcct {
+		t.Errorf("J: on %+v, want the home account", r)
+	}
+	f.keys("K")
+	if r := row(); r.box != nil || r.account != workAcct {
+		t.Errorf("K: on %+v, want the work account", r)
+	}
+	f.keys("K")
+	if r := row(); r.box != nil || r.account != service.AllAccounts {
+		t.Errorf("K again: on %+v, want All accounts", r)
+	}
+}
+
 func TestGoTo_Mailboxes(t *testing.T) {
 	f := newFixture(t, 100, 24)
 

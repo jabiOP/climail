@@ -646,7 +646,7 @@ func (m Model) statusBar() string {
 func (m Model) hints() string {
 	switch m.focus {
 	case paneSidebar:
-		return "enter open · [ ] accounts · C color · l list · ? help"
+		return "enter open · J/K accounts · C color · l list · ? help"
 	case paneReader:
 		if m.reading() {
 			return "j/k scroll · n/p next/prev · a archive this · r reply all · esc back · ? help"

@@ -91,7 +91,7 @@ func helpText() string {
 	}
 	left := helpColumn(
 		"Move", []helpRow{
-			pair(keys.Down, keys.Up, "down / up"), pair(keys.PageDown, keys.PageUp, "page / next msg (reader)"),
+			pair(keys.Down, keys.Up, "down / up"), pair(keys.PageDown, keys.PageUp, "page; sidebar: account"),
 			pair(keys.HalfDown, keys.HalfUp, "half page down / up"), pair(keys.Top, keys.Bottom, "top / bottom"),
 			pair(keys.Left, keys.Right, "pane left / right"), pair(keys.Open, keys.Back, "open / back"),
 			pair(keys.Next, keys.Prev, "next / prev (reader)"),
