@@ -234,6 +234,8 @@ func (m Model) listKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, keys.Together):
 		return m.readTogether()
+	case key.Matches(msg, keys.Browser):
+		return m, m.openMailboxInBrowser()
 	case key.Matches(msg, keys.Select):
 		if t, ok := m.current(); ok {
 			if k := threadKey(t); m.selected[k] {
@@ -342,6 +344,39 @@ func (m Model) openInBrowser(t model.Thread) tea.Cmd {
 		return nil
 	}
 	return m.openLink(gmailLink(t.Account, "all/"+t.ID))
+}
+
+// openMailboxInBrowser opens the mailbox (or search) shown in Gmail on the web:
+// with All accounts, the current conversation's account's, else the first account's.
+func (m Model) openMailboxInBrowser() tea.Cmd {
+	if m.deps.OpenURL == nil {
+		return nil
+	}
+	account := m.account
+	if m.all {
+		account = m.accounts[0]
+		if t, ok := m.current(); ok {
+			account = t.Account
+		}
+	}
+	return m.openLink(gmailLink(account, gmailView(m.box, m.search)))
+}
+
+// gmailViews are the system mailboxes' places in Gmail on the web.
+var gmailViews = map[string]string{
+	model.Inbox: "inbox", model.Starred: "starred", model.Sent: "sent", model.Draft: "drafts",
+	model.AllMail: "all", model.Spam: "spam", model.Trash: "trash",
+}
+
+// gmailView is the place in Gmail on the web of a mailbox, or of a search.
+func gmailView(box service.Mailbox, search string) string {
+	if search != "" {
+		return "search/" + url.QueryEscape(search)
+	}
+	if v, ok := gmailViews[box.ID]; ok {
+		return v
+	}
+	return "label/" + url.QueryEscape(box.Path)
 }
 
 // gmailLink is Gmail on the web, signed in as account, at fragment.

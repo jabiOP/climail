@@ -111,7 +111,7 @@ func helpText() string {
 			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),
 			pair(keys.Select, keys.Together, "select / read together"), one(keys.Undo, "undo (again: earlier)"),
-			one(keys.Expand, "expand / collapse all"), one(keys.Browser, "open in Gmail (web)"),
+			one(keys.Expand, "expand / collapse all"), one(keys.Browser, "open here in Gmail (web)"),
 		},
 		"Go to", gotoRows)
 	cols := lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right)

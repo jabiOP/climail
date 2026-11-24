@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1043,15 +1042,48 @@ func TestCompose_NamesBecomeAddressesInTheDraft(t *testing.T) {
 	}
 }
 
-func TestOpenInGmail_NamesTheAccountByAuthuser(t *testing.T) {
+func TestOpenInGmail_ReaderOpensTheConversation(t *testing.T) {
 	var opened []string
 	f := newFixtureWith(t, 100, 24, Deps{OpenURL: func(u string) error { opened = append(opened, u); return nil }})
 	th, _ := f.model().current()
 
-	f.keys("O")
+	f.keys("enter", "O")
 	// Gmail answers /mail/u/<address>/ with a 404; ?authuser=<address> works.
-	if want := "https://mail.google.com/mail/?authuser=" + url.QueryEscape(th.Account) + "#all/" + th.ID; len(opened) != 1 || opened[0] != want {
+	if want := gmailLink(th.Account, "all/"+th.ID); len(opened) != 1 || opened[0] != want {
 		t.Errorf("opened %v, want %s", opened, want)
+	}
+	if !strings.HasPrefix(opened[0], "https://mail.google.com/mail/?authuser=you%40work.example#") {
+		t.Errorf("opened %s", opened[0])
+	}
+}
+
+func TestOpenInGmail_ListOpensTheMailbox(t *testing.T) {
+	var opened []string
+	f := newFixtureWith(t, 100, 24, Deps{OpenURL: func(u string) error { opened = append(opened, u); return nil }})
+
+	f.keys("O", "g", "t", "O", "/", "invoice", "enter", "O")
+	want := []string{gmailLink(workAcct, "inbox"), gmailLink(workAcct, "sent"), gmailLink(workAcct, "search/invoice")}
+	if !slices.Equal(opened, want) {
+		t.Errorf("opened %v, want %v", opened, want)
+	}
+}
+
+func TestGmailView(t *testing.T) {
+	for _, c := range []struct {
+		box    service.Mailbox
+		search string
+		want   string
+	}{
+		{service.Mailbox{ID: model.Inbox}, "", "inbox"},
+		{service.Mailbox{ID: model.Draft}, "", "drafts"},
+		{service.Mailbox{ID: model.AllMail}, "", "all"},
+		{service.Mailbox{ID: "Label_2", Path: "Work/Clients"}, "", "label/Work%2FClients"},
+		{service.Mailbox{ID: "Label_3", Path: "To do"}, "", "label/To+do"},
+		{service.Mailbox{ID: model.Inbox}, "from:maya invoice", "search/from%3Amaya+invoice"},
+	} {
+		if got := gmailView(c.box, c.search); got != c.want {
+			t.Errorf("gmailView(%v, %q) = %q, want %q", c.box, c.search, got, c.want)
+		}
 	}
 }
 
