@@ -1609,3 +1609,35 @@ func TestLaunch_SidebarHidden(t *testing.T) {
 		t.Error("b doesn't show it")
 	}
 }
+
+func TestEscTwice_ClosesTheConversation(t *testing.T) {
+	f := newFixture(t, 150, 30)
+
+	f.keys("enter", "esc")
+
+	if strings.Contains(f.view(), "No conversation selected") {
+		t.Fatal("the first esc closed the conversation; it should only go back to the list")
+	}
+
+	f.keys("esc")
+
+	if !strings.Contains(f.view(), "No conversation selected") {
+		t.Fatal("the second esc didn't close the conversation")
+	}
+
+	f.keys("j")
+
+	if strings.Contains(f.view(), "No conversation selected") {
+		t.Error("the reader doesn't follow the cursor again")
+	}
+}
+
+func TestEsc_ClearsTheSelectionBeforeClosing(t *testing.T) {
+	f := newFixture(t, 150, 30)
+
+	f.keys("x", "esc")
+
+	if len(f.model().selected) != 0 || strings.Contains(f.view(), "No conversation selected") {
+		t.Error("esc should clear the selection and keep the conversation open")
+	}
+}

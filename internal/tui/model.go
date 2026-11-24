@@ -68,7 +68,7 @@ type Model struct {
 	width, height int
 	focus         pane
 	hideSidebar   bool // b: more room for the list and reader on wide screens
-	noPreview     bool // at launch: the reader is empty until the cursor moves or a conversation opens
+	noPreview     bool // at launch, or after esc in the list: the reader is empty until the cursor moves or a conversation opens
 
 	accounts []string
 	account  string                       // the account shown; with all, the one c writes from
