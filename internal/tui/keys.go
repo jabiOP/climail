@@ -47,8 +47,8 @@ var keys = struct {
 	Expand:      bind("o", "expand / collapse messages (reader)", "o"),
 	Browser:     bind("O", "open in Gmail on the web", "O"),
 	Compose:     bind("c", "write a new mail", "c"),
-	Reply:       bind("r", "reply", "r"),
-	ReplyAll:    bind("R", "reply all", "R"),
+	Reply:       bind("R", "reply", "R"),
+	ReplyAll:    bind("r", "reply all", "r"),
 	Forward:     bind("f", "forward", "f"),
 	SaveFiles:   bind("D", "save the attachments", "D"),
 	OpenFile:    bind("A", "open an attachment", "A"),
@@ -102,7 +102,7 @@ func helpText() string {
 		})
 	right := helpColumn(
 		"Conversations", []helpRow{
-			pair(keys.Reply, keys.ReplyAll, "reply / reply all"), one(keys.Forward, "forward"),
+			pair(keys.ReplyAll, keys.Reply, "reply all / reply"), one(keys.Forward, "forward"),
 			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"),
 			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),

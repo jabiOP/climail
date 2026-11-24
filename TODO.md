@@ -58,6 +58,7 @@ Last updated: 2026-11-23
 - The list unit is the thread (conversation), as in Gmail.
 - Multiple Google accounts from the start; every table is keyed by account.
 - Keys follow clindar/mutt style: vim movement, single-key actions (`a` archive, `dd` trash, `s` sync).
+- `r` replies to all and `R` to the sender only: replying to everyone is the common case, so it gets the easier key.
 - Adaptive TUI layout: sidebar | list | reader when wide, one full-screen pane at a time when narrow.
 - Labels are stored once, as a `,A,B,` column; membership queries use `instr`. Simple and fast enough for a cache of thousands of messages.
 - Outbox holds one label delta per message; a change that undoes a pending one cancels it. Trash is the TRASH label, pushed through Gmail's trash endpoint. Label deltas are idempotent, so there are no conflicts.

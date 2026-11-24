@@ -577,7 +577,7 @@ func (f *fixture) outbox() []string {
 func TestReply_EditConfirmSend(t *testing.T) {
 	f := newFixture(t, 100, 24)
 
-	f.keys("r")
+	f.keys("R")
 	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
 
 	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen?") {
@@ -596,7 +596,7 @@ func TestReply_EditConfirmSend(t *testing.T) {
 func TestReplyAll_IncludesEveryone(t *testing.T) {
 	f := newFixture(t, 130, 24)
 
-	f.keys("R")
+	f.keys("r")
 	f.editDraft(func(old string) string { return old + "ok\n" })
 
 	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen, Tom Okafor?") {
@@ -1141,7 +1141,7 @@ func TestReadTogether_TabMovesWithinTheCurrentConversation(t *testing.T) {
 
 func TestReader_ActionsApplyToTheMarkedMessage(t *testing.T) {
 	for _, tc := range []struct{ keys, want string }{
-		{"r", "To: Tom Okafor <tom@work.example>"},
+		{"R", "To: Tom Okafor <tom@work.example>"},
 		{"f", "From: Tom Okafor <tom@work.example>"},
 	} {
 		f := newFixture(t, 80, 24)

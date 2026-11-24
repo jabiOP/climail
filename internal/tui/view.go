@@ -545,11 +545,11 @@ func (m Model) hints() string {
 		return "enter open · [ ] accounts · l list · ? help"
 	case paneReader:
 		if m.reading() {
-			return "j/k scroll · n/p next/prev · a archive this · r reply · esc back · ? help"
+			return "j/k scroll · n/p next/prev · a archive this · r reply all · esc back · ? help"
 		}
-		return "j/k scroll · n/p next/prev · r reply · f forward · a archive · dd trash · esc back · ? help"
+		return "j/k scroll · n/p next/prev · r reply all · f forward · a archive · dd trash · esc back · ? help"
 	}
-	return "enter open · c compose · r reply · a archive · dd trash · * star · x select · / search · ? help"
+	return "enter open · c compose · r reply all · a archive · dd trash · * star · x select · / search · ? help"
 }
 
 func (m Model) syncText() string {
