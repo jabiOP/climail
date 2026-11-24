@@ -24,8 +24,10 @@ import (
 
 // Deps are the TUI's connections to the rest of the app.
 type Deps struct {
-	Service      *service.Service
-	Sync         func(context.Context) error // syncs every account; nil disables syncing (tests)
+	Service *service.Service
+	// Sync syncs every account, telling progress how a first sync's download
+	// goes; nil disables syncing (tests).
+	Sync         func(ctx context.Context, progress func(account string, done, total int)) error
 	Now          func() time.Time
 	SyncInterval time.Duration      // 0 disables periodic sync (tests)
 	OpenURL      func(string) error // opens a link in the browser; nil when there's none
@@ -101,8 +103,9 @@ type Model struct {
 	status    service.Status
 	syncing   bool
 	syncError string
-	checkPend bool // after a sync: retry soon if changes are still waiting (the daemon held the lock)
-	retrying  bool // a retryMsg is on its way
+	progress  progressMsg // how a first sync's download goes; total 0: none
+	checkPend bool        // after a sync: retry soon if changes are still waiting (the daemon held the lock)
+	retrying  bool        // a retryMsg is on its way
 	message   string
 	isError   bool
 	undos     []undoEntry // the changes u undoes, the newest last
@@ -132,6 +135,13 @@ type loadedMsg struct {
 }
 
 type syncDoneMsg struct{ err error }
+
+// progressMsg is how far a sync has downloaded an account's conversations.
+type progressMsg struct {
+	account     string
+	done, total int
+	next        <-chan progressMsg // the ones after it
+}
 type tickMsg struct{}
 
 // retryMsg retries a sync while local changes are still waiting.
@@ -272,7 +282,32 @@ func (m Model) syncCmd() tea.Cmd {
 		return nil
 	}
 	sync, ctx := m.deps.Sync, m.ctx
-	return func() tea.Msg { return syncDoneMsg{err: sync(ctx)} }
+	ch := make(chan progressMsg, 1)
+	report := func(account string, done, total int) {
+		select { // the newest that fits; the UI only needs to keep up roughly
+		case ch <- progressMsg{account: account, done: done, total: total, next: ch}:
+		default:
+		}
+	}
+	run := func() tea.Msg {
+		err := sync(ctx, report)
+		close(ch)
+		return syncDoneMsg{err: err}
+	}
+	return tea.Batch(run, waitProgress(ch))
+}
+
+// waitProgress delivers the next progress report, until the sync ends.
+func waitProgress(ch <-chan progressMsg) tea.Cmd {
+	if ch == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		if p, ok := <-ch; ok {
+			return p
+		}
+		return nil
+	}
 }
 
 func (m Model) tick() tea.Cmd {
@@ -321,8 +356,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil // a newer load is on its way
 		}
 		return m.applyLoaded(msg)
+	case progressMsg:
+		if !m.syncing { // reported before the sync ended, read after
+			return m, nil
+		}
+		m.progress = msg
+		return m, waitProgress(msg.next)
 	case syncDoneMsg:
-		m.syncing = false
+		m.syncing, m.progress = false, progressMsg{}
 		m.syncError = ""
 		if msg.err != nil {
 			m.syncError = syncErrorText(msg.err)

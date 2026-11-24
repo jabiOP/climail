@@ -579,7 +579,7 @@ func TestSync_RetriedWhileChangesWait(t *testing.T) {
 	t.Cleanup(func() { pushRetry = old })
 	syncs := 0
 	var st *store.Store
-	f := newFixtureWith(t, 100, 24, Deps{Sync: func(ctx context.Context) error {
+	f := newFixtureWith(t, 100, 24, Deps{Sync: func(ctx context.Context, _ func(string, int, int)) error {
 		syncs++
 		if syncs == 3 { // the daemon let go of the lock: push
 			ops, _ := st.PendingOps(ctx, workAcct)
@@ -622,6 +622,26 @@ func (f *fixture) outbox() []string {
 		s = append(s, o.Summary)
 	}
 	return s
+}
+
+func TestSync_ShowsHowTheDownloadGoes(t *testing.T) {
+	f := newFixtureWith(t, 150, 24, Deps{Sync: func(ctx context.Context, progress func(string, int, int)) error {
+		progress(homeAcct, 120, 300)
+		return nil
+	}})
+
+	m := f.model()
+	m.syncing = true // a sync under way
+	f.m = m
+	f.send(progressMsg{account: homeAcct, done: 120, total: 300})
+
+	if !strings.Contains(f.view(), "downloading 120/300") {
+		t.Errorf("no progress shown:\n%s", f.view())
+	}
+	f.keys("s") // a sync that reports through the channel, then ends
+	if strings.Contains(f.view(), "downloading") {
+		t.Errorf("progress still shown after the sync ended:\n%s", f.view())
+	}
 }
 
 func TestReply_EditConfirmSend(t *testing.T) {

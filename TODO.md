@@ -28,6 +28,7 @@ Last updated: 2026-11-23
 - The config and data folders and the mail cache are private to the user, made so even if an earlier run left them open
 - Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
 - TUI: panes side by side are framed; the focused one has a double frame in the account's color, which also colors its title, the cursor row and the reader's bar (blue with All accounts)
+- TUI shows how a sync's download goes (`⟳ you@work.example: downloading 120/300`; on an empty first list, in its middle)
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 - All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
 - Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it
@@ -47,7 +48,7 @@ Last updated: 2026-11-23
 ## Later
 
 - Log of changes Google rejected
-- TUI: show first-sync progress; label picker to add/remove labels; mouse
+- TUI: label picker to add/remove labels; mouse
 
 ## Known issues
 

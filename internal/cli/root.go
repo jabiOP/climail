@@ -125,8 +125,8 @@ func NewRootCmd(app *App) *cobra.Command {
 func tuiDeps(app *App, svc *service.Service) tui.Deps {
 	return tui.Deps{
 		Service: svc,
-		Sync: func(ctx context.Context) error {
-			_, err := app.SyncNow(ctx, nil) // skipped quietly if another process is syncing
+		Sync: func(ctx context.Context, progress func(account string, done, total int)) error {
+			_, err := app.SyncNow(ctx, progress) // skipped quietly if another process is syncing
 			return err
 		},
 		Now:           app.Now,

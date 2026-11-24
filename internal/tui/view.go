@@ -294,7 +294,11 @@ func (m Model) list(w, h int) []string {
 	case len(m.threads) == 0 && m.search != "":
 		return append(lines, centered(fmt.Sprintf("Nothing matches “%s”", m.search), w, h-1)...)
 	case len(m.threads) == 0 && m.status.LastSync.IsZero() && m.syncing:
-		return append(lines, centered("Downloading your mail…", w, h-1)...)
+		text := "Downloading your mail…"
+		if p := m.progress; p.total > 0 {
+			text = fmt.Sprintf("Downloading %s: %d of %d conversations…", accountName(p.account), p.done, p.total)
+		}
+		return append(lines, centered(text, w, h-1)...)
 	case len(m.threads) == 0:
 		return append(lines, centered("No conversations in "+m.box.Name, w, h-1)...)
 	}
@@ -633,6 +637,8 @@ func (m Model) hints() string {
 func (m Model) syncText() string {
 	var parts []string
 	switch {
+	case m.syncing && m.progress.total > 0:
+		parts = append(parts, fmt.Sprintf("⟳ %s: downloading %d/%d", accountName(m.progress.account), m.progress.done, m.progress.total))
 	case m.syncing:
 		parts = append(parts, "⟳ syncing")
 	case m.syncError != "":
