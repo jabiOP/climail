@@ -230,6 +230,8 @@ func (m Model) listKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.selected = map[string]bool{}
 		case m.search != "":
 			return m.clearSearch()
+		default:
+			m.noPreview = true // close the conversation in the reader
 		}
 		return m, nil
 	case key.Matches(msg, keys.Together):
