@@ -820,6 +820,25 @@ func TestDrafts_UnchangedContinuedDraftCanBeSent(t *testing.T) {
 	}
 }
 
+func TestCompose_DiscardNeitherSendsNorSaves(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.keys("c")
+	path := f.model().composing.path
+	f.editDraft(func(old string) string { return strings.Replace(old, "To: ", "To: bob@example.com", 1) })
+
+	if !strings.Contains(f.view(), "d discard") {
+		t.Errorf("the question doesn't offer d:\n%s", f.view())
+	}
+	f.keys("d")
+
+	if f.model().composing != nil || len(f.outbox()) != 0 || !strings.Contains(f.view(), "Discarded") {
+		t.Errorf("composing %v, outbox %v:\n%s", f.model().composing, f.outbox(), f.view())
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("the draft file is still on disk")
+	}
+}
+
 func TestCompose_UnchangedIsDropped(t *testing.T) {
 	f := newFixture(t, 100, 24)
 

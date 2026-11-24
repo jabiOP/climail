@@ -171,23 +171,36 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 				err = os.WriteFile(path, []byte(d.Text()), 0o600)
 			}
 		}
+		discard := func() error {
+			os.Remove(path)
+			fmt.Fprintln(a.Stderr, "Discarded.")
+			return nil
+		}
 		if err != nil {
 			if unreadable {
-				if ask(fmt.Sprintf("climail: %v\n[e]dit or [q]uit? ", err)) == "e" {
+				switch ask(fmt.Sprintf("climail: %v\n[e]dit, [q]uit or [d]iscard? ", err)) {
+				case "e":
 					continue
+				case "d":
+					return discard()
 				}
 				return kept()
 			}
-			if ask(fmt.Sprintf("climail: %v\n[e]dit or [q]uit (save to Drafts)? ", err)) == "e" {
+			switch ask(fmt.Sprintf("climail: %v\n[e]dit, [q]uit (save to Drafts) or [d]iscard? ", err)) {
+			case "e":
 				continue
+			case "d":
+				return discard()
 			}
 			return save(d)
 		}
-		switch ask(fmt.Sprintf("From %s: send %s? [y]es, [e]dit, [q]uit (save to Drafts): ", d.Account, d.Summary())) {
+		switch ask(fmt.Sprintf("From %s: send %s? [y]es, [e]dit, [q]uit (save to Drafts), [d]iscard: ", d.Account, d.Summary())) {
 		case "y", "yes":
 			return a.queue(ctx, d, path)
 		case "e":
 			continue
+		case "d":
+			return discard()
 		}
 		return save(d)
 	}

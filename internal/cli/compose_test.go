@@ -57,6 +57,24 @@ func TestCompose_QuitSavesToDrafts(t *testing.T) {
 	}
 }
 
+func TestCompose_DiscardNeitherSendsNorSaves(t *testing.T) {
+	h := newHarness(t, work)
+	h.edit = func(old string) string { return strings.Replace(old, "To: ", "To: bob@example.com", 1) }
+	h.stdin = "d\n"
+
+	_, errOut, _ := h.run("compose", "-s", "Never")
+
+	if len(h.gmail[work].Sent()) != 0 || !strings.Contains(errOut, "Discarded.") {
+		t.Errorf("stderr %q", errOut)
+	}
+	if out := h.mustRun("outbox"); out != "" {
+		t.Errorf("outbox = %q", out)
+	}
+	if files, _ := filepath.Glob(filepath.Join(h.app.Paths.DraftDir(), "*.eml")); len(files) != 0 {
+		t.Errorf("local drafts = %v", files)
+	}
+}
+
 func TestCompose_UnreadableDraftStaysOnDisk(t *testing.T) {
 	h := newHarness(t, work)
 	h.edit = func(old string) string { return "Frm: oops\n" + old }

@@ -21,7 +21,7 @@ Last updated: 2026-11-23
 - Mail goes out with the display name from Gmail's "Send mail as" settings
 - Mail is written in Markdown and sent formatted (HTML in Gmail's default style, plus the plain text); `send --plain` for scripts
 - Drafts written in Gmail are continued with their formatting as Markdown; climail asks first when fonts, colours or images would be lost
-- Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it (and asks even if left unchanged), sending removes it
+- Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it (and asks even if left unchanged), sending removes it; `d` after editing discards (CLI too)
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Read Together (HEY-style): `T` shows the selected conversations, else the unread ones listed, on one page; each is archived (or replied to…) on its own as you read on, and undoing puts it back on the page
 - Attachments saved on macOS are marked as downloaded (quarantine), so macOS asks before opening a risky one

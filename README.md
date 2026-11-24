@@ -57,7 +57,8 @@ name or address before the @ is exactly what you typed); otherwise climail lists
 conversation. `From:` is the account the mail goes from: change it to another of your accounts (its address or its start, `home`)
 on new mail and forwards; a reply, or a draft continued, stays in its conversation's account. When the editor closes,
 climail asks, naming that account first (`From you@work.example: send …?`): `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
-climail can't read as a mail stays on disk instead, and its path is shown). In Drafts (`gd`), `enter` continues a draft,
+climail can't read as a mail stays on disk instead, and its path is shown), `d` discard it (neither sent nor saved; a
+draft continued from Drafts stays there as it was). In Drafts (`gd`), `enter` continues a draft,
 its attachments included; sending it takes it out of Drafts. A draft written in Gmail opens with its formatting as
 Markdown; when it has formatting Markdown can't keep (fonts, colours, sizes, images), climail asks first: `e` edit it
 anyway (that formatting becomes Gmail's default), `O` open it in Gmail instead.

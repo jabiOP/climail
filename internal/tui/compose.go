@@ -103,6 +103,14 @@ func (m Model) composeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "e":
 		return m, m.editCmd()
+	case "d": // neither sent nor saved
+		m.composing = nil
+		os.Remove(c.path)
+		m.message = "Discarded"
+		if c.base.DraftID != "" {
+			m.message = "Discarded your edits; the draft stays in Drafts as it was"
+		}
+		return m, nil
 	case "q", "n", "esc":
 		m.composing = nil
 		if c.unreadable {
@@ -126,9 +134,9 @@ func (m Model) composePrompt() (string, bool) {
 	c := m.composing
 	switch {
 	case c.unreadable:
-		return c.err.Error() + " · e edit · q leave it on disk", true
+		return c.err.Error() + " · e edit · q leave it on disk · d discard", true
 	case c.err != nil:
-		return c.err.Error() + " · e edit · q save to Drafts", true
+		return c.err.Error() + " · e edit · q save to Drafts · d discard", true
 	}
-	return "From " + c.draft.Account + ": send " + c.draft.Summary() + "? y send · e edit · q save to Drafts", false
+	return "From " + c.draft.Account + ": send " + c.draft.Summary() + "? y send · e edit · q save to Drafts · d discard", false
 }
