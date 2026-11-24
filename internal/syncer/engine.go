@@ -30,7 +30,7 @@ type Remote interface {
 	Trash(ctx context.Context, id string) error
 	Untrash(ctx context.Context, id string) error
 	Send(ctx context.Context, raw []byte, threadID string) error
-	SendAsName(ctx context.Context) (string, error)                                    // the display name mail goes out with; "" for none
+	SendAs(ctx context.Context) ([]model.SendAs, error)                                // the addresses mail can go from, with their names
 	SaveDraft(ctx context.Context, replaces string, raw []byte, threadID string) error // replaces: a draft's message ID, or ""
 	DeleteDraft(ctx context.Context, messageID string) error                           // nil if it's already gone
 	AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error)
@@ -146,19 +146,21 @@ func (e *Engine) pushSends(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var from *model.Address // asked for once, only when there's mail to send
+	var sendAs []model.SendAs // asked for once, only when there's mail to send
 	for _, o := range out {
 		if o.Failed != "" {
 			continue
 		}
-		if from == nil {
-			name, err := e.Remote.SendAsName(ctx)
-			if err != nil && !errors.Is(err, gmail.ErrPermanent) { // permanent: send without the name
+		if sendAs == nil {
+			if err := e.pullSendAs(ctx); err != nil && !errors.Is(err, gmail.ErrPermanent) { // permanent: the cached ones
 				return err
 			}
-			from = &model.Address{Name: name, Email: e.Account}
+			if sendAs, err = e.Store.SendAs(ctx, e.Account); err != nil {
+				return err
+			}
+			sendAs = append(sendAs, model.SendAs{Email: e.Account}) // never nil; the account's own, if not listed
 		}
-		raw := compose.WithFrom(o.Raw, *from)
+		raw := compose.WithFrom(o.Raw, sender(sendAs, compose.FromAddress(o.Raw), e.Account))
 		var err error
 		switch {
 		case o.Save:
@@ -239,6 +241,9 @@ func (e *Engine) Pull(ctx context.Context) error {
 	if err := e.pullLabels(ctx); err != nil {
 		return err
 	}
+	if err := e.pullSendAs(ctx); err != nil && !errors.Is(err, gmail.ErrPermanent) {
+		return err
+	}
 	fetched, err := e.fetchThreads(ctx, changes.Threads)
 	if err != nil {
 		return err
@@ -289,6 +294,9 @@ func (e *Engine) fullPull(ctx context.Context) error {
 	if err := e.pullLabels(ctx); err != nil {
 		return err
 	}
+	if err := e.pullSendAs(ctx); err != nil && !errors.Is(err, gmail.ErrPermanent) { // permanent: e.g. no settings scope
+		return err
+	}
 	ids, err := e.Remote.ThreadIDs(ctx, "", e.MaxThreads)
 	if err != nil {
 		return err
@@ -306,6 +314,28 @@ func (e *Engine) fullPull(ctx context.Context) error {
 		}
 		return tx.SetHistoryID(ctx, e.Account, historyID)
 	})
+}
+
+// pullSendAs caches the addresses the account can send from.
+func (e *Engine) pullSendAs(ctx context.Context) error {
+	list, err := e.Remote.SendAs(ctx)
+	if err != nil {
+		return err
+	}
+	return e.Store.ReplaceSendAs(ctx, e.Account, list)
+}
+
+// sender is who a mail goes from: the address its From names, when the
+// account can send from it, else the account's own; with its display name.
+func sender(sendAs []model.SendAs, from, account string) model.Address {
+	for _, want := range []string{from, account} {
+		for _, a := range sendAs {
+			if strings.EqualFold(a.Email, want) {
+				return model.Address{Name: a.Name, Email: a.Email}
+			}
+		}
+	}
+	return model.Address{Email: account}
 }
 
 func (e *Engine) pullLabels(ctx context.Context) error {

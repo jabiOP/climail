@@ -584,7 +584,7 @@ func (m Model) pointed() (model.Message, bool) {
 	if i := slices.IndexFunc(t.Messages, func(msg model.Message) bool { return msg.ID == m.pointedID }); i >= 0 {
 		return t.Messages[i], true
 	}
-	return compose.ReplyTarget(t, t.Account), true
+	return compose.ReplyTarget(t, t.Account, m.deps.Service.SendAs(m.ctx, t.Account)...), true
 }
 
 // pointBy moves ▶ n messages along the current conversation (reading

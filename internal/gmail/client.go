@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	gmailapi "google.golang.org/api/gmail/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 
 	"github.com/jabiOP/climail/internal/model"
@@ -44,7 +44,7 @@ func NewClient(ctx context.Context, account string, hc *http.Client, opts ...opt
 
 // Profile returns the account's address and its current history ID.
 func (c *Client) Profile(ctx context.Context) (string, uint64, error) {
-	p, err := c.svc.Users.GetProfile("me").Context(ctx).Do()
+	p, err := do(ctx, c.svc.Users.GetProfile("me").Context(ctx).Do)
 	if err != nil {
 		return "", 0, mapErr(err)
 	}
@@ -52,7 +52,7 @@ func (c *Client) Profile(ctx context.Context) (string, uint64, error) {
 }
 
 func (c *Client) Labels(ctx context.Context) ([]model.Label, error) {
-	resp, err := c.svc.Users.Labels.List("me").Context(ctx).Do()
+	resp, err := do(ctx, c.svc.Users.Labels.List("me").Context(ctx).Do)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -72,7 +72,7 @@ func (c *Client) ThreadIDs(ctx context.Context, query string, max int) ([]string
 		call.Q(query)
 	}
 	for page := ""; len(ids) < max; {
-		resp, err := call.MaxResults(int64(min(max-len(ids), 500))).PageToken(page).Do()
+		resp, err := do(ctx, call.MaxResults(int64(min(max-len(ids), 500))).PageToken(page).Do)
 		if err != nil {
 			return nil, mapErr(err)
 		}
@@ -88,7 +88,7 @@ func (c *Client) ThreadIDs(ctx context.Context, query string, max int) ([]string
 
 // Thread fetches every message of a thread, bodies included.
 func (c *Client) Thread(ctx context.Context, id string) ([]model.Message, error) {
-	t, err := c.svc.Users.Threads.Get("me", id).Format("full").Context(ctx).Do()
+	t, err := do(ctx, c.svc.Users.Threads.Get("me", id).Format("full").Context(ctx).Do)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -101,7 +101,7 @@ func (c *Client) Thread(ctx context.Context, id string) ([]model.Message, error)
 
 // MessageLabels fetches a message's current labels.
 func (c *Client) MessageLabels(ctx context.Context, id string) ([]string, error) {
-	m, err := c.svc.Users.Messages.Get("me", id).Format("minimal").Context(ctx).Do()
+	m, err := do(ctx, c.svc.Users.Messages.Get("me", id).Format("minimal").Context(ctx).Do)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -115,7 +115,7 @@ func (c *Client) History(ctx context.Context, start uint64) (model.Changes, uint
 	latest := start
 	call := c.svc.Users.History.List("me").StartHistoryId(start).MaxResults(500).Context(ctx)
 	for page := ""; ; {
-		resp, err := call.PageToken(page).Do()
+		resp, err := do(ctx, call.PageToken(page).Do)
 		if err != nil {
 			err = mapErr(err)
 			if isNotFound(err) {
@@ -152,44 +152,39 @@ func unique(s []string) []string {
 
 func (c *Client) Modify(ctx context.Context, id string, add, remove []string) error {
 	req := &gmailapi.ModifyMessageRequest{AddLabelIds: add, RemoveLabelIds: remove}
-	_, err := c.svc.Users.Messages.Modify("me", id, req).Context(ctx).Do()
+	_, err := do(ctx, c.svc.Users.Messages.Modify("me", id, req).Context(ctx).Do)
 	return mapErr(err)
 }
 
 func (c *Client) Trash(ctx context.Context, id string) error {
-	_, err := c.svc.Users.Messages.Trash("me", id).Context(ctx).Do()
+	_, err := do(ctx, c.svc.Users.Messages.Trash("me", id).Context(ctx).Do)
 	return mapErr(err)
 }
 
 func (c *Client) Untrash(ctx context.Context, id string) error {
-	_, err := c.svc.Users.Messages.Untrash("me", id).Context(ctx).Do()
+	_, err := do(ctx, c.svc.Users.Messages.Untrash("me", id).Context(ctx).Do)
 	return mapErr(err)
 }
 
 // Send sends a raw RFC 5322 message; with threadID, into that conversation.
 func (c *Client) Send(ctx context.Context, raw []byte, threadID string) error {
 	m := &gmailapi.Message{Raw: base64.URLEncoding.EncodeToString(raw), ThreadId: threadID}
-	_, err := c.svc.Users.Messages.Send("me", m).Context(ctx).Do()
+	_, err := do(ctx, c.svc.Users.Messages.Send("me", m).Context(ctx).Do)
 	return mapErr(err)
 }
 
-// SendAsName is the display name set in Gmail's "Send mail as" settings for
-// the account's own address; "" when none is set.
-func (c *Client) SendAsName(ctx context.Context) (string, error) {
-	resp, err := c.svc.Users.Settings.SendAs.List("me").Context(ctx).Do()
+// SendAs lists the addresses Gmail's "Send mail as" settings let the
+// account send from, the account's own among them, with their display names.
+func (c *Client) SendAs(ctx context.Context) ([]model.SendAs, error) {
+	resp, err := do(ctx, c.svc.Users.Settings.SendAs.List("me").Context(ctx).Do)
 	if err != nil {
-		return "", mapErr(err)
+		return nil, mapErr(err)
 	}
-	name := ""
-	for _, s := range resp.SendAs {
-		if strings.EqualFold(s.SendAsEmail, c.account) {
-			return s.DisplayName, nil
-		}
-		if s.IsPrimary {
-			name = s.DisplayName
-		}
+	out := make([]model.SendAs, len(resp.SendAs))
+	for i, s := range resp.SendAs {
+		out[i] = model.SendAs{Email: s.SendAsEmail, Name: s.DisplayName, Default: s.IsDefault}
 	}
-	return name, nil
+	return out, nil
 }
 
 // SaveDraft saves raw in Drafts, replacing the draft whose message is
@@ -199,14 +194,14 @@ func (c *Client) SaveDraft(ctx context.Context, replaces string, raw []byte, thr
 	if replaces != "" {
 		id, err := c.draftID(ctx, replaces)
 		if err == nil {
-			_, err = c.svc.Users.Drafts.Update("me", id, &gmailapi.Draft{Id: id, Message: m}).Context(ctx).Do()
+			_, err = do(ctx, c.svc.Users.Drafts.Update("me", id, &gmailapi.Draft{Id: id, Message: m}).Context(ctx).Do)
 			return mapErr(err)
 		}
 		if !isNotFound(err) {
 			return err
 		}
 	}
-	_, err := c.svc.Users.Drafts.Create("me", &gmailapi.Draft{Message: m}).Context(ctx).Do()
+	_, err := do(ctx, c.svc.Users.Drafts.Create("me", &gmailapi.Draft{Message: m}).Context(ctx).Do)
 	return mapErr(err)
 }
 
@@ -214,7 +209,7 @@ func (c *Client) SaveDraft(ctx context.Context, replaces string, raw []byte, thr
 func (c *Client) DeleteDraft(ctx context.Context, messageID string) error {
 	id, err := c.draftID(ctx, messageID)
 	if err == nil {
-		err = mapErr(c.svc.Users.Drafts.Delete("me", id).Context(ctx).Do())
+		err = mapErr(retry(ctx, c.svc.Users.Drafts.Delete("me", id).Context(ctx).Do))
 	}
 	if isNotFound(err) {
 		return nil
@@ -227,7 +222,7 @@ func (c *Client) DeleteDraft(ctx context.Context, messageID string) error {
 func (c *Client) draftID(ctx context.Context, messageID string) (string, error) {
 	call := c.svc.Users.Drafts.List("me").MaxResults(500).Context(ctx)
 	for page := ""; ; {
-		resp, err := call.PageToken(page).Do()
+		resp, err := do(ctx, call.PageToken(page).Do)
 		if err != nil {
 			return "", mapErr(err)
 		}
@@ -246,7 +241,7 @@ func (c *Client) draftID(ctx context.Context, messageID string) (string, error) 
 // model.Message.Attachments). The message is fetched again first: Gmail's
 // attachment IDs change from one fetch to the next.
 func (c *Client) AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error) {
-	m, err := c.svc.Users.Messages.Get("me", messageID).Format("full").Context(ctx).Do()
+	m, err := do(ctx, c.svc.Users.Messages.Get("me", messageID).Format("full").Context(ctx).Do)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -261,9 +256,43 @@ func (c *Client) AttachmentData(ctx context.Context, messageID string, index int
 	if body.AttachmentId == "" { // small ones come inline
 		return decodeBase64(body.Data)
 	}
-	a, err := c.svc.Users.Messages.Attachments.Get("me", messageID, body.AttachmentId).Context(ctx).Do()
+	a, err := do(ctx, c.svc.Users.Messages.Attachments.Get("me", messageID, body.AttachmentId).Context(ctx).Do)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	return decodeBase64(a.Data)
+}
+
+// RateLimitWait is how long the first retry waits when Gmail says too many
+// requests; each next one waits twice as long. Tests lower it.
+var RateLimitWait = time.Second
+
+// rateLimitRetries: 1+2+4+8+16+32 s, past the minute Gmail's per-user quota counts over.
+const rateLimitRetries = 6
+
+// do makes a Gmail call, retrying it while Gmail says too many requests.
+func do[T any](ctx context.Context, call func(...googleapi.CallOption) (T, error)) (T, error) {
+	var out T
+	err := retry(ctx, func(opts ...googleapi.CallOption) error {
+		var err error
+		out, err = call(opts...)
+		return err
+	})
+	return out, err
+}
+
+func retry(ctx context.Context, call func(...googleapi.CallOption) error) error {
+	wait := RateLimitWait
+	for attempt := 0; ; attempt++ {
+		err := call()
+		if err == nil || attempt == rateLimitRetries || !rateLimited(err) {
+			return err
+		}
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return err
+		}
+		wait *= 2
+	}
 }

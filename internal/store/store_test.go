@@ -342,3 +342,21 @@ func TestLog_NewestFirstByAccountOrAll(t *testing.T) {
 		t.Errorf("since = %d, want 2", since)
 	}
 }
+
+func TestSendAs_ReplacedPerAccountDefaultFirst(t *testing.T) {
+	s := openStore(t)
+	s.ReplaceSendAs(ctx, acct, []model.SendAs{{Email: "old@x.com"}})
+	s.ReplaceSendAs(ctx, "other@x.com", []model.SendAs{{Email: "other@x.com", Default: true}})
+
+	if err := s.ReplaceSendAs(ctx, acct, []model.SendAs{
+		{Email: acct, Name: "Me"}, {Email: "me@domain.com", Name: "Me at work", Default: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.SendAs(ctx, acct)
+	want := []model.SendAs{{Email: "me@domain.com", Name: "Me at work", Default: true}, {Email: acct, Name: "Me"}}
+	if diff := cmp.Diff(want, got); err != nil || diff != "" {
+		t.Errorf("SendAs: %v (-want +got):\n%s", err, diff)
+	}
+}

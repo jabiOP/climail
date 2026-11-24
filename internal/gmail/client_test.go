@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/api/option"
@@ -92,6 +93,7 @@ func TestThreadIDs_PagesUpToMax(t *testing.T) {
 }
 
 func TestErrors_Classified(t *testing.T) {
+	quickRetries(t)
 	tests := []struct {
 		status int
 		body   string
@@ -145,7 +147,7 @@ func TestAttachmentData_FetchesByPosition(t *testing.T) {
 	}
 }
 
-func TestSendAsName_IsTheAccountsOwnAddress(t *testing.T) {
+func TestSendAs_ListsTheAddressesMailCanGoFrom(t *testing.T) {
 	c := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/settings/sendAs") {
 			t.Errorf("path %s", r.URL.Path)
@@ -156,10 +158,11 @@ func TestSendAsName_IsTheAccountsOwnAddress(t *testing.T) {
 		}})
 	})
 
-	name, err := c.SendAsName(context.Background())
+	got, err := c.SendAs(context.Background())
 
-	if err != nil || name != "Me Myself" {
-		t.Errorf("SendAsName = %q, %v", name, err)
+	want := []model.SendAs{{Email: "alias@x.com", Name: "Alias", Default: true}, {Email: "Me@x.com", Name: "Me Myself"}}
+	if diff := cmp.Diff(want, got); err != nil || diff != "" {
+		t.Errorf("SendAs: %v (-want +got):\n%s", err, diff)
 	}
 }
 
@@ -187,5 +190,45 @@ func TestSaveDraft_UpdatesTheDraftOrCreatesOne(t *testing.T) {
 	want := []string{"GET /drafts", "PUT /drafts/r1", "GET /drafts", "POST /drafts", "GET /drafts"}
 	if diff := cmp.Diff(want, calls); diff != "" {
 		t.Errorf("calls (-want +got):\n%s", diff)
+	}
+}
+
+// quickRetries makes rate-limit retries wait a millisecond instead of seconds.
+func quickRetries(t *testing.T) {
+	old := gmail.RateLimitWait
+	gmail.RateLimitWait = time.Millisecond
+	t.Cleanup(func() { gmail.RateLimitWait = old })
+}
+
+const rateLimited = `{"error":{"code":429,"message":"Quota exceeded for quota metric 'Queries' and limit 'Queries per minute per user'",
+"errors":[{"reason":"rateLimitExceeded"}],"details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo",
+"reason":"RATE_LIMIT_EXCEEDED","metadata":{"quota_metric":"gmail.googleapis.com/total_query_cost"}}]}}`
+
+func TestRateLimit_WaitsAndRetries(t *testing.T) {
+	quickRetries(t)
+	calls := 0
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if calls++; calls <= 2 {
+			http.Error(w, rateLimited, http.StatusTooManyRequests)
+			return
+		}
+		writeJSON(w, map[string]any{"id": "t1", "messages": []any{map[string]any{"id": "m1", "threadId": "t1"}}})
+	})
+
+	msgs, err := c.Thread(context.Background(), "t1")
+
+	if err != nil || len(msgs) != 1 || calls != 3 {
+		t.Errorf("msgs %v, err %v after %d calls; want it to go through on the third", msgs, err, calls)
+	}
+}
+
+func TestRateLimit_GivesUpWithAShortError(t *testing.T) {
+	quickRetries(t)
+	c := serve(t, func(w http.ResponseWriter, r *http.Request) { http.Error(w, rateLimited, http.StatusTooManyRequests) })
+
+	_, err := c.Thread(context.Background(), "t1")
+
+	if !errors.Is(err, gmail.ErrRateLimited) || strings.Contains(err.Error(), "@type") || strings.Contains(err.Error(), "\n") {
+		t.Errorf("err = %q; want ErrRateLimited, on one line, without Google's details", err)
 	}
 }

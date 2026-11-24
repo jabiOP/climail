@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/jabiOP/climail/internal/model"
 )
 
 // HistoryID is where the next incremental sync starts (0: never synced).
@@ -90,4 +92,40 @@ func (s *Store) CountLogsSince(ctx context.Context, account string, since time.T
 	err := s.q.QueryRowContext(ctx, `SELECT count(*) FROM log WHERE ? IN ('', account_id) AND ts >= ?`,
 		account, since.Unix()).Scan(&n)
 	return n, err
+}
+
+// ReplaceSendAs caches the addresses an account can send from.
+func (s *Store) ReplaceSendAs(ctx context.Context, account string, list []model.SendAs) error {
+	return s.InTx(ctx, func(tx *Store) error {
+		if _, err := tx.q.ExecContext(ctx, `DELETE FROM send_as WHERE account_id = ?`, account); err != nil {
+			return err
+		}
+		for _, a := range list {
+			if _, err := tx.q.ExecContext(ctx, `INSERT OR REPLACE INTO send_as (account_id, email, name, is_default)
+				VALUES (?, ?, ?, ?)`, account, a.Email, a.Name, a.Default); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// SendAs lists the addresses an account can send from, the default first;
+// empty until a sync has fetched them.
+func (s *Store) SendAs(ctx context.Context, account string) ([]model.SendAs, error) {
+	rows, err := s.q.QueryContext(ctx, `SELECT email, name, is_default FROM send_as WHERE account_id = ?
+		ORDER BY is_default DESC, email`, account)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.SendAs
+	for rows.Next() {
+		var a model.SendAs
+		if err := rows.Scan(&a.Email, &a.Name, &a.Default); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
 }

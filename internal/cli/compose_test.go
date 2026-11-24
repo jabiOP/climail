@@ -225,3 +225,31 @@ func TestLog_ShowsWhatGmailRejected(t *testing.T) {
 		t.Errorf("log = %q, want it to end with %q", out, want)
 	}
 }
+
+func TestCompose_FromTheAddressGmailSendsAsByDefault(t *testing.T) {
+	h := newHarness(t, work)
+	h.gmail[work].Name = "Me"
+	h.gmail[work].Aliases = []model.SendAs{{Email: "me@domain.com", Name: "Me at Domain", Default: true}}
+	h.gmail[work].Deliver(model.Message{ID: "m1", ThreadID: "t1", Date: now, Subject: "Plan", Labels: []string{"INBOX"},
+		From: model.Address{Email: "maya@example.com"}, To: []model.Address{{Email: work}}})
+	h.mustRun("sync")
+	h.edit = func(old string) string { return strings.Replace(old, "To: ", "To: bob@example.com", 1) + "Hi\n" }
+	h.stdin = "y\n"
+
+	_, errOut, _ := h.run("compose", "-s", "Lunch")
+
+	if !strings.Contains(errOut, "From me@domain.com: send “Lunch”") {
+		t.Errorf("stderr %q", errOut)
+	}
+	if raw := h.sentText(work); !strings.HasPrefix(raw, "From: \"Me at Domain\" <me@domain.com>\r\n") {
+		t.Errorf("new mail sent:\n%s", raw)
+	}
+
+	h.edit = func(old string) string { return old + "ok\n" }
+	h.stdin = "y\n"
+	h.mustRun("reply", "t1")
+
+	if raw := h.sentText(work); !strings.HasPrefix(raw, "From: \"Me\" <"+work+">\r\n") {
+		t.Errorf("reply to mail sent to %s:\n%s", work, raw)
+	}
+}

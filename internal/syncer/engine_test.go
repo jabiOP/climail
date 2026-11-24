@@ -427,3 +427,24 @@ func TestSync_RejectedChangesAreLogged(t *testing.T) {
 		t.Errorf("a1 local %v, remote %v; want Gmail's state back", w.local(t, "a1"), w.remote(t, "a1"))
 	}
 }
+
+func TestSync_SendsFromAnAliasWithItsName(t *testing.T) {
+	w := newWorld(t)
+	w.fake.Name = "Me Myself"
+	w.fake.Aliases = []model.SendAs{{Email: "me@domain.com", Name: "Me at work", Default: true}}
+	w.sync(t)
+
+	if got, _ := w.store.SendAs(ctx, acct); len(got) != 2 || got[0].Email != "me@domain.com" {
+		t.Fatalf("cached send-as %v, want the alias first (the default) and the account", got)
+	}
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("From: me@domain.com\r\nTo: b@x.com\r\n\r\nx")})
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("From: stranger@y.com\r\nTo: b@x.com\r\n\r\nx")})
+
+	w.sync(t)
+
+	sent := w.fake.Sent()
+	if len(sent) != 2 || !strings.HasPrefix(string(sent[0]), "From: \"Me at work\" <me@domain.com>\r\n") ||
+		!strings.HasPrefix(string(sent[1]), "From: \"Me Myself\" <"+acct+">\r\n") {
+		t.Errorf("sent %q; want the alias with its name, and an address not ours replaced by the account's", sent)
+	}
+}

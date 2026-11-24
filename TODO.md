@@ -18,7 +18,7 @@ Last updated: 2026-11-23
 - The reader marks a message (`▶` and a bar), which reply, forward and the attachment keys act on: the one a reply answers, until `tab`/`shift+tab` move it (read together: across conversations); `enter` opens or closes it; `j`/`k` move it too when there's nothing more to scroll; `J`/`K` read the next/previous message
 - Gmail search (`climail search`, `enter` in the TUI search) with Gmail's syntax; matches outside the cache are fetched into it
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
-- Mail goes out with the display name from Gmail's "Send mail as" settings
+- Gmail's "Send mail as" addresses: new mail and forwards go from the default one, replies from the one the message was sent to; `From:` (and `send --from`) takes any of them; each goes out with its display name; reply all leaves all of them out
 - Mail is written in Markdown and sent formatted (HTML in Gmail's default style, plus the plain text); `send --plain` for scripts
 - Drafts written in Gmail are continued with their formatting as Markdown; climail asks first when fonts, colours or images would be lost
 - Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it (and asks even if left unchanged), sending removes it; `d` after editing discards (CLI too)
@@ -47,7 +47,8 @@ Last updated: 2026-11-23
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
   All accounts with real accounts (actions and replies in the right account; the colors readable on light and dark terminals),
   `From:` changed to another account on a new mail,
-  first-sync progress on a fresh login, framed panes and account colors on a light terminal
+  first-sync progress on a fresh login, framed panes and account colors on a light terminal,
+  mail from a "Send mail as" address (default, reply to an alias) arriving with the right From
 
 ## Later
 
@@ -75,7 +76,7 @@ Last updated: 2026-11-23
 - Drafts are edited as a plain file with mutt-style headers and kept in Gmail's Drafts, queued like outgoing mail so it works offline. Drafts are found by their message ID (Gmail's draft IDs aren't cached); a continued draft leaves the local Drafts at once, so it can't be continued twice before a sync.
 - Attachments are downloaded on demand, not cached; a download refetches the message because Gmail's attachment IDs change between fetches.
 - Spam and trash only show in their own views, even inside a conversation (Gmail's behavior).
-- The sender's display name is read from Gmail's send-as settings when mail is pushed, not stored: always current, one request per batch.
+- Gmail's send-as addresses are cached at each sync (one cheap request), so writing knows the default offline; when mail is pushed they are fetched again, so its display name is always current. The draft's From holds the address; the push looks its name up.
 - Contacts come from the cached mail (no Contacts API, no extra scope); each message's addresses are also kept in their own column so listing them doesn't read bodies (1.3 s → 0.1 s on 10k messages).
 - Dependency `github.com/yuin/goldmark` v1.8.7 renders Markdown as HTML (CommonMark, no dependencies of its own). HTML typed in a body stays text, and no font is set, so Gmail's defaults apply.
 - Only drafts keep their HTML in the cache, to be continued with their formatting. A draft whose HTML is what its text renders to was saved by climail: its text is continued as typed, not converted back.
@@ -85,4 +86,5 @@ Last updated: 2026-11-23
 - The TUI tells conversations apart by account and ID: two accounts' IDs can collide (the demo's do).
 - Account colors follow the order accounts were added, from Google Calendar's event palette, unless config.toml's `[account_colors]` names one. `C` writes its choice there by editing the table's lines, so the user's comments and layout survive (a TOML encoder would drop them).
 - Rejections are logged in the store when sync drops them (clindar's log table and `log`/`L`); the TUI counts those since it opened, so old ones don't nag.
+- Gmail calls that hit its rate limit (429, or 403 rateLimitExceeded) are retried in the client, waiting 1, 2, 4… 32 s: past the minute its per-user quota counts over, so a first sync of many threads finishes instead of failing. Google's errors are cut to one line (code and message).
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

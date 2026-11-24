@@ -747,6 +747,17 @@ func TestReply_EditorOpensAtTheMessage(t *testing.T) {
 	}
 }
 
+func TestCompose_FromTheDefaultSendAsAddress(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.st.ReplaceSendAs(context.Background(), workAcct, []model.SendAs{{Email: workAcct}, {Email: "me@domain.com", Default: true}})
+
+	f.keys("c")
+
+	if c := f.model().composing; c == nil || c.base.From != "me@domain.com" || !strings.HasPrefix(c.base.Text(), "From: me@domain.com\n") {
+		t.Errorf("composing %+v; want it from the default send-as address", c)
+	}
+}
+
 func TestReplyAll_IncludesEveryone(t *testing.T) {
 	f := newFixture(t, 130, 24)
 
