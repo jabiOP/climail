@@ -63,7 +63,7 @@ func (m Model) edited(msg editedMsg) (tea.Model, tea.Cmd) {
 		m.message, m.isError = err.Error(), true
 		return m, nil
 	}
-	if string(text) == c.base.Text() {
+	if string(text) == c.base.Text() && c.base.DraftID == "" { // a draft continued is ready as it is
 		os.Remove(c.path)
 		m.composing = nil
 		m.message = "Not sent: the draft wasn't changed"

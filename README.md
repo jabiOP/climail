@@ -61,7 +61,7 @@ climail can't read as a mail stays on disk instead, and its path is shown). In D
 its attachments included; sending it takes it out of Drafts. A draft written in Gmail opens with its formatting as
 Markdown; when it has formatting Markdown can't keep (fonts, colours, sizes, images), climail asks first: `e` edit it
 anyway (that formatting becomes Gmail's default), `O` open it in Gmail instead.
-An unchanged draft is dropped. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
+A new mail left unchanged is dropped; a draft continued from Drafts is asked about even unchanged, so it can be sent as it is. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
 stays in `climail outbox`.
 
 ### CLI

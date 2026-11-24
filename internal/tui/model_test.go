@@ -803,6 +803,23 @@ func TestDrafts_EnterContinuesTheDraftAndSendingRemovesIt(t *testing.T) {
 	}
 }
 
+// A draft continued from Drafts is ready as it is: closing the editor
+// without changes still asks, so it can be sent.
+func TestDrafts_UnchangedContinuedDraftCanBeSent(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.keys("g", "d", "enter")
+
+	f.editDraft(func(old string) string { return old })
+
+	if !strings.Contains(f.view(), "send “Ideas for the offsite”") {
+		t.Fatalf("not asked:\n%s", f.view())
+	}
+	f.keys("y")
+	if out, _ := f.st.Outgoing(context.Background(), workAcct); len(out) != 1 || out[0].Save {
+		t.Errorf("queued %+v", out)
+	}
+}
+
 func TestCompose_UnchangedIsDropped(t *testing.T) {
 	f := newFixture(t, 100, 24)
 
