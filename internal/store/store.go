@@ -182,6 +182,14 @@ CREATE TABLE log (
 	message    TEXT NOT NULL,             -- what happened, for people
 	detail     TEXT NOT NULL DEFAULT ''   -- Gmail's error
 );
+`, `
+CREATE TABLE send_as (                -- Gmail's "Send mail as" addresses
+	account_id TEXT NOT NULL,
+	email      TEXT NOT NULL,
+	name       TEXT NOT NULL DEFAULT '',
+	is_default INTEGER NOT NULL DEFAULT 0,
+	PRIMARY KEY (account_id, email)
+);
 `}
 
 // notFound turns sql.ErrNoRows into ErrNotFound.

@@ -111,7 +111,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.all {
 			from = m.accounts[0] // the default account, as in the CLI
 		}
-		return m.startCompose(compose.Draft{Account: from, Body: "\n"})
+		return m.startCompose(compose.Draft{Account: from, From: m.deps.Service.DefaultFrom(m.ctx, from), Body: "\n"})
 	case key.Matches(msg, keys.Undo):
 		if len(m.undos) == 0 {
 			m.message = "nothing to undo"
@@ -278,7 +278,8 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Reply), key.Matches(msg, keys.ReplyAll):
 		t, _ := m.current()
 		orig, _ := m.pointed()
-		return m.startCompose(compose.Reply(t, orig, t.Account, key.Matches(msg, keys.ReplyAll), m.deps.Now()))
+		return m.startCompose(compose.Reply(t, orig, t.Account, key.Matches(msg, keys.ReplyAll), m.deps.Now(),
+			m.deps.Service.SendAs(m.ctx, t.Account)...))
 	case key.Matches(msg, keys.Forward):
 		return m.forward()
 	case key.Matches(msg, keys.SaveFiles):

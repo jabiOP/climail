@@ -310,7 +310,7 @@ func (s *Service) queue(ctx context.Context, d compose.Draft, raw []byte, o stor
 // become their address, the rest stay as typed.
 func (s *Service) SaveDraft(ctx context.Context, d compose.Draft, now time.Time) error {
 	var err error
-	if d.Account, err = s.resolveAccount(ctx, d.Account); err != nil {
+	if d, err = s.resolveFrom(ctx, d); err != nil {
 		return err
 	}
 	if all, err := s.store.Contacts(ctx, d.Account); err == nil {
@@ -342,7 +342,7 @@ func matching(people []model.Address, query string) []model.Address {
 // ("maya") become the person's address, then the draft is checked.
 func (s *Service) Prepare(ctx context.Context, d compose.Draft) (compose.Draft, error) {
 	var err error
-	if d.Account, err = s.resolveAccount(ctx, d.Account); err != nil {
+	if d, err = s.resolveFrom(ctx, d); err != nil {
 		return d, err
 	}
 	all, err := s.store.Contacts(ctx, d.Account)
@@ -356,29 +356,81 @@ func (s *Service) Prepare(ctx context.Context, d compose.Draft) (compose.Draft, 
 	return resolved, resolved.Check()
 }
 
-// resolveAccount finds the account a draft's From names: its address (any
-// case) or the start of it ("work" for work@example.com).
-func (s *Service) resolveAccount(ctx context.Context, from string) (string, error) {
+// SendAs lists the addresses an account sends from, its default first; just
+// the account's own until a sync has fetched them.
+func (s *Service) SendAs(ctx context.Context, account string) []string {
+	list, _ := s.store.SendAs(ctx, account) // none cached: the account's own
+	var out []string
+	for _, a := range list {
+		out = append(out, a.Email)
+	}
+	if !slices.ContainsFunc(out, func(e string) bool { return strings.EqualFold(e, account) }) {
+		out = append(out, account)
+	}
+	return out
+}
+
+// DefaultFrom is the address new mail from the account goes from, when not
+// its own (Gmail's default "Send mail as"); "" for its own.
+func (s *Service) DefaultFrom(ctx context.Context, account string) string {
+	if first := s.SendAs(ctx, account)[0]; !strings.EqualFold(first, account) {
+		return first
+	}
+	return ""
+}
+
+// resolveFrom finds who a draft goes from, given its From as typed: one of
+// the addresses an account sends from, or an account by its address or the
+// start of it ("work" for work@example.com). A reply, or a draft continued,
+// stays in its account.
+func (s *Service) resolveFrom(ctx context.Context, d compose.Draft) (compose.Draft, error) {
+	if d.From == "" {
+		return d, nil
+	}
 	accounts, err := s.store.Accounts(ctx)
 	if err != nil {
-		return "", err
+		return d, err
 	}
-	var matches []string
+	type sender struct{ account, email string }
+	var all []sender
 	for _, a := range accounts {
-		switch {
-		case strings.EqualFold(a, from):
-			return a, nil
-		case from != "" && strings.HasPrefix(strings.ToLower(a), strings.ToLower(from)):
-			matches = append(matches, a)
+		for _, e := range s.SendAs(ctx, a) {
+			all = append(all, sender{a, e})
 		}
 	}
-	if len(matches) == 1 {
-		return matches[0], nil
+	var found []sender
+	for _, c := range all {
+		if strings.EqualFold(c.email, d.From) {
+			found = []sender{c}
+			break
+		}
+		if strings.HasPrefix(strings.ToLower(c.email), strings.ToLower(d.From)) {
+			found = append(found, c)
+		}
 	}
-	if len(matches) > 1 {
-		return "", fmt.Errorf("From: %q could be %s", from, strings.Join(matches, " or "))
+	var emails []string
+	for _, c := range all {
+		emails = append(emails, c.email)
 	}
-	return "", fmt.Errorf("From: no account %q (yours: %s)", from, strings.Join(accounts, ", "))
+	switch {
+	case len(found) == 0:
+		return d, fmt.Errorf("From: none of your addresses is %q (yours: %s)", d.From, strings.Join(emails, ", "))
+	case len(found) > 1:
+		var some []string
+		for _, c := range found {
+			some = append(some, c.email)
+		}
+		return d, fmt.Errorf("From: %q could be %s", d.From, strings.Join(some, " or "))
+	}
+	if (d.ThreadID != "" || d.DraftID != "") && found[0].account != d.Account {
+		return d, fmt.Errorf("From: this goes from %s (or another of its addresses: %s), the account its conversation is in",
+			d.Account, strings.Join(s.SendAs(ctx, d.Account), ", "))
+	}
+	d.Account, d.From = found[0].account, found[0].email
+	if strings.EqualFold(d.From, d.Account) {
+		d.From = ""
+	}
+	return d, nil
 }
 
 // Outbox lists mail waiting to be sent and mail Gmail refused.

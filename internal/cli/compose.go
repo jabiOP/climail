@@ -17,11 +17,12 @@ import (
 
 // draftFlags are the headers a command line can fill in.
 type draftFlags struct {
-	to, cc, bcc, subject string
-	attach               []string
+	from, to, cc, bcc, subject string
+	attach                     []string
 }
 
 func addDraftFlags(cmd *cobra.Command, f *draftFlags) {
+	cmd.Flags().StringVar(&f.from, "from", "", "the address to send from: one of your accounts, or an address it sends as")
 	cmd.Flags().StringVar(&f.to, "to", "", "recipients, comma-separated")
 	cmd.Flags().StringVar(&f.cc, "cc", "", "cc recipients")
 	cmd.Flags().StringVar(&f.bcc, "bcc", "", "bcc recipients")
@@ -34,7 +35,7 @@ func (f draftFlags) over(d compose.Draft) compose.Draft {
 	for _, v := range []struct {
 		flag  string
 		field *string
-	}{{f.to, &d.To}, {f.cc, &d.Cc}, {f.bcc, &d.Bcc}, {f.subject, &d.Subject}} {
+	}{{f.from, &d.From}, {f.to, &d.To}, {f.cc, &d.Cc}, {f.bcc, &d.Bcc}, {f.subject, &d.Subject}} {
 		if v.flag != "" {
 			*v.field = v.flag
 		}
@@ -55,7 +56,7 @@ func newComposeCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return app.editAndSend(cmd.Context(), f.over(compose.Draft{Account: acct, Body: "\n"}))
+			return app.editAndSend(cmd.Context(), f.over(compose.Draft{Account: acct, From: app.defaultFrom(cmd.Context(), acct), Body: "\n"}))
 		},
 	}
 	addAccountFlag(cmd, &account)
@@ -80,7 +81,8 @@ func newReplyCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return app.editAndSend(ctx, compose.Reply(t, compose.ReplyTarget(t, acct), acct, all, app.Now()))
+			sendAs := svc.SendAs(ctx, acct)
+			return app.editAndSend(ctx, compose.Reply(t, compose.ReplyTarget(t, acct, sendAs...), acct, all, app.Now(), sendAs...))
 		},
 	}
 	addAccountFlag(cmd, &account)
@@ -109,7 +111,9 @@ func newForwardCmd(app *App) *cobra.Command {
 			if err != nil {
 				fmt.Fprintf(app.Stderr, "climail: warning: the attachments aren't included: %v\n", err)
 			}
-			return app.editAndSend(ctx, f.over(compose.Forward(t.Latest(), acct, files, app.Now())))
+			d := compose.Forward(t.Latest(), acct, files, app.Now())
+			d.From = app.defaultFrom(ctx, acct)
+			return app.editAndSend(ctx, f.over(d))
 		},
 	}
 	addAccountFlag(cmd, &account)
@@ -194,7 +198,7 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 			}
 			return save(d)
 		}
-		switch ask(fmt.Sprintf("From %s: send %s? [y]es, [e]dit, [q]uit (save to Drafts), [d]iscard: ", d.Account, d.Summary())) {
+		switch ask(fmt.Sprintf("From %s: send %s? [y]es, [e]dit, [q]uit (save to Drafts), [d]iscard: ", d.Sender(), d.Summary())) {
 		case "y", "yes":
 			return a.queue(ctx, d, path)
 		case "e":
@@ -204,6 +208,15 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 		}
 		return save(d)
 	}
+}
+
+// defaultFrom is the address new mail from acct goes from, when not its own.
+func (a *App) defaultFrom(ctx context.Context, acct string) string {
+	svc, err := a.Service()
+	if err != nil {
+		return "" // the account's own; the error shows when the draft is sent
+	}
+	return svc.DefaultFrom(ctx, acct)
 }
 
 // queue queues a draft and sends it right away if possible.
@@ -218,7 +231,7 @@ func (a *App) queue(ctx context.Context, d compose.Draft, path string) error {
 	if path != "" {
 		os.Remove(path)
 	}
-	fmt.Fprintf(a.Stderr, "From %s: sending %s.\n", d.Account, d.Summary())
+	fmt.Fprintf(a.Stderr, "From %s: sending %s.\n", d.Sender(), d.Summary())
 	a.PushAfterWrite(ctx, d.Account, false)
 	return nil
 }
@@ -245,7 +258,7 @@ func newSendCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			d, err := svc.Prepare(ctx, f.over(compose.Draft{Account: acct, Body: string(body), Plain: plain}))
+			d, err := svc.Prepare(ctx, f.over(compose.Draft{Account: acct, From: svc.DefaultFrom(ctx, acct), Body: string(body), Plain: plain}))
 			if err != nil {
 				return usageError{err}
 			}

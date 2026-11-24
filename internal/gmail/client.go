@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	gmailapi "google.golang.org/api/gmail/v1"
@@ -174,23 +173,18 @@ func (c *Client) Send(ctx context.Context, raw []byte, threadID string) error {
 	return mapErr(err)
 }
 
-// SendAsName is the display name set in Gmail's "Send mail as" settings for
-// the account's own address; "" when none is set.
-func (c *Client) SendAsName(ctx context.Context) (string, error) {
+// SendAs lists the addresses Gmail's "Send mail as" settings let the
+// account send from, the account's own among them, with their display names.
+func (c *Client) SendAs(ctx context.Context) ([]model.SendAs, error) {
 	resp, err := do(ctx, c.svc.Users.Settings.SendAs.List("me").Context(ctx).Do)
 	if err != nil {
-		return "", mapErr(err)
+		return nil, mapErr(err)
 	}
-	name := ""
-	for _, s := range resp.SendAs {
-		if strings.EqualFold(s.SendAsEmail, c.account) {
-			return s.DisplayName, nil
-		}
-		if s.IsPrimary {
-			name = s.DisplayName
-		}
+	out := make([]model.SendAs, len(resp.SendAs))
+	for i, s := range resp.SendAs {
+		out[i] = model.SendAs{Email: s.SendAsEmail, Name: s.DisplayName, Default: s.IsDefault}
 	}
-	return name, nil
+	return out, nil
 }
 
 // SaveDraft saves raw in Drafts, replacing the draft whose message is

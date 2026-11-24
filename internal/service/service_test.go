@@ -214,17 +214,38 @@ func TestPrepare_FromTakesAnAccountOrItsStart(t *testing.T) {
 	svc, st := setup(t)
 	st.EnsureAccount(ctx, "me@other.example")
 
-	d, err := svc.Prepare(ctx, compose.Draft{Account: "me@o", To: "b@x.com"})
-	if err != nil || d.Account != "me@other.example" {
-		t.Errorf("From me@o: %q, %v", d.Account, err)
+	d, err := svc.Prepare(ctx, compose.Draft{Account: acct, From: "me@o", To: "b@x.com"})
+	if err != nil || d.Account != "me@other.example" || d.From != "" {
+		t.Errorf("From me@o: %q %q, %v", d.Account, d.From, err)
 	}
-	for _, from := range []string{"me@", "nobody@x.com", ""} {
-		if _, err := svc.Prepare(ctx, compose.Draft{Account: from, To: "b@x.com"}); err == nil {
+	for _, from := range []string{"me@", "nobody@x.com"} {
+		if _, err := svc.Prepare(ctx, compose.Draft{Account: acct, From: from, To: "b@x.com"}); err == nil {
 			t.Errorf("From %q: want an error", from)
 		}
 	}
-	if err := svc.SaveDraft(ctx, compose.Draft{Account: "nobody"}, time.Now()); err == nil {
+	if err := svc.SaveDraft(ctx, compose.Draft{Account: acct, From: "nobody"}, time.Now()); err == nil {
 		t.Error("draft saved in no account: want an error")
+	}
+}
+
+func TestPrepare_FromAnAddressAnAccountSendsAs(t *testing.T) {
+	svc, st := setup(t)
+	st.EnsureAccount(ctx, "me@other.example")
+	st.ReplaceSendAs(ctx, "me@other.example", []model.SendAs{{Email: "me@other.example"}, {Email: "boss@domain.com", Default: true}})
+
+	d, err := svc.Prepare(ctx, compose.Draft{Account: acct, From: "Boss@domain.com", To: "b@x.com"})
+	if err != nil || d.Account != "me@other.example" || d.From != "boss@domain.com" {
+		t.Errorf("From an alias: %q %q, %v", d.Account, d.From, err)
+	}
+	if got := svc.SendAs(ctx, "me@other.example"); !slices.Equal(got, []string{"boss@domain.com", "me@other.example"}) {
+		t.Errorf("SendAs = %v, want the default first", got)
+	}
+	if got := svc.DefaultFrom(ctx, "me@other.example"); got != "boss@domain.com" {
+		t.Errorf("DefaultFrom = %q", got)
+	}
+	reply := compose.Draft{Account: acct, From: "boss@domain.com", To: "b@x.com", ThreadID: "t1"}
+	if _, err := svc.Prepare(ctx, reply); err == nil || !strings.Contains(err.Error(), acct) {
+		t.Errorf("a reply from another account's address: %v, want an error naming %s", err, acct)
 	}
 }
 

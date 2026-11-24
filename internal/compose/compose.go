@@ -34,13 +34,27 @@ type Draft struct {
 	// DraftID is the message ID of the Gmail draft this continues: saving
 	// replaces that draft, sending removes it.
 	DraftID string
+
+	// From is the address it goes from when not the account's own: another
+	// of its "Send mail as" addresses. In a parsed draft, From as typed: an
+	// account or an address, which the service resolves.
+	From string
+}
+
+// Sender is the address the draft goes from.
+func (d Draft) Sender() string {
+	if d.From != "" {
+		return d.From
+	}
+	return d.Account
 }
 
 // ReplyTarget is the message a reply answers: the conversation's latest
-// from someone else, else its latest.
-func ReplyTarget(t model.Thread, account string) model.Message {
+// from someone else, else its latest. sendAs are the account's other
+// addresses.
+func ReplyTarget(t model.Thread, account string, sendAs ...string) model.Message {
 	for i := len(t.Messages) - 1; i >= 0; i-- {
-		if t.Messages[i].From.Email != account {
+		if !mine(t.Messages[i].From.Email, account, sendAs) {
 			return t.Messages[i]
 		}
 	}
@@ -48,11 +62,13 @@ func ReplyTarget(t model.Thread, account string) model.Message {
 }
 
 // Reply drafts a reply to orig, one of the conversation's messages (usually
-// its ReplyTarget), quoting it; all replies to everyone on it.
-func Reply(t model.Thread, orig model.Message, account string, all bool, now time.Time) Draft {
+// its ReplyTarget), quoting it; all replies to everyone on it. sendAs are
+// the addresses the account sends from, the default first: the reply goes
+// from the one orig was sent to, else the default, as Gmail does.
+func Reply(t model.Thread, orig model.Message, account string, all bool, now time.Time, sendAs ...string) Draft {
 	var to, cc []model.Address
 	switch {
-	case orig.From.Email == account: // replying to my own message: to its recipients
+	case mine(orig.From.Email, account, sendAs): // replying to my own message: to its recipients
 		to = orig.To
 	case len(orig.ReplyTo) > 0:
 		to = orig.ReplyTo
@@ -63,10 +79,23 @@ func Reply(t model.Thread, orig model.Message, account string, all bool, now tim
 		to = append(to, orig.To...)
 		cc = orig.Cc
 	}
-	to = others(to, account, nil)
-	cc = others(cc, account, to)
+	from := ""
+	if len(sendAs) > 0 {
+		from = sendAs[0]
+	}
+	for _, a := range slices.Concat(orig.To, orig.Cc, orig.Bcc, []model.Address{orig.From}) {
+		if mine(a.Email, account, sendAs) {
+			from = a.Email
+			break
+		}
+	}
+	if strings.EqualFold(from, account) {
+		from = ""
+	}
+	to = others(to, account, sendAs, nil)
+	cc = others(cc, account, sendAs, to)
 	return Draft{
-		Account: account, To: addresses(to), Cc: addresses(cc),
+		Account: account, From: from, To: addresses(to), Cc: addresses(cc),
 		Subject:  prefixed("Re: ", orig.Subject),
 		Body:     fmt.Sprintf("\n\nOn %s, %s wrote:\n%s", output.MessageDate(orig.Date, now), orig.From, quote(orig.Body)),
 		ThreadID: t.ID, InReplyTo: orig.MessageID,
@@ -92,6 +121,9 @@ func FromDraft(m model.Message, account string, attach []string) Draft {
 	body, _ := DraftBody(m)
 	d := Draft{Account: account, To: addresses(m.To), Cc: addresses(m.Cc), Bcc: addresses(m.Bcc), Subject: m.Subject,
 		Body: body, Attach: attach, DraftID: m.ID, InReplyTo: m.InReplyTo, References: m.References}
+	if m.From.Email != "" && !strings.EqualFold(m.From.Email, account) { // written to go from another of its addresses
+		d.From = m.From.Email
+	}
 	if d.InReplyTo != "" || d.References != "" { // a reply: it goes in the conversation
 		d.ThreadID = m.ThreadID
 	}
@@ -99,11 +131,16 @@ func FromDraft(m model.Message, account string, attach []string) Draft {
 }
 
 // others drops the account itself and addresses already in skip, and duplicates.
-func others(as []model.Address, account string, skip []model.Address) []model.Address {
+// mine says whether email is one of the account's addresses.
+func mine(email, account string, sendAs []string) bool {
+	return strings.EqualFold(email, account) || slices.ContainsFunc(sendAs, func(a string) bool { return strings.EqualFold(a, email) })
+}
+
+func others(as []model.Address, account string, sendAs []string, skip []model.Address) []model.Address {
 	var out []model.Address
 	for _, a := range as {
 		seen := func(b model.Address) bool { return strings.EqualFold(a.Email, b.Email) }
-		if !strings.EqualFold(a.Email, account) && !slices.ContainsFunc(skip, seen) && !slices.ContainsFunc(out, seen) {
+		if !mine(a.Email, account, sendAs) && !slices.ContainsFunc(skip, seen) && !slices.ContainsFunc(out, seen) {
 			out = append(out, a)
 		}
 	}
@@ -135,7 +172,7 @@ func quote(body string) string {
 // Text is the draft as the file the user edits: headers, From first, a blank line, the body.
 func (d Draft) Text() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "From: %s\nTo: %s\nCc: %s\nBcc: %s\nSubject: %s\n", d.Account, d.To, d.Cc, d.Bcc, d.Subject)
+	fmt.Fprintf(&b, "From: %s\nTo: %s\nCc: %s\nBcc: %s\nSubject: %s\n", d.Sender(), d.To, d.Cc, d.Bcc, d.Subject)
 	if len(d.Attach) == 0 {
 		b.WriteString("Attach: \n")
 	}
@@ -165,8 +202,8 @@ func Parse(text string, base Draft) (Draft, error) {
 		value = strings.TrimSpace(value)
 		switch strings.ToLower(strings.TrimSpace(name)) {
 		case "from":
-			if value != "" {
-				d.Account = value
+			if !strings.EqualFold(value, d.Account) {
+				d.From = value
 			}
 		case "to":
 			d.To = value
@@ -183,9 +220,6 @@ func Parse(text string, base Draft) (Draft, error) {
 		default:
 			return Draft{}, fmt.Errorf("unknown header %q (use From, To, Cc, Bcc, Subject or Attach)", name)
 		}
-	}
-	if (d.ThreadID != "" || d.DraftID != "") && !strings.EqualFold(d.Account, base.Account) {
-		return Draft{}, fmt.Errorf("From: this goes from %s, the account its conversation is in", base.Account)
 	}
 	d.Body = strings.TrimRight(body, " \t\n") + "\n"
 	return d, nil

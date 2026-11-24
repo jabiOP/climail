@@ -100,7 +100,7 @@ func (m Model) composeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if err == nil {
 				os.Remove(path)
 			}
-			return sentMsg{summary: d.Summary(), from: d.Account, err: err}
+			return sentMsg{summary: d.Summary(), from: d.Sender(), err: err}
 		}
 	case "e":
 		return m, m.editCmd()
@@ -139,5 +139,5 @@ func (m Model) composePrompt() (string, bool) {
 	case c.err != nil:
 		return c.err.Error() + " · e edit · q save to Drafts · d discard", true
 	}
-	return "From " + c.draft.Account + ": send " + c.draft.Summary() + "? y send · e edit · q save to Drafts · d discard", false
+	return "From " + c.draft.Sender() + ": send " + c.draft.Summary() + "? y send · e edit · q save to Drafts · d discard", false
 }

@@ -26,6 +26,14 @@ type Address struct {
 	Email string
 }
 
+// SendAs is an address an account can send from (Gmail's "Send mail as"):
+// its own, or another it was set up with.
+type SendAs struct {
+	Email   string
+	Name    string // the display name mail from it goes out with
+	Default bool   // the one Gmail sends new mail from
+}
+
 // String is the full form, "Alice Smith <alice@example.com>".
 func (a Address) String() string {
 	if a.Name == "" {

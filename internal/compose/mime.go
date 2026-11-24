@@ -44,7 +44,7 @@ func (d Draft) build(now time.Time) ([]byte, error) {
 			fmt.Fprintf(&b, "%s: %s\r\n", name, value)
 		}
 	}
-	header("From", d.Account)
+	header("From", d.Sender())
 	for _, h := range []struct{ name, list string }{{"To", d.To}, {"Cc", d.Cc}, {"Bcc", d.Bcc}} {
 		as, err := parseList(h.list)
 		if err != nil { // only in a draft: kept as typed
@@ -173,6 +173,20 @@ func attach(w *multipart.Writer, path string) error {
 
 // WithFrom sets a built message's sender, replacing its From line (Build
 // writes the bare address), so mail goes out with the account's display name.
+// FromAddress is the address on raw's From line; "" if there is none.
+func FromAddress(raw []byte) string {
+	line, _, _ := bytes.Cut(raw, []byte("\r\n"))
+	value, ok := bytes.CutPrefix(line, []byte("From:"))
+	if !ok {
+		return ""
+	}
+	a, err := mail.ParseAddress(strings.TrimSpace(string(value)))
+	if err != nil {
+		return strings.TrimSpace(string(value))
+	}
+	return a.Address
+}
+
 func WithFrom(raw []byte, from model.Address) []byte {
 	line := from.Email
 	if from.Name != "" {

@@ -147,7 +147,7 @@ func TestAttachmentData_FetchesByPosition(t *testing.T) {
 	}
 }
 
-func TestSendAsName_IsTheAccountsOwnAddress(t *testing.T) {
+func TestSendAs_ListsTheAddressesMailCanGoFrom(t *testing.T) {
 	c := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/settings/sendAs") {
 			t.Errorf("path %s", r.URL.Path)
@@ -158,10 +158,11 @@ func TestSendAsName_IsTheAccountsOwnAddress(t *testing.T) {
 		}})
 	})
 
-	name, err := c.SendAsName(context.Background())
+	got, err := c.SendAs(context.Background())
 
-	if err != nil || name != "Me Myself" {
-		t.Errorf("SendAsName = %q, %v", name, err)
+	want := []model.SendAs{{Email: "alias@x.com", Name: "Alias", Default: true}, {Email: "Me@x.com", Name: "Me Myself"}}
+	if diff := cmp.Diff(want, got); err != nil || diff != "" {
+		t.Errorf("SendAs: %v (-want +got):\n%s", err, diff)
 	}
 }
 

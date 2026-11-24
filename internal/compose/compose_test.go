@@ -117,24 +117,36 @@ func TestText_SaysWhoItIsFrom(t *testing.T) {
 	if !strings.HasPrefix(d.Text(), "From: "+me+"\nTo: a@x.com\n") {
 		t.Errorf("Text() = %q, want From first", d.Text())
 	}
-	got, err := compose.Parse(strings.Replace(d.Text(), me, "other", 1), d)
-	if err != nil || got.Account != "other" {
-		t.Errorf("From edited: Account %q, %v", got.Account, err)
+	if alias := (compose.Draft{Account: me, From: "me@domain.com"}); !strings.HasPrefix(alias.Text(), "From: me@domain.com\n") {
+		t.Errorf("Text() = %q, want the address it goes from", alias.Text())
 	}
-	got, err = compose.Parse(strings.Replace(d.Text(), "From: "+me+"\n", "", 1), d)
-	if err != nil || got.Account != me {
-		t.Errorf("no From: Account %q, %v", got.Account, err)
+	// What From names is resolved later (an account, or an address one sends from).
+	got, err := compose.Parse(strings.Replace(d.Text(), me, "other", 1), d)
+	if err != nil || got.Account != me || got.From != "other" {
+		t.Errorf("From edited: Account %q, From %q, %v", got.Account, got.From, err)
+	}
+	for _, text := range []string{strings.Replace(d.Text(), "From: "+me+"\n", "", 1), strings.Replace(d.Text(), me, "ME@x.com", 1)} {
+		if got, err := compose.Parse(text, d); err != nil || got.Account != me || got.From != "" {
+			t.Errorf("no From, or the account's own: Account %q, From %q, %v", got.Account, got.From, err)
+		}
 	}
 }
 
-func TestParse_AReplyStaysInItsAccount(t *testing.T) {
-	for _, base := range []compose.Draft{{Account: me, ThreadID: "t1"}, {Account: me, DraftID: "d1"}} {
-		if _, err := compose.Parse(strings.Replace(base.Text(), me, "other", 1), base); err == nil {
-			t.Errorf("%+v sent from another account: want an error", base)
-		}
-		if _, err := compose.Parse(strings.Replace(base.Text(), me, "ME@x.com", 1), base); err != nil {
-			t.Errorf("same address, other case: %v", err)
-		}
+func TestReply_FromTheAddressItWasSentTo(t *testing.T) {
+	work := model.Address{Email: "me@domain.com"}
+	toWork := model.Message{From: alice, To: []model.Address{work, bob}, Subject: "Plan"}
+	toMe := model.Message{From: alice, To: []model.Address{self, bob}, Subject: "Plan"}
+
+	d := compose.Reply(thread(toWork), toWork, me, true, now, "me@domain.com", me)
+	if d.From != "me@domain.com" || d.To != "Alice <alice@x.com>, bob@x.com" {
+		t.Errorf("From %q, To %q; want the alias it came to, and it left out of To", d.From, d.To)
+	}
+	if d := compose.Reply(thread(toMe), toMe, me, false, now, "me@domain.com", me); d.From != "" {
+		t.Errorf("From %q; want the account's own, the address it came to", d.From)
+	}
+	other := model.Message{From: alice, To: []model.Address{bob}, Subject: "Plan"} // e.g. Bcc'd
+	if d := compose.Reply(thread(other), other, me, false, now, "me@domain.com", me); d.From != "me@domain.com" {
+		t.Errorf("From %q; want the default", d.From)
 	}
 }
 

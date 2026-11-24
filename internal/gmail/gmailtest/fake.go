@@ -28,8 +28,10 @@ type Fake struct {
 	Email string
 	// Err, when set, makes every call fail with it (e.g. to act offline).
 	Err error
-	// Name is the display name Gmail's send-as settings give.
+	// Name is the display name Gmail's send-as settings give the account's address.
 	Name string
+	// Aliases are the other addresses it can send from; one Default replaces the account's own as default.
+	Aliases []model.SendAs
 
 	mu      sync.Mutex
 	labels  []model.Label
@@ -405,10 +407,14 @@ func (f *Fake) add(m model.Message, files [][]byte) {
 	f.record("added", m)
 }
 
-func (f *Fake) SendAsName(ctx context.Context) (string, error) {
+func (f *Fake) SendAs(ctx context.Context) ([]model.SendAs, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.Name, f.begin("SendAsName")
+	own := model.SendAs{Email: f.Email, Name: f.Name, Default: true}
+	for _, a := range f.Aliases {
+		own.Default = own.Default && !a.Default
+	}
+	return append([]model.SendAs{own}, f.Aliases...), f.begin("SendAs")
 }
 
 // Sent lists the raw mails sent, oldest first.

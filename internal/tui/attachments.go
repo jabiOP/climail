@@ -135,7 +135,9 @@ func (m Model) forward() (tea.Model, tea.Cmd) {
 	t, _ := m.current()
 	msg, _ := m.pointed()
 	return m.composeWith(t, msg.ID, "forward-", func(paths []string) compose.Draft {
-		return compose.Forward(msg, t.Account, paths, m.deps.Now())
+		d := compose.Forward(msg, t.Account, paths, m.deps.Now())
+		d.From = m.deps.Service.DefaultFrom(m.ctx, t.Account)
+		return d
 	})
 }
 
