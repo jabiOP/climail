@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +27,7 @@ func setup(t *testing.T, msgs ...model.Message) (*service.Service, *store.Store)
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
+	st.EnsureAccount(ctx, acct)
 	if err := st.UpsertMessages(ctx, msgs); err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +60,7 @@ func labels(t *testing.T, st *store.Store, id string) []string {
 func TestApply_ChangesEveryMessage(t *testing.T) {
 	svc, st := setup(t, msg("a1", "a", 0, "INBOX", "UNREAD"), msg("a2", "a", 1, "INBOX", "UNREAD"))
 
-	if _, err := svc.Apply(ctx, acct, []model.Thread{thread(t, svc, "a")}, service.Archive); err != nil {
+	if _, err := svc.Apply(ctx, []model.Thread{thread(t, svc, "a")}, service.Archive); err != nil {
 		t.Fatal(err)
 	}
 
@@ -72,7 +74,7 @@ func TestApply_ChangesEveryMessage(t *testing.T) {
 func TestApply_StarMarksOnlyLatestMessage(t *testing.T) {
 	svc, st := setup(t, msg("a1", "a", 0, "INBOX"), msg("a2", "a", 1, "INBOX"))
 
-	svc.Apply(ctx, acct, []model.Thread{thread(t, svc, "a")}, service.Star)
+	svc.Apply(ctx, []model.Thread{thread(t, svc, "a")}, service.Star)
 
 	if labels(t, st, "a1")[0] != "INBOX" || len(labels(t, st, "a1")) != 1 {
 		t.Errorf("a1 = %v, want unstarred", labels(t, st, "a1"))
@@ -84,7 +86,7 @@ func TestApply_StarMarksOnlyLatestMessage(t *testing.T) {
 
 func TestUndo_RestoresExactly(t *testing.T) {
 	svc, st := setup(t, msg("a1", "a", 0, "INBOX", "UNREAD"), msg("a2", "a", 1, "INBOX"))
-	undo, _ := svc.Apply(ctx, acct, []model.Thread{thread(t, svc, "a")}, service.Trash)
+	undo, _ := svc.Apply(ctx, []model.Thread{thread(t, svc, "a")}, service.Trash)
 
 	if err := svc.Undo(ctx, undo); err != nil {
 		t.Fatal(err)
@@ -104,7 +106,7 @@ func TestUndo_RestoresExactly(t *testing.T) {
 func TestApply_NothingToChangeIsEmptyUndo(t *testing.T) {
 	svc, _ := setup(t, msg("a1", "a", 0, "SENT"))
 
-	undo, err := svc.Apply(ctx, acct, []model.Thread{thread(t, svc, "a")}, service.Archive)
+	undo, err := svc.Apply(ctx, []model.Thread{thread(t, svc, "a")}, service.Archive)
 
 	if err != nil || !undo.Empty() {
 		t.Errorf("undo = %+v, err = %v; want empty", undo, err)
@@ -208,6 +210,24 @@ func TestPrepare_ResolvesNamesThenChecks(t *testing.T) {
 	}
 }
 
+func TestPrepare_FromTakesAnAccountOrItsStart(t *testing.T) {
+	svc, st := setup(t)
+	st.EnsureAccount(ctx, "me@other.example")
+
+	d, err := svc.Prepare(ctx, compose.Draft{Account: "me@o", To: "b@x.com"})
+	if err != nil || d.Account != "me@other.example" {
+		t.Errorf("From me@o: %q, %v", d.Account, err)
+	}
+	for _, from := range []string{"me@", "nobody@x.com", ""} {
+		if _, err := svc.Prepare(ctx, compose.Draft{Account: from, To: "b@x.com"}); err == nil {
+			t.Errorf("From %q: want an error", from)
+		}
+	}
+	if err := svc.SaveDraft(ctx, compose.Draft{Account: "nobody"}, time.Now()); err == nil {
+		t.Error("draft saved in no account: want an error")
+	}
+}
+
 func TestSaveDraft_QueuesItWithNamesResolvedWhereTheyCanBe(t *testing.T) {
 	m := msg("a1", "a", 0, "INBOX")
 	m.From = model.Address{Name: "Maya Chen", Email: "maya@work.example"}
@@ -238,5 +258,83 @@ func TestSend_ContinuedDraftLeavesDraftsAtOnce(t *testing.T) {
 	}
 	if out, _ := st.Outgoing(ctx, acct); len(out) != 1 || out[0].Draft != "d1" || out[0].Save {
 		t.Errorf("queued %+v", out)
+	}
+}
+
+func other(m model.Message) model.Message {
+	m.Account = "me@other.example"
+	return m
+}
+
+func TestAllAccounts_ThreadsMergedNewestFirst(t *testing.T) {
+	svc, st := setup(t, msg("a1", "a", 0, "INBOX"), other(msg("b1", "b", 1, "INBOX")), msg("c1", "c", 2, "INBOX"),
+		other(msg("d1", "d", 3, "SENT")))
+	st.EnsureAccount(ctx, acct)
+	st.EnsureAccount(ctx, "me@other.example")
+
+	threads, err := svc.Threads(ctx, service.AllAccounts, store.View{Label: model.Inbox}, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got []string
+	for _, th := range threads {
+		got = append(got, th.Account+"/"+th.ID)
+	}
+	if diff := cmp.Diff([]string{acct + "/c", "me@other.example/b"}, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestAllAccounts_MailboxesAndStatusAddUp(t *testing.T) {
+	svc, st := setup(t, msg("a1", "a", 0, "INBOX", "UNREAD"), other(msg("b1", "b", 1, "INBOX", "UNREAD")),
+		other(msg("u1", "u", 1, "Label_1", "UNREAD")))
+	st.EnsureAccount(ctx, acct)
+	st.EnsureAccount(ctx, "me@other.example")
+	st.ReplaceLabels(ctx, "me@other.example", []model.Label{{ID: "Label_1", Name: "Travel"}})
+	st.SetLastSync(ctx, acct, time.Date(2026, 11, 20, 9, 0, 0, 0, time.UTC))
+	st.SetLastSync(ctx, "me@other.example", time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC))
+
+	boxes, err := svc.Mailboxes(ctx, service.AllAccounts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if boxes[0].ID != model.Inbox || boxes[0].Unread != 2 {
+		t.Errorf("Inbox = %+v, want 2 unread", boxes[0])
+	}
+	for _, b := range boxes {
+		if b.Name == "Travel" {
+			t.Errorf("an account's own label is listed for all accounts")
+		}
+	}
+	status, err := svc.Status(ctx, service.AllAccounts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC); !status.LastSync.Equal(want) {
+		t.Errorf("LastSync = %v, want the oldest, %v", status.LastSync, want)
+	}
+}
+
+func TestApply_ThreadsOfSeveralAccounts(t *testing.T) {
+	svc, st := setup(t, msg("a1", "a", 0, "INBOX"), other(msg("b1", "b", 1, "INBOX")))
+	st.EnsureAccount(ctx, acct)
+	st.EnsureAccount(ctx, "me@other.example")
+	threads, _ := svc.Threads(ctx, service.AllAccounts, store.View{Label: model.Inbox}, 10, 0)
+
+	undo, err := svc.Apply(ctx, threads, service.Archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := st.Message(ctx, "me@other.example", "b1")
+	if len(labels(t, st, "a1")) != 0 || len(b.Labels) != 0 {
+		t.Fatalf("a1 %v, b1 %v: want both archived", labels(t, st, "a1"), b.Labels)
+	}
+	if err := svc.Undo(ctx, undo); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = st.Message(ctx, "me@other.example", "b1")
+	if !slices.Equal(labels(t, st, "a1"), []string{"INBOX"}) || !slices.Equal(b.Labels, []string{"INBOX"}) {
+		t.Errorf("after undo: a1 %v, b1 %v", labels(t, st, "a1"), b.Labels)
 	}
 }

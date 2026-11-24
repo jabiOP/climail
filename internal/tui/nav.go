@@ -96,7 +96,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case key.Matches(msg, keys.Compose):
-		return m.startCompose(compose.Draft{Account: m.account, Body: "\n"})
+		from := m.account
+		if m.all {
+			from = m.accounts[0] // the default account, as in the CLI
+		}
+		return m.startCompose(compose.Draft{Account: from, Body: "\n"})
 	case key.Matches(msg, keys.Undo):
 		if len(m.undos) == 0 {
 			m.message = "nothing to undo"
@@ -138,10 +142,21 @@ func (m Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.asking = true
-		search, ctx, account, query := m.deps.Search, m.ctx, m.account, m.search
+		accounts := []string{m.account}
+		if m.all {
+			accounts = m.accounts
+		}
+		search, ctx, query := m.deps.Search, m.ctx, m.search
 		return m, func() tea.Msg {
-			ids, err := search(ctx, account, query)
-			return searchedMsg{query: query, ids: ids, err: err}
+			found := map[string][]string{}
+			for _, a := range accounts {
+				ids, err := search(ctx, a, query)
+				if err != nil {
+					return searchedMsg{query: query, err: err}
+				}
+				found[a] = ids
+			}
+			return searchedMsg{query: query, ids: found}
 		}
 	}
 	var cmd tea.Cmd
@@ -211,10 +226,10 @@ func (m Model) listKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.readTogether()
 	case key.Matches(msg, keys.Select):
 		if t, ok := m.current(); ok {
-			if m.selected[t.ID] {
-				delete(m.selected, t.ID)
+			if k := threadKey(t); m.selected[k] {
+				delete(m.selected, k)
 			} else {
-				m.selected[t.ID] = true
+				m.selected[k] = true
 			}
 			return m.moveBy(1)
 		}
@@ -252,7 +267,7 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Reply), key.Matches(msg, keys.ReplyAll):
 		t, _ := m.current()
 		orig, _ := m.pointed()
-		return m.startCompose(compose.Reply(t, orig, m.account, key.Matches(msg, keys.ReplyAll), m.deps.Now()))
+		return m.startCompose(compose.Reply(t, orig, t.Account, key.Matches(msg, keys.ReplyAll), m.deps.Now()))
 	case key.Matches(msg, keys.Forward):
 		return m.forward()
 	case key.Matches(msg, keys.SaveFiles):
@@ -269,7 +284,7 @@ func (m Model) targets() []model.Thread {
 	if m.focus == paneList && len(m.selected) > 0 {
 		var out []model.Thread
 		for _, t := range m.threads {
-			if m.selected[t.ID] {
+			if m.selected[threadKey(t)] {
 				out = append(out, t)
 			}
 		}
@@ -291,11 +306,11 @@ func (m Model) act(a service.Action) (tea.Model, tea.Cmd) {
 	}
 	var on page
 	if m.reading() {
-		on = page{box: m.box.ID, ids: slices.Clone(m.together), thread: targets[0].ID}
+		on = page{box: m.box.ID, ids: slices.Clone(m.together), thread: threadKey(targets[0])}
 	}
 	switch {
 	case m.reading() && a.Leaves:
-		m.dropTogether(targets[0].ID)
+		m.dropTogether(threadKey(targets[0]))
 	case m.focus == paneReader && a.Leaves:
 		m.openOnLoad = true
 	}
@@ -358,7 +373,7 @@ func (m Model) readTogether() (tea.Model, tea.Cmd) {
 	}
 	m.together, m.expanded = nil, map[string]bool{}
 	for _, t := range threads {
-		m.together = append(m.together, t.ID)
+		m.together = append(m.together, threadKey(t))
 		m.expanded[t.Latest().ID] = true
 		for _, msg := range t.Messages {
 			if msg.Unread() {
@@ -378,7 +393,7 @@ func (m Model) reading() bool { return m.together != nil && m.focus == paneReade
 func (m Model) togetherThreads() []model.Thread {
 	var out []model.Thread
 	for _, id := range m.together {
-		if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return t.ID == id }); i >= 0 {
+		if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return threadKey(t) == id }); i >= 0 {
 			out = append(out, m.threads[i])
 		}
 	}
@@ -403,7 +418,7 @@ func (m Model) togetherStarts(w int) []int {
 // togetherAt is the index of the current conversation among those read together.
 func (m Model) togetherAt() int {
 	t, _ := m.current()
-	return max(slices.IndexFunc(m.togetherThreads(), func(o model.Thread) bool { return o.ID == t.ID }), 0)
+	return max(slices.IndexFunc(m.togetherThreads(), func(o model.Thread) bool { return threadKey(o) == threadKey(t) }), 0)
 }
 
 // showTogether scrolls the conversation at index i, read together, to the top.
@@ -431,7 +446,7 @@ func (m *Model) dropTogether(id string) {
 func (m *Model) keepTogether() {
 	var ids []string
 	for _, t := range m.togetherThreads() {
-		ids = append(ids, t.ID)
+		ids = append(ids, threadKey(t))
 	}
 	if len(ids) == 0 {
 		m.focus, m.together = paneList, nil
@@ -628,14 +643,15 @@ func (m *Model) scrollBy(n int) {
 			at = i
 		}
 	}
-	id := m.togetherThreads()[at].ID
-	m.cursor = slices.IndexFunc(m.threads, func(t model.Thread) bool { return t.ID == id })
+	id := threadKey(m.togetherThreads()[at])
+	m.cursor = slices.IndexFunc(m.threads, func(t model.Thread) bool { return threadKey(t) == id })
 	m.clampOffset()
 }
 
 // --- the sidebar ---
 
-// sideRow is one sidebar line: an account, or one of its mailboxes.
+// sideRow is one sidebar line: an account (service.AllAccounts: every
+// account), or one of its mailboxes.
 type sideRow struct {
 	account string
 	box     *service.Mailbox
@@ -643,15 +659,32 @@ type sideRow struct {
 
 func (m Model) sideRows() []sideRow {
 	var rows []sideRow
-	for _, a := range m.accounts {
+	for _, a := range m.choices() {
 		rows = append(rows, sideRow{account: a})
-		if a == m.account {
+		if a == m.shown() {
 			for i := range m.boxes {
 				rows = append(rows, sideRow{account: a, box: &m.boxes[i]})
 			}
 		}
 	}
 	return rows
+}
+
+// choices are the accounts [ and ] go through: with more than one, all of
+// them at once first.
+func (m Model) choices() []string {
+	if len(m.accounts) < 2 {
+		return m.accounts
+	}
+	return append([]string{service.AllAccounts}, m.accounts...)
+}
+
+// shown is the account shown, or service.AllAccounts.
+func (m Model) shown() string {
+	if m.all {
+		return service.AllAccounts
+	}
+	return m.account
 }
 
 // boxRow is the sidebar row of the mailbox shown.
@@ -679,7 +712,7 @@ func (m Model) sidebarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		r := rows[m.side]
 		if r.box == nil {
-			if r.account == m.account {
+			if r.account == m.shown() {
 				return m, nil
 			}
 			return m.useAccount(r.account)
@@ -711,13 +744,25 @@ func (m Model) switchAccount(step int) (tea.Model, tea.Cmd) {
 		m.message = "only one account (add one with: climail auth login)"
 		return m, nil
 	}
-	i := slices.Index(m.accounts, m.account)
-	return m.useAccount(m.accounts[(i+step+len(m.accounts))%len(m.accounts)])
+	all := m.choices()
+	i := slices.Index(all, m.shown())
+	return m.useAccount(all[(i+step+len(all))%len(all)])
 }
 
+// useAccount shows an account's Inbox, or, for service.AllAccounts, every account's.
 func (m Model) useAccount(account string) (tea.Model, tea.Cmd) {
-	m.account, m.boxes, m.threads = account, nil, nil
-	m.undos = nil // undo is per account
-	m.message = account
+	m.all, m.boxes, m.threads = account == service.AllAccounts, nil, nil
+	m.message = accountName(account)
+	if !m.all {
+		m.account = account
+	}
 	return m.openBox(model.Inbox)
+}
+
+// accountName is how the sidebar and titles name an account.
+func accountName(account string) string {
+	if account == service.AllAccounts {
+		return "All accounts"
+	}
+	return account
 }

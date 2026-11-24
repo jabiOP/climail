@@ -111,6 +111,33 @@ func TestTextAndParse_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestText_SaysWhoItIsFrom(t *testing.T) {
+	d := compose.Draft{Account: me, To: "a@x.com"}
+
+	if !strings.HasPrefix(d.Text(), "From: "+me+"\nTo: a@x.com\n") {
+		t.Errorf("Text() = %q, want From first", d.Text())
+	}
+	got, err := compose.Parse(strings.Replace(d.Text(), me, "other", 1), d)
+	if err != nil || got.Account != "other" {
+		t.Errorf("From edited: Account %q, %v", got.Account, err)
+	}
+	got, err = compose.Parse(strings.Replace(d.Text(), "From: "+me+"\n", "", 1), d)
+	if err != nil || got.Account != me {
+		t.Errorf("no From: Account %q, %v", got.Account, err)
+	}
+}
+
+func TestParse_AReplyStaysInItsAccount(t *testing.T) {
+	for _, base := range []compose.Draft{{Account: me, ThreadID: "t1"}, {Account: me, DraftID: "d1"}} {
+		if _, err := compose.Parse(strings.Replace(base.Text(), me, "other", 1), base); err == nil {
+			t.Errorf("%+v sent from another account: want an error", base)
+		}
+		if _, err := compose.Parse(strings.Replace(base.Text(), me, "ME@x.com", 1), base); err != nil {
+			t.Errorf("same address, other case: %v", err)
+		}
+	}
+}
+
 func TestParse_Errors(t *testing.T) {
 	for _, text := range []string{"To: a@x.com\nnot a header\n\nbody", "To: a@x.com\nFrm: b\n\nbody"} {
 		if _, err := compose.Parse(text, compose.Draft{}); err == nil {

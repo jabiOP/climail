@@ -26,12 +26,13 @@ type composeMsg struct {
 	err   error // the attachments couldn't be fetched; the draft goes without them
 }
 
-// download fetches attachments into dir off the UI goroutine.
+// download fetches attachments of the current conversation into dir off the UI goroutine.
 func (m Model) download(refs []model.AttachmentRef, dir string, open bool) tea.Cmd {
 	if m.deps.Download == nil {
 		return nil
 	}
-	dl, ctx, account := m.deps.Download, m.ctx, m.account
+	t, _ := m.current()
+	dl, ctx, account := m.deps.Download, m.ctx, t.Account
 	return func() tea.Msg {
 		paths, err := dl(ctx, account, refs, dir)
 		return downloadedMsg{paths: paths, open: open, err: err}
@@ -134,7 +135,7 @@ func (m Model) forward() (tea.Model, tea.Cmd) {
 	t, _ := m.current()
 	msg, _ := m.pointed()
 	return m.composeWith(t, msg.ID, "forward-", func(paths []string) compose.Draft {
-		return compose.Forward(msg, m.account, paths, m.deps.Now())
+		return compose.Forward(msg, t.Account, paths, m.deps.Now())
 	})
 }
 
@@ -173,7 +174,7 @@ func (m Model) askDraftKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) editDraft(t model.Thread, d model.Message) (tea.Model, tea.Cmd) {
-	return m.composeWith(t, d.ID, "draft-", func(paths []string) compose.Draft { return compose.FromDraft(d, m.account, paths) })
+	return m.composeWith(t, d.ID, "draft-", func(paths []string) compose.Draft { return compose.FromDraft(d, t.Account, paths) })
 }
 
 // composeWith opens a draft made with the attachments of one of the
@@ -184,7 +185,7 @@ func (m Model) composeWith(t model.Thread, messageID, dirPrefix string, draft fu
 		return m.startCompose(draft(nil))
 	}
 	m.message = "Fetching the attachments…"
-	dl, ctx, account := m.deps.Download, m.ctx, m.account
+	dl, ctx, account := m.deps.Download, m.ctx, t.Account
 	dir := filepath.Join(m.deps.OpenDir, dirPrefix+m.deps.Now().Format("20060102-150405.000"))
 	return m, func() tea.Msg {
 		paths, err := dl(ctx, account, refs, dir)

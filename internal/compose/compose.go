@@ -132,10 +132,10 @@ func quote(body string) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// Text is the draft as the file the user edits: headers, a blank line, the body.
+// Text is the draft as the file the user edits: headers, From first, a blank line, the body.
 func (d Draft) Text() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "To: %s\nCc: %s\nBcc: %s\nSubject: %s\n", d.To, d.Cc, d.Bcc, d.Subject)
+	fmt.Fprintf(&b, "From: %s\nTo: %s\nCc: %s\nBcc: %s\nSubject: %s\n", d.Account, d.To, d.Cc, d.Bcc, d.Subject)
 	if len(d.Attach) == 0 {
 		b.WriteString("Attach: \n")
 	}
@@ -147,7 +147,9 @@ func (d Draft) Text() string {
 }
 
 // Parse reads an edited draft file. base gives what the file doesn't hold:
-// the account and how a reply is threaded.
+// how a reply is threaded, and the account when there's no From. From is as
+// typed (an account's address or its start); a reply, or a draft continued,
+// stays in its account.
 func Parse(text string, base Draft) (Draft, error) {
 	d := Draft{Account: base.Account, ThreadID: base.ThreadID, InReplyTo: base.InReplyTo, References: base.References,
 		DraftID: base.DraftID}
@@ -162,6 +164,10 @@ func Parse(text string, base Draft) (Draft, error) {
 		}
 		value = strings.TrimSpace(value)
 		switch strings.ToLower(strings.TrimSpace(name)) {
+		case "from":
+			if value != "" {
+				d.Account = value
+			}
 		case "to":
 			d.To = value
 		case "cc":
@@ -175,8 +181,11 @@ func Parse(text string, base Draft) (Draft, error) {
 				d.Attach = append(d.Attach, value)
 			}
 		default:
-			return Draft{}, fmt.Errorf("unknown header %q (use To, Cc, Bcc, Subject or Attach)", name)
+			return Draft{}, fmt.Errorf("unknown header %q (use From, To, Cc, Bcc, Subject or Attach)", name)
 		}
+	}
+	if (d.ThreadID != "" || d.DraftID != "") && !strings.EqualFold(d.Account, base.Account) {
+		return Draft{}, fmt.Errorf("From: this goes from %s, the account its conversation is in", base.Account)
 	}
 	d.Body = strings.TrimRight(body, " \t\n") + "\n"
 	return d, nil

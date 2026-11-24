@@ -346,6 +346,83 @@ func TestAccounts_Switch(t *testing.T) {
 	}
 }
 
+func TestAccounts_AllInOneInbox(t *testing.T) {
+	f := newFixture(t, 150, 30)
+
+	f.keys("[") // before the first account: all of them
+
+	m := f.model()
+	accounts := map[string]bool{}
+	for _, th := range m.threads {
+		accounts[th.Account] = true
+		if !slices.Contains(th.Labels(), model.Inbox) {
+			t.Errorf("%s is listed but not in an Inbox", th.ID)
+		}
+	}
+	if !m.all || !accounts[workAcct] || !accounts[homeAcct] {
+		t.Fatalf("all %v, accounts listed %v", m.all, accounts)
+	}
+	for i := 1; i < len(m.threads); i++ {
+		if m.threads[i].Latest().Date.After(m.threads[i-1].Latest().Date) {
+			t.Errorf("not newest first at %d", i)
+		}
+	}
+	if !strings.Contains(f.view(), "All accounts") || !strings.Contains(f.view(), "│ ▌ ") {
+		t.Errorf("no title or account stripes:\n%s", f.view())
+	}
+	if want := m.others[workAcct] + m.others[homeAcct]; m.boxes[0].Unread != want {
+		t.Errorf("Inbox unread %d, want %d", m.boxes[0].Unread, want)
+	}
+	f.keys("[")
+	if f.model().all || f.model().account != homeAcct {
+		t.Errorf("[: all %v, account %s, want the last account", f.model().all, f.model().account)
+	}
+	f.keys("]", "]")
+	if f.model().all || f.model().account != workAcct {
+		t.Errorf("] ]: all %v, account %s, want the first account", f.model().all, f.model().account)
+	}
+}
+
+func TestAccounts_AllActsInEachConversationsAccount(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.keys("[")
+	for f.model().threads[f.model().cursor].Account != homeAcct {
+		f.keys("j")
+	}
+	th, _ := f.model().current()
+	f.keys("r")
+	if c := f.model().composing; c == nil || c.base.Account != homeAcct {
+		t.Errorf("reply not written from the home account: %+v", c)
+	}
+	reset := f.model()
+	reset.composing = nil // as if the editor closed on an unchanged draft
+	f.m = reset
+
+	f.keys("a")
+
+	m, err := f.st.Message(context.Background(), homeAcct, th.Latest().ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has(m.Labels, model.Inbox) {
+		t.Errorf("%s still in the home Inbox: %v", th.ID, m.Labels)
+	}
+	f.keys("u")
+	m, _ = f.st.Message(context.Background(), homeAcct, th.Latest().ID)
+	if !has(m.Labels, model.Inbox) {
+		t.Errorf("undo: %s not back in the home Inbox: %v", th.ID, m.Labels)
+	}
+}
+
+func TestAccounts_EachHasItsColor(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	m := f.model()
+
+	if m.accountStyle(workAcct).GetForeground() == m.accountStyle(homeAcct).GetForeground() {
+		t.Errorf("both accounts drawn in %v", m.accountStyle(workAcct).GetForeground())
+	}
+}
+
 func TestGoTo_Mailboxes(t *testing.T) {
 	f := newFixture(t, 100, 24)
 
@@ -487,7 +564,7 @@ func TestReply_EditConfirmSend(t *testing.T) {
 	f.keys("r")
 	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
 
-	if !strings.Contains(f.view(), "Send “Re: Launch plan for the 2.0 release” to Maya Chen?") {
+	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen?") {
 		t.Fatalf("no confirmation:\n%s", f.view())
 	}
 	f.keys("y")
@@ -501,12 +578,12 @@ func TestReply_EditConfirmSend(t *testing.T) {
 }
 
 func TestReplyAll_IncludesEveryone(t *testing.T) {
-	f := newFixture(t, 100, 24)
+	f := newFixture(t, 130, 24)
 
 	f.keys("R")
 	f.editDraft(func(old string) string { return old + "ok\n" })
 
-	if !strings.Contains(f.view(), "to Maya Chen, Tom Okafor?") {
+	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen, Tom Okafor?") {
 		t.Errorf("view:\n%s", f.view())
 	}
 }
@@ -739,7 +816,7 @@ func TestCompose_NamesBecomeAddressesInTheDraft(t *testing.T) {
 		return strings.Replace(strings.Replace(old, "To: ", "To: maya, tom", 1), "Subject: ", "Subject: Hi", 1) + "hello\n"
 	})
 
-	if !strings.Contains(f.view(), "Send “Hi” to Maya Chen, Tom Okafor?") {
+	if !strings.Contains(f.view(), "From you@work.example: send “Hi” to Maya Chen, Tom Okafor?") {
 		t.Fatalf("view:\n%s", f.view())
 	}
 	text, _ := os.ReadFile(f.model().composing.path)
@@ -876,7 +953,11 @@ func TestReadTogether_SelectedOnes(t *testing.T) {
 
 	f.keys("T")
 
-	if got := f.model().together; !slices.Equal(got, want) {
+	var got []string
+	for _, th := range f.model().togetherThreads() {
+		got = append(got, th.ID)
+	}
+	if !slices.Equal(got, want) {
 		t.Errorf("together = %v, want %v", got, want)
 	}
 	f.keys("esc")

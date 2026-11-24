@@ -183,7 +183,7 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 			}
 			return save(d)
 		}
-		switch ask(fmt.Sprintf("Send %s? [y]es, [e]dit, [q]uit (save to Drafts): ", d.Summary())) {
+		switch ask(fmt.Sprintf("From %s: send %s? [y]es, [e]dit, [q]uit (save to Drafts): ", d.Account, d.Summary())) {
 		case "y", "yes":
 			return a.queue(ctx, d, path)
 		case "e":
@@ -205,7 +205,7 @@ func (a *App) queue(ctx context.Context, d compose.Draft, path string) error {
 	if path != "" {
 		os.Remove(path)
 	}
-	fmt.Fprintf(a.Stderr, "Sending %s.\n", d.Summary())
+	fmt.Fprintf(a.Stderr, "From %s: sending %s.\n", d.Account, d.Summary())
 	a.PushAfterWrite(ctx, d.Account, false)
 	return nil
 }

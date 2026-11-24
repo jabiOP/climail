@@ -62,11 +62,13 @@ type Model struct {
 	hideSidebar   bool // b: more room for the list and reader on wide screens
 
 	accounts []string
-	account  string            // the account shown
-	others   map[string]int    // unread in each account's Inbox, for the sidebar
-	boxes    []service.Mailbox // the account's mailboxes
-	box      service.Mailbox   // the mailbox shown
-	side     int               // sidebar cursor: index into sideRows()
+	account  string                       // the account shown; with all, the one c writes from
+	all      bool                         // every account at once
+	others   map[string]int               // unread in each account's Inbox, for the sidebar
+	boxes    []service.Mailbox            // the account's mailboxes (with all: the system ones, added up)
+	boxesOf  map[string][]service.Mailbox // each account's mailboxes, for the labels the reader names
+	box      service.Mailbox              // the mailbox shown
+	side     int                          // sidebar cursor: index into sideRows()
 
 	threads []model.Thread
 	cursor  int // list selection
@@ -75,20 +77,20 @@ type Model struct {
 	loaded  bool
 	loadSeq int // only the newest load is applied (search loads on every key)
 
-	selected map[string]bool // x: thread IDs acted on together
+	selected map[string]bool // x: the conversations acted on together, by threadKey
 
-	readerID   string          // the conversation the reader shows
+	readerID   string          // the conversation the reader shows, by threadKey
 	scroll     int             // reader: first line shown
 	expanded   map[string]bool // reader: message IDs shown in full
 	openOnLoad bool            // after archiving from the reader: open the next conversation
-	together   []string        // T: the conversations the reader shows on one page, by ID; nil: one
+	together   []string        // T: the conversations the reader shows on one page, by threadKey; nil: one
 	showOnLoad string          // reading together: the conversation to make current after the next load
 	pointedID  string          // tab, shift+tab: the message ▶ marks, when in the current conversation
 
-	search    string   // the search shown ("" for a mailbox)
-	searching bool     // typing a search
-	found     []string // the conversations Gmail found for the search, in its order; nil: local matches
-	asking    bool     // waiting for Gmail's answer
+	search    string              // the search shown ("" for a mailbox)
+	searching bool                // typing a search
+	found     map[string][]string // by account, the conversations Gmail found for the search, in its order; nil: local matches
+	asking    bool                // waiting for Gmail's answer
 	input     textinput.Model
 	before    service.Mailbox // the mailbox to return to when the search is cleared
 
@@ -113,8 +115,10 @@ type loadedMsg struct {
 	seq      int
 	accounts []string
 	account  string
+	all      bool
 	others   map[string]int
 	boxes    []service.Mailbox
+	boxesOf  map[string][]service.Mailbox
 	threads  []model.Thread
 	status   service.Status
 	err      error
@@ -161,7 +165,7 @@ const maxUndos = 50
 
 type searchedMsg struct {
 	query string
-	ids   []string
+	ids   map[string][]string // by account
 	err   error
 }
 
@@ -197,18 +201,22 @@ func (m *Model) load() tea.Cmd {
 
 func (m Model) loadCmd(seq int) tea.Cmd {
 	svc, ctx := m.deps.Service, m.ctx
-	account, view, limit, found := m.account, store.View{Label: m.box.ID, Search: m.search}, m.limit, m.found
+	account, all, view, limit, found := m.account, m.all, store.View{Label: m.box.ID, Search: m.search}, m.limit, m.found
 	return func() tea.Msg {
-		msg := loadedMsg{seq: seq, others: map[string]int{}}
+		msg := loadedMsg{seq: seq, others: map[string]int{}, boxesOf: map[string][]service.Mailbox{}}
 		if msg.accounts, msg.err = svc.Accounts(ctx); msg.err != nil {
 			return msg
 		}
 		if len(msg.accounts) == 0 {
 			return msg
 		}
-		msg.account = account
+		msg.account, msg.all = account, all && len(msg.accounts) > 1
 		if !slices.Contains(msg.accounts, account) {
 			msg.account = msg.accounts[0]
+		}
+		shown := msg.account
+		if msg.all {
+			shown = service.AllAccounts
 		}
 		for _, a := range msg.accounts {
 			boxes, err := svc.Mailboxes(ctx, a)
@@ -217,19 +225,32 @@ func (m Model) loadCmd(seq int) tea.Cmd {
 				return msg
 			}
 			msg.others[a] = boxes[0].Unread // Inbox comes first
-			if a == msg.account {
-				msg.boxes = boxes
-			}
+			msg.boxesOf[a] = boxes
 		}
-		if found != nil && msg.account == account {
-			msg.threads, msg.err = svc.ThreadsByID(ctx, account, found)
+		if msg.boxes, msg.err = svc.Mailboxes(ctx, shown); msg.err != nil {
+			return msg
+		}
+		if found != nil {
+			for _, a := range msg.accounts {
+				if a == shown || msg.all {
+					threads, err := svc.ThreadsByID(ctx, a, found[a])
+					if err != nil {
+						msg.err = err
+						return msg
+					}
+					msg.threads = append(msg.threads, threads...)
+				}
+			}
+			if msg.all {
+				slices.SortStableFunc(msg.threads, func(a, b model.Thread) int { return b.Latest().Date.Compare(a.Latest().Date) })
+			}
 		} else {
-			msg.threads, msg.err = svc.Threads(ctx, msg.account, view, limit, 0)
+			msg.threads, msg.err = svc.Threads(ctx, shown, view, limit, 0)
 		}
 		if msg.err != nil {
 			return msg
 		}
-		msg.status, msg.err = svc.Status(ctx, msg.account)
+		msg.status, msg.err = svc.Status(ctx, shown)
 		return msg
 	}
 }
@@ -251,9 +272,9 @@ func (m Model) tick() tea.Cmd {
 
 // apply runs an action on threads; record offers it for undo.
 func (m Model) apply(threads []model.Thread, a service.Action, record bool) tea.Cmd {
-	svc, ctx, account := m.deps.Service, m.ctx, m.account
+	svc, ctx := m.deps.Service, m.ctx
 	return func() tea.Msg {
-		undo, err := svc.Apply(ctx, account, threads, a)
+		undo, err := svc.Apply(ctx, threads, a)
 		return actionDoneMsg{undo: undo, record: record, err: err}
 	}
 }
@@ -324,7 +345,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.message, m.isError = "couldn't search Gmail ("+syncErrorText(msg.err)+"): showing local matches", true
 			return m, nil
 		}
-		m.found = append([]string{}, msg.ids...)
+		m.found = msg.ids
+		if m.found == nil {
+			m.found = map[string][]string{}
+		}
 		m.cursor, m.offset = 0, 0
 		return m, m.load()
 	case downloadedMsg:
@@ -354,7 +378,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.saving:
 			m.message, m.isError = "Saved in Drafts", false
 		default:
-			m.message, m.isError = "Sending "+msg.summary, false
+			m.message, m.isError = "From "+msg.from+": sending "+msg.summary, false
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
@@ -385,14 +409,12 @@ func (m Model) applyLoaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 	}
 	var keep string
 	if t, ok := m.current(); ok {
-		keep = t.ID
+		keep = threadKey(t)
 	}
-	if msg.account != m.account {
-		keep = ""
-	}
-	m.accounts, m.account, m.others, m.boxes, m.status = msg.accounts, msg.account, msg.others, msg.boxes, msg.status
+	m.accounts, m.account, m.all, m.others, m.boxes, m.boxesOf, m.status =
+		msg.accounts, msg.account, msg.all, msg.others, msg.boxes, msg.boxesOf, msg.status
 	m.threads, m.loaded = msg.threads, true
-	if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return t.ID == keep }); i >= 0 {
+	if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return threadKey(t) == keep }); i >= 0 {
 		m.cursor = i
 	}
 	m.cursor = max(min(m.cursor, len(m.threads)-1), 0)
@@ -426,6 +448,9 @@ func (m Model) applyLoaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// threadKey tells conversations apart: two accounts can have the same IDs.
+func threadKey(t model.Thread) string { return t.Account + "/" + t.ID }
+
 // current is the conversation under the list cursor.
 func (m Model) current() (model.Thread, bool) {
 	if m.cursor < 0 || m.cursor >= len(m.threads) {
@@ -445,10 +470,10 @@ func (m *Model) followReader() {
 		m.readerID = ""
 		return
 	}
-	if t.ID == m.readerID {
+	if threadKey(t) == m.readerID {
 		return
 	}
-	m.readerID, m.scroll, m.pointedID = t.ID, 0, ""
+	m.readerID, m.scroll, m.pointedID = threadKey(t), 0, ""
 	m.expanded = map[string]bool{t.Latest().ID: true}
 	for _, msg := range t.Messages {
 		if msg.Unread() {
