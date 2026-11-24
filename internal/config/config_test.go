@@ -147,3 +147,19 @@ func TestSetAccountColor_KeepsTheRestOfTheFile(t *testing.T) {
 		})
 	}
 }
+
+func TestLoad_LaunchOptions(t *testing.T) {
+	d := config.Default()
+	if d.PreviewAtLaunch || !d.SidebarAtLaunch {
+		t.Errorf("defaults: preview_at_launch %v, sidebar_at_launch %v; want false, true", d.PreviewAtLaunch, d.SidebarAtLaunch)
+	}
+
+	c, err := config.Load(writeConfig(t, "preview_at_launch = true\nsidebar_at_launch = false\n"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.PreviewAtLaunch || c.SidebarAtLaunch {
+		t.Errorf("Load = %+v", c)
+	}
+}

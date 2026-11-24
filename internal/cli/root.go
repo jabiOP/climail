@@ -140,16 +140,18 @@ func tuiDeps(app *App, svc *service.Service) tui.Deps {
 			_, err := app.SyncNow(ctx, progress) // skipped quietly if another process is syncing
 			return err
 		},
-		Now:           app.Now,
-		SyncInterval:  app.Config.SyncInterval.Duration,
-		OpenURL:       app.OpenURL,
-		DraftDir:      app.Paths.DraftDir(),
-		Editor:        compose.EditorCmd,
-		Download:      app.Download,
-		DownloadDir:   app.Config.DownloadDir,
-		OpenDir:       app.Paths.OpenDir(),
-		Search:        app.Search,
-		AccountColors: app.Config.AccountColors,
+		Now:               app.Now,
+		SyncInterval:      app.Config.SyncInterval.Duration,
+		OpenURL:           app.OpenURL,
+		DraftDir:          app.Paths.DraftDir(),
+		Editor:            compose.EditorCmd,
+		Download:          app.Download,
+		DownloadDir:       app.Config.DownloadDir,
+		OpenDir:           app.Paths.OpenDir(),
+		Search:            app.Search,
+		AccountColors:     app.Config.AccountColors,
+		NoPreviewAtLaunch: !app.Config.PreviewAtLaunch,
+		HideSidebar:       !app.Config.SidebarAtLaunch,
 		SaveAccountColor: func(account, color string) error {
 			return config.SetAccountColor(app.Paths.ConfigFile(), account, color)
 		},

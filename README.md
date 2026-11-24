@@ -21,7 +21,8 @@ delivered; mail to anyone else only lands in Sent.
 ### TUI
 
 `climail` opens it. On a terminal at least 120 columns wide it shows mailboxes, the conversation list and a reader
-side by side, each in a frame (the reader previews the conversation under the cursor without marking it read); the pane
+side by side, each in a frame (the reader previews the conversation under the cursor without marking it read, once
+you move to one; `preview_at_launch` shows the first at once); the pane
 you are in has a double frame, its title and cursor in the account's color. Narrower, one pane at a
 time. `?` lists every key.
 
@@ -106,6 +107,8 @@ stale_after = "2m"     # CLI reads sync first when the last sync is older
 sync_timeout = "10s"   # how long a CLI command waits for that sync
 sync_threads = 300     # conversations a first (or --full) sync downloads per account
 download_dir = "~/Downloads"  # where attachments are saved
+preview_at_launch = false  # the TUI's reader shows the first conversation as soon as it opens
+sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
 
 [account_colors]  # by address: one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
 "you@work.example" = "tomato"   # flamingo, tomato, tangerine, mango, pumpkin, citron, banana, avocado,

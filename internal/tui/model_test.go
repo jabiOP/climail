@@ -1571,3 +1571,41 @@ func TestView_DropsTerminalControlSequences(t *testing.T) {
 		}
 	}
 }
+
+func TestLaunch_NoPreviewUntilTheCursorMoves(t *testing.T) {
+	f := newFixtureWith(t, 150, 30, Deps{NoPreviewAtLaunch: true})
+
+	if v := f.view(); !strings.Contains(v, "No conversation selected") || strings.Count(v, f.thread(f.currentID()).Subject()) > 1 {
+		t.Fatal("the reader previews a conversation at launch")
+	}
+
+	f.keys("j")
+
+	if strings.Contains(f.view(), "No conversation selected") {
+		t.Error("the reader doesn't follow the cursor once it moves")
+	}
+}
+
+func TestLaunch_NoPreviewOpensOnEnter(t *testing.T) {
+	f := newFixtureWith(t, 150, 30, Deps{NoPreviewAtLaunch: true})
+
+	f.keys("enter", "esc")
+
+	if strings.Contains(f.view(), "No conversation selected") {
+		t.Error("the conversation opened isn't shown")
+	}
+}
+
+func TestLaunch_SidebarHidden(t *testing.T) {
+	f := newFixtureWith(t, 150, 30, Deps{HideSidebar: true})
+
+	if f.model().sidebarShown() {
+		t.Fatal("sidebar shown at launch")
+	}
+
+	f.keys("b")
+
+	if !f.model().sidebarShown() {
+		t.Error("b doesn't show it")
+	}
+}
