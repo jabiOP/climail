@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1042,6 +1043,18 @@ func TestCompose_NamesBecomeAddressesInTheDraft(t *testing.T) {
 	}
 }
 
+func TestOpenInGmail_NamesTheAccountByAuthuser(t *testing.T) {
+	var opened []string
+	f := newFixtureWith(t, 100, 24, Deps{OpenURL: func(u string) error { opened = append(opened, u); return nil }})
+	th, _ := f.model().current()
+
+	f.keys("O")
+	// Gmail answers /mail/u/<address>/ with a 404; ?authuser=<address> works.
+	if want := "https://mail.google.com/mail/?authuser=" + url.QueryEscape(th.Account) + "#all/" + th.ID; len(opened) != 1 || opened[0] != want {
+		t.Errorf("opened %v, want %s", opened, want)
+	}
+}
+
 func TestDrafts_FormattingMarkdownCantHoldAsksFirst(t *testing.T) {
 	var opened []string
 	f := newFixtureWith(t, 100, 24, Deps{OpenURL: func(u string) error { opened = append(opened, u); return nil }})
@@ -1055,7 +1068,7 @@ func TestDrafts_FormattingMarkdownCantHoldAsksFirst(t *testing.T) {
 		t.Fatalf("no question:\n%s", f.view())
 	}
 	f.keys("O")
-	if len(opened) != 1 || opened[0] != "https://mail.google.com/mail/u/you@work.example/#drafts?compose=web1" {
+	if len(opened) != 1 || opened[0] != "https://mail.google.com/mail/?authuser=you%40work.example#drafts?compose=web1" {
 		t.Errorf("opened %v", opened)
 	}
 

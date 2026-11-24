@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -170,7 +169,7 @@ func (m Model) askDraftKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		t, _ := m.current()
 		return m.editDraft(t, d)
 	case "O":
-		return m, m.openLink(fmt.Sprintf("https://mail.google.com/mail/u/%s/#drafts?compose=%s", url.PathEscape(d.Account), d.ID))
+		return m, m.openLink(gmailLink(d.Account, "drafts?compose="+d.ID))
 	}
 	return m, nil // anything else cancels
 }
