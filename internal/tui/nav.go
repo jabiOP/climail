@@ -569,6 +569,7 @@ func (m Model) moveTo(i int) Model {
 	m.cursor = max(min(i, len(m.threads)-1), 0)
 	m.clampOffset()
 	m.followReader()
+	m.noPreview = false
 	return m
 }
 

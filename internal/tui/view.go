@@ -137,7 +137,7 @@ func (m Model) titleParts(p pane, w int) (left, right string, rightSt lipgloss.S
 		return "climail", "", dim
 	case paneReader:
 		t, ok := m.current()
-		if !ok {
+		if !ok || m.noPreview {
 			return "", "", dim
 		}
 		left = output.Subject(t.Subject())
@@ -383,7 +383,7 @@ func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Tim
 // --- reader ---
 
 func (m Model) reader(w, h int) []string {
-	if _, ok := m.current(); !ok {
+	if _, ok := m.current(); !ok || m.noPreview {
 		return append([]string{m.paneTitle(paneReader, w)}, centered("No conversation selected", w, h-1)...)
 	}
 	lines := []string{m.paneTitle(paneReader, w)}

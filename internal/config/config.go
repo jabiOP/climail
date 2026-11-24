@@ -31,17 +31,21 @@ type Config struct {
 	SyncTimeout  Duration `toml:"sync_timeout"`  // max time a CLI command waits for that sync
 	SyncThreads  int      `toml:"sync_threads"`  // conversations a full sync fetches per account, newest first
 	DownloadDir  string   `toml:"download_dir"`  // where attachments are saved
+	// PreviewAtLaunch shows the first conversation in the reader when the TUI opens.
+	PreviewAtLaunch bool `toml:"preview_at_launch"`
+	SidebarAtLaunch bool `toml:"sidebar_at_launch"` // the mailboxes are shown when the TUI opens
 	// AccountColors gives accounts a color, by address: a Colors name or "#rrggbb".
 	AccountColors map[string]string `toml:"account_colors"`
 }
 
 func Default() Config {
 	return Config{
-		SyncInterval: Duration{30 * time.Second},
-		StaleAfter:   Duration{2 * time.Minute},
-		SyncTimeout:  Duration{10 * time.Second},
-		SyncThreads:  300,
-		DownloadDir:  "~/Downloads",
+		SyncInterval:    Duration{30 * time.Second},
+		StaleAfter:      Duration{2 * time.Minute},
+		SyncTimeout:     Duration{10 * time.Second},
+		SyncThreads:     300,
+		DownloadDir:     "~/Downloads",
+		SidebarAtLaunch: true,
 	}
 }
 

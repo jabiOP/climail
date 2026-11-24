@@ -41,7 +41,9 @@ type Deps struct {
 	// the cache; nil: local search only.
 	Search func(ctx context.Context, account, query string) ([]string, error)
 	// AccountColors are the colors config.toml gives accounts (config.ColorHex values).
-	AccountColors map[string]string
+	AccountColors     map[string]string
+	NoPreviewAtLaunch bool // the reader stays empty until the cursor moves or a conversation opens
+	HideSidebar       bool // the mailboxes start hidden (b shows them)
 	// SaveAccountColor writes a color chosen with C into config.toml; nil: not saved.
 	SaveAccountColor func(account, color string) error
 }
@@ -66,6 +68,7 @@ type Model struct {
 	width, height int
 	focus         pane
 	hideSidebar   bool // b: more room for the list and reader on wide screens
+	noPreview     bool // at launch: the reader is empty until the cursor moves or a conversation opens
 
 	accounts []string
 	account  string                       // the account shown; with all, the one c writes from
@@ -206,7 +209,7 @@ func New(ctx context.Context, d Deps) Model {
 		colors[a] = c
 	}
 	return Model{
-		colors: colors, started: d.Now(),
+		colors: colors, started: d.Now(), hideSidebar: d.HideSidebar, noPreview: d.NoPreviewAtLaunch,
 		deps: d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
 		box: service.Mailbox{ID: model.Inbox, Name: "Inbox"}, selected: map[string]bool{}, input: in,
 		syncing: d.Sync != nil, // Init starts one
@@ -487,7 +490,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
 	case tea.KeyMsg:
-		return m.handleKey(msg)
+		next, cmd := m.handleKey(msg)
+		if n, ok := next.(Model); ok && n.focus == paneReader {
+			n.noPreview = false
+			next = n
+		}
+		return next, cmd
 	}
 	return m, nil
 }
