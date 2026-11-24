@@ -1,22 +1,22 @@
- climail                    │ Inbox · 4 unread                          you@work.example │ Launch plan for the 2.0 release                 3 messages 
- ▸ All accounts           6 │▌●   Maya Chen, T… 3  Launch plan for the 2.0 re… 📎  14:35 │ Inbox                                                      
- ▾ ● you@work.example       │     CI               ✓ main passed (#4822) — Bu…     14:30 │ ────────────────────────────────────────────────────────── 
-   Inbox                  4 │ ●   CI               ✗ main failed: integration…     14:10 │ Maya Chen           Hi both, Here's the … Tue 17 Nov 15:00 
-   Starred                  │ ●   Calendar         Invitation: Design review …     12:00 │ ────────────────────────────────────────────────────────── 
-   Sent                     │ ●   Priya Raman      Northwind: questions about…     11:00 │ Tom Okafor          Looks good. I'd add … Wed 18 Nov 15:00 
-   Drafts                   │   ★ Tom Okafor       Can you review #312 when y…     09:00 │ ────────────────────────────────────────────────────────── 
-   All Mail                 │     People Team      Team offsite: pick your se…    Nov 19 │▌▶ Maya Chen <maya@work.example>           Fri 20 Nov 14:35 
-   Spam                     │     The Weekly Ter…  Issue 142: the joy of keyb…    Nov 18 │▌to me, Tom Okafor                                          
-   Trash                    │     Maya Chen        Weekly sync notes — Older …    Nov 14 │▌📎 launch-plan-v2.pdf · 607 B                              
-   ● Builds               1 │     Tom Okafor       Quick question about the A…    Nov 13 │▌                                                           
-   ● Clients              1 │     People Team      Reminder: expenses — Older…    Nov 12 │▌Agreed, added. @you: could you own the migration guide?    
-     ● Northwind          1 │     The Weekly Ter…  Issue 141 of The Weekly Te…    Nov 11 │▌I've put a first outline in the shared folder.             
-   ● Receipts               │     Maya Chen        Weekly sync notes — Older …    Nov 10 │▌                                                           
- ▸ ● you@home.example     2 │     Tom Okafor       Quick question about the A…     Nov 9 │▌> I'd add a day for the release notes                      
-                            │     People Team      Reminder: expenses — Older…     Nov 8 │▌                                                           
-                            │     The Weekly Ter…  Issue 140 of The Weekly Te…     Nov 7 │                                                            
-                            │     Maya Chen        Weekly sync notes — Older …     Nov 6 │                                                            
-                            │     Tom Okafor       Quick question about the A…     Nov 5 │                                                            
-                            │     People Team      Reminder: expenses — Older…     Nov 4 │                                                            
-                            │     The Weekly Ter…  Issue 139 of The Weekly Te…     Nov 3 │                                                            
+╭─ climail ──────────────────╮╔═ Inbox · 4 unread ════════════════════ you@work.example ═╗╭─ Launch plan for the 2.0 release ─────────── 3 messages ─╮
+│ ▸ All accounts           6 │║▌●   Maya Chen, … 3  Launch plan for the 2.0 r… 📎  14:35 ║│ Inbox                                                    │
+│ ▾ ● you@work.example       │║     CI              ✓ main passed (#4822) — B…     14:30 ║│ ──────────────────────────────────────────────────────── │
+│   Inbox                  4 │║ ●   CI              ✗ main failed: integratio…     14:10 ║│ Maya Chen          Hi both, Here's the… Tue 17 Nov 15:00 │
+│   Starred                  │║ ●   Calendar        Invitation: Design review…     12:00 ║│ ──────────────────────────────────────────────────────── │
+│   Sent                     │║ ●   Priya Raman     Northwind: questions abou…     11:00 ║│ Tom Okafor         Looks good. I'd add… Wed 18 Nov 15:00 │
+│   Drafts                   │║   ★ Tom Okafor      Can you review #312 when …     09:00 ║│ ──────────────────────────────────────────────────────── │
+│   All Mail                 │║     People Team     Team offsite: pick your s…    Nov 19 ║│▌▶ Maya Chen <maya@work.example>         Fri 20 Nov 14:35 │
+│   Spam                     │║     The Weekly Te…  Issue 142: the joy of key…    Nov 18 ║│▌to me, Tom Okafor                                        │
+│   Trash                    │║     Maya Chen       Weekly sync notes — Older…    Nov 14 ║│▌📎 launch-plan-v2.pdf · 607 B                            │
+│   ● Builds               1 │║     Tom Okafor      Quick question about the …    Nov 13 ║│▌                                                         │
+│   ● Clients              1 │║     People Team     Reminder: expenses — Olde…    Nov 12 ║│▌Agreed, added. @you: could you own the migration guide?  │
+│     ● Northwind          1 │║     The Weekly Te…  Issue 141 of The Weekly T…    Nov 11 ║│▌I've put a first outline in the shared folder.           │
+│   ● Receipts               │║     Maya Chen       Weekly sync notes — Older…    Nov 10 ║│▌                                                         │
+│ ▸ ● you@home.example     2 │║     Tom Okafor      Quick question about the …     Nov 9 ║│▌> I'd add a day for the release notes                    │
+│                            │║     People Team     Reminder: expenses — Olde…     Nov 8 ║│▌                                                         │
+│                            │║     The Weekly Te…  Issue 140 of The Weekly T…     Nov 7 ║│                                                          │
+│                            │║     Maya Chen       Weekly sync notes — Older…     Nov 6 ║│                                                          │
+│                            │║     Tom Okafor      Quick question about the …     Nov 5 ║│                                                          │
+│                            │║     People Team     Reminder: expenses — Olde…     Nov 4 ║│                                                          │
+╰────────────────────────────╯╚══════════════════════════════════════════════════════════╝╰──────────────────────────────────────────────────────────╯
  enter open · c compose · r reply all · a archive · dd trash · * star · x select · / search · ? help                                    synced 2m ago 

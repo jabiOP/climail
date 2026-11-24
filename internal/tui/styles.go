@@ -110,6 +110,41 @@ func (m Model) accountStyle(account string) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
 }
 
+// hiHex is the color that shows where you are: the shown account's, or the
+// accent when every account is shown.
+func (m Model) hiHex() string {
+	if m.all {
+		return ""
+	}
+	return m.accountHex(m.shown())
+}
+
+// hiFg draws in that color: the focused pane's border and title, the cursor's bar.
+func (m Model) hiFg() lipgloss.Style {
+	if hex := m.hiHex(); hex != "" {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
+	}
+	return accentFg
+}
+
+// hiBg is the cursor row's background: that color, faded into the terminal's.
+func (m Model) hiBg() lipgloss.TerminalColor {
+	hex := m.hiHex()
+	if hex == "" {
+		return cursorBg
+	}
+	return lipgloss.AdaptiveColor{Light: blend(hex, "#ffffff", 0.82), Dark: blend(hex, "#202124", 0.70)}
+}
+
+// blend mixes two "#rrggbb" colors: share of the second, the rest of the first.
+func blend(a, b string, share float64) string {
+	var ar, ag, ab, br, bg, bb int
+	fmt.Sscanf(a, "#%02x%02x%02x", &ar, &ag, &ab)
+	fmt.Sscanf(b, "#%02x%02x%02x", &br, &bg, &bb)
+	mix := func(x, y int) int { return int(float64(x)*(1-share) + float64(y)*share + 0.5) }
+	return fmt.Sprintf("#%02x%02x%02x", mix(ar, br), mix(ag, bg), mix(ab, bb))
+}
+
 // labelStyle draws a label in its Gmail color, if it has one.
 func labelStyle(color string) lipgloss.Style {
 	var r, g, b int

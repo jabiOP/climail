@@ -383,7 +383,7 @@ func TestAccounts_AllInOneInbox(t *testing.T) {
 			t.Errorf("not newest first at %d", i)
 		}
 	}
-	if !strings.Contains(f.view(), "All accounts") || !strings.Contains(f.view(), "│ ▌ ") {
+	if !strings.Contains(f.view(), "All accounts") || !strings.Contains(f.view(), "║ ▌ ") {
 		t.Errorf("no title or account stripes:\n%s", f.view())
 	}
 	if want := m.others[workAcct] + m.others[homeAcct]; m.boxes[0].Unread != want {
@@ -472,6 +472,20 @@ func TestAccounts_PickAColor(t *testing.T) {
 	}
 	if strings.Contains(f.view(), "Tomato") {
 		t.Error("the picker is still open")
+	}
+}
+
+func TestFocus_DoubleBorderInTheAccountsColor(t *testing.T) {
+	f := newFixture(t, 150, 24)
+
+	f.keys("l") // the reader
+
+	if v := f.view(); !strings.Contains(v, "╔═ Launch plan") || !strings.Contains(v, "╭─ Inbox") {
+		t.Errorf("the reader isn't the one with the double border:\n%s", v)
+	}
+	m := f.model()
+	if got, want := m.hiFg().GetForeground(), m.accountStyle(workAcct).GetForeground(); got != want {
+		t.Errorf("focus drawn in %v, want the account's %v", got, want)
 	}
 }
 

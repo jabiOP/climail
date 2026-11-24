@@ -21,7 +21,8 @@ delivered; mail to anyone else only lands in Sent.
 ### TUI
 
 `climail` opens it. On a terminal at least 120 columns wide it shows mailboxes, the conversation list and a reader
-side by side (the reader previews the conversation under the cursor without marking it read); narrower, one pane at a
+side by side, each in a frame (the reader previews the conversation under the cursor without marking it read); the pane
+you are in has a double frame, its title and cursor in the account's color. Narrower, one pane at a
 time. `?` lists every key.
 
 With several accounts, each has its own color (Google Calendar's, as in clindar), on its dot in the sidebar and its

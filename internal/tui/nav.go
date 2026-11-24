@@ -496,7 +496,12 @@ func (m *Model) backOnPage(p page) {
 }
 
 // listRows is how many conversations fit on screen.
-func (m Model) listRows() int { return max(m.height-2, 1) } // minus the header and the status bar
+func (m Model) listRows() int { // minus the header and the status bar, and the bottom border when boxed
+	if m.wide() {
+		return max(m.height-3, 1)
+	}
+	return max(m.height-2, 1)
+}
 
 // top goes to the first conversation, mailbox or line, wherever the focus is.
 func (m Model) top() (tea.Model, tea.Cmd) {

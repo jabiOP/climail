@@ -17,7 +17,7 @@ import (
 // layout is the width of each pane; 0 means hidden.
 type layout struct{ side, list, reader int }
 
-const sidebarWidth = 28
+const sidebarWidth = 30 // with its border
 
 func (m Model) layout() layout {
 	if !m.wide() { // one pane at a time
@@ -30,19 +30,20 @@ func (m Model) layout() layout {
 		return layout{list: m.width}
 	}
 	l := layout{}
-	rest := m.width - 1 // the separator between list and reader
+	rest := m.width
 	if m.sidebarShown() {
 		l.side = sidebarWidth
-		rest -= sidebarWidth + 1
+		rest -= sidebarWidth
 	}
 	l.list = rest / 2
 	l.reader = rest - l.list
 	return l
 }
 
+// readerWidth is the width the reader draws in, inside its border when boxed.
 func (m Model) readerWidth() int {
-	if w := m.layout().reader; w > 0 {
-		return w
+	if w := m.layout().reader; w > 0 && m.wide() {
+		return w - 2
 	}
 	return m.width
 }
@@ -59,35 +60,107 @@ func (m Model) View() string {
 	}
 	l := m.layout()
 	var cols [][]string
-	if l.side > 0 {
-		cols = append(cols, m.sidebar(l.side, h))
+	for _, c := range []struct {
+		p pane
+		w int
+	}{{paneSidebar, l.side}, {paneList, l.list}, {paneReader, l.reader}} {
+		switch {
+		case c.w == 0:
+		case m.wide():
+			cols = append(cols, m.boxed(c.p, c.w, h))
+		default:
+			cols = append(cols, m.paneLines(c.p, c.w, h))
+		}
 	}
-	if l.list > 0 {
-		cols = append(cols, m.list(l.list, h))
-	}
-	if l.reader > 0 {
-		cols = append(cols, m.reader(l.reader, h))
-	}
-	sep := ruleStyle.Render("│")
 	lines := make([]string, h)
 	for i := range lines {
-		parts := make([]string, len(cols))
-		for c, col := range cols {
-			parts[c] = col[i]
+		for _, col := range cols {
+			lines[i] += col[i]
 		}
-		lines[i] = strings.Join(parts, sep)
 	}
 	return strings.Join(append(lines, m.statusBar()), "\n")
 }
 
-// paneTitle draws a pane's first line: accented when the pane has the focus.
-func (m Model) paneTitle(p pane, left, right string, w int) string {
+func (m Model) paneLines(p pane, w, h int) []string {
+	switch p {
+	case paneSidebar:
+		return m.sidebar(w, h)
+	case paneReader:
+		return m.reader(w, h)
+	}
+	return m.list(w, h)
+}
+
+// boxed draws a pane inside a border, its title in the top edge. The pane
+// with the focus has a double border in the account's color, so where you
+// are shows at a glance.
+func (m Model) boxed(p pane, w, h int) []string {
+	body := m.paneLines(p, w-2, h-1)[1:] // its title row goes in the border
+	edge, v, hz, tl, tr, bl, br := ruleStyle, "│", "─", "╭", "╮", "╰", "╯"
+	titleSt := bold
+	if p == m.focus {
+		edge, v, hz, tl, tr, bl, br = m.hiFg(), "║", "═", "╔", "╗", "╚", "╝"
+		titleSt = m.hiFg().Bold(true)
+	}
+	left, right, rightSt := m.titleParts(p, w-6)
+	segs := []seg{s(tl+hz, edge)}
+	room := w - 4 // the corners and an edge either side
+	if right != "" {
+		right = fit(right, min(width(right), max(room/2-2, 0)))
+		room -= width(right) + 2
+	}
+	if left != "" && room > 2 {
+		left = fit(left, min(width(left), room-2))
+		segs = append(segs, s(" ", edge), s(left, titleSt), s(" ", edge))
+		room -= width(left) + 2
+	}
+	segs = append(segs, s(strings.Repeat(hz, max(room, 0)), edge))
+	if right != "" {
+		segs = append(segs, s(" "+right+" ", rightSt))
+	}
+	out := []string{row(plain, append(segs, s(hz+tr, edge))...)}
+	for _, l := range body {
+		out = append(out, edge.Render(v)+l+edge.Render(v))
+	}
+	return append(out, edge.Render(bl+strings.Repeat(hz, max(w-2, 0))+br))
+}
+
+// titleParts are a pane's title (left) and its note (right), w cells at most.
+func (m Model) titleParts(p pane, w int) (left, right string, rightSt lipgloss.Style) {
+	switch p {
+	case paneSidebar:
+		return "climail", "", dim
+	case paneReader:
+		t, ok := m.current()
+		if !ok {
+			return "", "", dim
+		}
+		left = output.Subject(t.Subject())
+		if n := len(t.Messages); n > 1 {
+			right = plural(n, "message")
+		}
+		if m.reading() {
+			left, right = fmt.Sprintf("Together %d/%d · %s", m.togetherAt()+1, len(m.togetherThreads()), left), ""
+		}
+		return left, right, dim
+	}
+	return m.listTitleParts(w)
+}
+
+// paneTitle draws a pane's first line: in the account's color when the pane has the focus.
+func (m Model) paneTitle(p pane, w int) string {
+	if p == paneList && m.searching {
+		in := m.input
+		in.Width = max(w-4, 1)
+		return " " + fit(in.View(), w-1)
+	}
+	left, right, rightSt := m.titleParts(p, w)
 	st := bold
 	if p == m.focus {
-		st = title
+		st = m.hiFg().Bold(true)
 	}
 	rw := width(right)
-	return row(plain, s(" ", plain), s(fit(left, max(w-rw-2, 0)), st), s(fitRight(right, rw)+" ", dim))
+	return row(plain, s(" ", plain), s(fit(left, max(w-rw-2, 0)), st), s(fitRight(right, rw)+" ", rightSt))
 }
 
 // pad fills lines up to h with blank lines of width w.
@@ -110,7 +183,7 @@ func centered(text string, w, h int) []string {
 // --- sidebar ---
 
 func (m Model) sidebar(w, h int) []string {
-	lines := []string{m.paneTitle(paneSidebar, "climail", "", w)}
+	lines := []string{m.paneTitle(paneSidebar, w)}
 	rows := m.sideRows()
 	visible := h - 1
 	offset := max(m.side-visible+1, 0)
@@ -118,7 +191,7 @@ func (m Model) sidebar(w, h int) []string {
 		r := rows[i]
 		base := plain
 		if i == m.side && m.focus == paneSidebar {
-			base = lipgloss.NewStyle().Background(cursorBg)
+			base = lipgloss.NewStyle().Background(m.hiBg())
 		}
 		if r.box == nil { // an account, or all of them
 			mark, st, count, dot := "▸ ", dim, "", "● "
@@ -145,7 +218,7 @@ func (m Model) sidebar(w, h int) []string {
 			st, count = bold, fmt.Sprint(b.Unread)
 		}
 		if b.ID == m.box.ID && m.search == "" {
-			st = title
+			st = m.hiFg().Bold(true)
 		}
 		nameW := w - 2 - width(indent) - width(dot) - width(count) - 1
 		lines = append(lines, row(base, s(" "+indent, plain), s(dot, dotStyle), s(fit(b.Name, nameW)+" ", st),
@@ -168,13 +241,12 @@ func (m Model) unreadIn(account string) int {
 
 // --- conversation list ---
 
-func (m Model) listTitle(w int) string {
-	if m.searching {
-		in := m.input
-		in.Width = max(w-4, 1)
-		return " " + fit(in.View(), w-1)
+// listTitleParts says what the list shows, and whose it is when that isn't obvious.
+func (m Model) listTitleParts(w int) (left, right string, rightSt lipgloss.Style) {
+	if m.searching { // typing, in the border: the cursor is drawn by hand
+		return "/ " + m.input.Value() + "█", "", dim
 	}
-	left := m.box.Name
+	left = m.box.Name
 	var notes []string
 	switch {
 	case m.search != "" && m.asking:
@@ -196,16 +268,11 @@ func (m Model) listTitle(w int) string {
 	if len(notes) > 0 {
 		left += " · " + strings.Join(notes, " · ")
 	}
-	right, rightStyle := "", dim
+	rightSt = dim
 	if len(m.accounts) > 1 || !m.sidebarShown() {
-		right, rightStyle = accountName(m.shown()), m.accountStyle(m.shown())
+		right, rightSt = accountName(m.shown()), m.accountStyle(m.shown())
 	}
-	st := bold
-	if m.focus == paneList {
-		st = title
-	}
-	rw := width(right)
-	return row(plain, s(" ", plain), s(fit(left, max(w-rw-2, 0)), st), s(fitRight(right, rw)+" ", rightStyle))
+	return left, right, rightSt
 }
 
 func plural(n int, what string) string {
@@ -216,7 +283,7 @@ func plural(n int, what string) string {
 }
 
 func (m Model) list(w, h int) []string {
-	lines := []string{m.listTitle(w)}
+	lines := []string{m.paneTitle(paneList, w)}
 	switch {
 	case !m.loaded:
 		return append(lines, centered("Loading…", w, h-1)...)
@@ -254,7 +321,7 @@ func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Tim
 	if isCursor {
 		bar = "▌"
 		if m.focus == paneList {
-			base = lipgloss.NewStyle().Background(cursorBg)
+			base = lipgloss.NewStyle().Background(m.hiBg())
 		}
 	}
 	stripe := ""
@@ -298,7 +365,7 @@ func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Tim
 	}
 	fromText := fit(from, fromW-width(count))
 	return row(base,
-		s(bar, accentFg), s(stripe, m.accountStyle(t.Account)), s(mark, markStyle), s(star, starStyle),
+		s(bar, m.hiFg()), s(stripe, m.accountStyle(t.Account)), s(mark, markStyle), s(star, starStyle),
 		s(fromText, text), s(count, dim), s("  ", plain),
 		s(fit(subject, subjW), text), s(snippet, dim),
 		s(" "+clip+" ", dim), s(fitRight(output.ShortDate(t.Latest().Date, now), dateW), text), s(" ", plain))
@@ -307,18 +374,10 @@ func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Tim
 // --- reader ---
 
 func (m Model) reader(w, h int) []string {
-	t, ok := m.current()
-	if !ok {
-		return append([]string{m.paneTitle(paneReader, "", "", w)}, centered("No conversation selected", w, h-1)...)
+	if _, ok := m.current(); !ok {
+		return append([]string{m.paneTitle(paneReader, w)}, centered("No conversation selected", w, h-1)...)
 	}
-	left, right := output.Subject(t.Subject()), ""
-	if n := len(t.Messages); n > 1 {
-		right = plural(n, "message")
-	}
-	if m.reading() {
-		left, right = fmt.Sprintf("Together %d/%d · %s", m.togetherAt()+1, len(m.togetherThreads()), left), ""
-	}
-	lines := []string{m.paneTitle(paneReader, left, right, w)}
+	lines := []string{m.paneTitle(paneReader, w)}
 	body := m.readerLines(w)
 	end := min(m.scroll+h-1, len(body))
 	if m.scroll < end {
@@ -378,7 +437,7 @@ func (m Model) readerLines(w int) []string {
 		lines := append([]string{row(plain, s(" ", plain), s(fit(mark+output.Subject(o.Subject()), max(w-2, 10)), title), s(" ", plain))},
 			body...)
 		if current {
-			barLines(lines)
+			barLines(lines, m.hiFg())
 		}
 		out = append(out, lines...)
 	}
@@ -444,16 +503,16 @@ func (m Model) threadLines(t model.Thread, w int, pointed string) (out []string,
 		if to < 0 {
 			to = len(out)
 		}
-		barLines(out[from:to])
+		barLines(out[from:to], m.hiFg())
 	}
 	return out, starts
 }
 
-// barLines draws an accent bar down the left edge of lines, in their margin.
-func barLines(lines []string) {
+// barLines draws a bar down the left edge of lines, in their margin.
+func barLines(lines []string, st lipgloss.Style) {
 	for i, l := range lines {
 		if strings.HasPrefix(l, " ") { // not already barred
-			lines[i] = accentFg.Render("▌") + strings.TrimPrefix(l, " ")
+			lines[i] = st.Render("▌") + strings.TrimPrefix(l, " ")
 		}
 	}
 }
