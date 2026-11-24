@@ -29,10 +29,10 @@ type Deps struct {
 	// goes; nil disables syncing (tests).
 	Sync         func(ctx context.Context, progress func(account string, done, total int)) error
 	Now          func() time.Time
-	SyncInterval time.Duration      // 0 disables periodic sync (tests)
-	OpenURL      func(string) error // opens a link in the browser; nil when there's none
-	DraftDir     string             // where drafts are written for the editor
-	Editor       func(path string) *exec.Cmd
+	SyncInterval time.Duration                         // 0 disables periodic sync (tests)
+	OpenURL      func(string) error                    // opens a link in the browser; nil when there's none
+	DraftDir     string                                // where drafts are written for the editor
+	Editor       func(path string, line int) *exec.Cmd // line: where to start (0: the top)
 	// Download saves attachments into dir and returns their paths; nil: no downloads.
 	Download    func(ctx context.Context, account string, refs []model.AttachmentRef, dir string) ([]string, error)
 	DownloadDir string // where D saves

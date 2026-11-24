@@ -225,7 +225,7 @@ func TestEditorCmd(t *testing.T) {
 	t.Setenv("VISUAL", "")
 	t.Setenv("EDITOR", "code --wait")
 
-	c := compose.EditorCmd("/tmp/d.eml")
+	c := compose.EditorCmd("/tmp/d.eml", 0)
 
 	if diff := cmp.Diff([]string{"code", "--wait", "/tmp/d.eml"}, c.Args); diff != "" {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
@@ -330,4 +330,38 @@ func TestBuildDraft_TakesUnfinishedRecipients(t *testing.T) {
 // reply is compose.Reply to the conversation's ReplyTarget, as r does.
 func reply(t model.Thread, account string, all bool, now time.Time) compose.Draft {
 	return compose.Reply(t, compose.ReplyTarget(t, account), account, all, now)
+}
+
+// A reply opens the editor on the line to write on: the first of the body.
+func TestStartLine_ReplyStartsAtTheMessage(t *testing.T) {
+	reply := compose.Draft{Account: me, To: "a@x.com", Subject: "Re: Hi", Body: "\n\nOn …, A wrote:\n> hi\n"}
+
+	line := compose.StartLine(reply)
+
+	if lines := strings.Split(reply.Text(), "\n"); line != 8 || lines[line-2] != "" || lines[line-1] != "" {
+		t.Errorf("line %d; want 8, the body's first (empty) line after the headers' blank one", line)
+	}
+	if n := compose.StartLine(compose.Draft{Account: me, Body: "\n"}); n != 0 {
+		t.Errorf("a new mail starts at line %d, want 0 (the top, for To)", n)
+	}
+}
+
+func TestEditorCmd_OpensAtTheLine(t *testing.T) {
+	for _, tc := range []struct{ editor, want string }{
+		{"vim", "vim +8 /d.eml"},
+		{"nvim -u NONE", "nvim -u NONE +8 /d.eml"},
+		{"/usr/bin/nano", "/usr/bin/nano +8 /d.eml"},
+		{"hx", "hx /d.eml:8"},
+		{"code --wait", "code --wait /d.eml"}, // unknown: as before
+	} {
+		t.Setenv("VISUAL", tc.editor)
+
+		if got := strings.Join(compose.EditorCmd("/d.eml", 8).Args, " "); got != tc.want {
+			t.Errorf("%s: %q, want %q", tc.editor, got, tc.want)
+		}
+	}
+	t.Setenv("VISUAL", "vim")
+	if got := strings.Join(compose.EditorCmd("/d.eml", 0).Args, " "); got != "vim /d.eml" {
+		t.Errorf("line 0: %q", got)
+	}
 }

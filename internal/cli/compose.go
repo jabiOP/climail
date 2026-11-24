@@ -150,7 +150,7 @@ func (a *App) editAndSend(ctx context.Context, base compose.Draft) error {
 		return nil
 	}
 	for {
-		if err := a.Edit(path); err != nil {
+		if err := a.Edit(path, compose.StartLine(base)); err != nil {
 			return fmt.Errorf("editor: %w (set $EDITOR to the one you use)", err)
 		}
 		text, err := os.ReadFile(path)

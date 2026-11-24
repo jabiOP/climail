@@ -44,7 +44,8 @@ func (m Model) startCompose(base compose.Draft) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) editCmd() tea.Cmd {
-	return tea.ExecProcess(m.deps.Editor(m.composing.path), func(err error) tea.Msg { return editedMsg{err} })
+	c := m.composing
+	return tea.ExecProcess(m.deps.Editor(c.path, compose.StartLine(c.base)), func(err error) tea.Msg { return editedMsg{err} })
 }
 
 func (m Model) edited(msg editedMsg) (tea.Model, tea.Cmd) {

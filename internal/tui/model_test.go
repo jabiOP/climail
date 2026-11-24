@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/demo"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/output"
@@ -35,9 +36,10 @@ var now = time.Date(2026, 11, 20, 15, 0, 0, 0, time.UTC)
 const workAcct, homeAcct = "you@work.example", "you@home.example"
 
 type fixture struct {
-	t  *testing.T
-	st *store.Store
-	m  tea.Model
+	t        *testing.T
+	st       *store.Store
+	m        tea.Model
+	editLine int // the line the editor was last opened at
 }
 
 // newFixture opens the TUI on the demo mailboxes, as `climail demo` does.
@@ -71,7 +73,10 @@ func newFixtureWith(t *testing.T, w, h int, d Deps) *fixture {
 	if d.OpenDir == "" {
 		d.OpenDir = t.TempDir()
 	}
-	d.Editor = func(string) *exec.Cmd { return exec.Command("true") } // tests send editedMsg themselves
+	d.Editor = func(_ string, line int) *exec.Cmd { // tests send editedMsg themselves
+		f.editLine = line
+		return exec.Command("true")
+	}
 	m := New(ctx, d)
 	f.m = f.drain(m, m.Init())
 	f.send(tea.WindowSizeMsg{Width: w, Height: h})
@@ -729,6 +734,16 @@ func TestReply_EditConfirmSend(t *testing.T) {
 	}
 	if f.model().composing != nil {
 		t.Error("still composing")
+	}
+}
+
+func TestReply_EditorOpensAtTheMessage(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("r")
+
+	if want := compose.StartLine(f.model().composing.base); f.editLine != want || want == 0 {
+		t.Errorf("editor at line %d, want %d (the body's first)", f.editLine, want)
 	}
 }
 

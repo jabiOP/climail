@@ -54,7 +54,8 @@ Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `From:`, `To:
 the text as typed for mail apps that show plain text; line breaks stay where you put them. In `To:`, `Cc:` and `Bcc:` you can type part of a
 name or address (`maya, tom`): each becomes the one person in your mail it matches (when several do, the one whose
 name or address before the @ is exactly what you typed); otherwise climail lists who it could be and lets you edit. Replies quote the message and stay in its
-conversation. `From:` is the account the mail goes from: change it to another of your accounts (its address or its start, `home`)
+conversation; they, and drafts continued, open the editor on the message's first line (vi, vim, nvim, nano, emacs,
+micro, kak, mg, helix; other editors open at the top). `From:` is the account the mail goes from: change it to another of your accounts (its address or its start, `home`)
 on new mail and forwards; a reply, or a draft continued, stays in its conversation's account. When the editor closes,
 climail asks, naming that account first (`From you@work.example: send …?`): `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
 climail can't read as a mail stays on disk instead, and its path is shown), `d` discard it (neither sent nor saved; a

@@ -68,8 +68,8 @@ func NewApp() (*App, error) {
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
 		IsTTY:   term.IsTerminal(int(os.Stdout.Fd())),
 		OpenURL: browser.Open,
-		Edit: func(path string) error {
-			c := compose.EditorCmd(path)
+		Edit: func(path string, line int) error {
+			c := compose.EditorCmd(path, line)
 			c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 			return c.Run()
 		},
