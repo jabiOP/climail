@@ -11,7 +11,7 @@
    │                                     x/T       select / read together   │   
    │ Everywhere                          u         undo (again: earlier)    │   
    │ c         write a new mail          o         expand / collapse all    │   
-   │ /         search all mail           O         open in Gmail (web)      │   
+   │ /         search all mail           O         open here in Gmail (web) │   
    │ s         sync now                                                     │   
    │ [/]       previous / next account   Go to                              │   
    │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   

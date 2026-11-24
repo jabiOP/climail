@@ -35,6 +35,7 @@ Last updated: 2026-11-24
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 - All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
 - Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it
+- `O` opens Gmail on the web where you are: the mailbox or search shown from the list, the conversation from the reader
 - Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts; chosen from Google Calendar's 24 (clindar's palette, in a grid by family) with `C` in the sidebar, or `[account_colors]` in config.toml
 
 ## Next
@@ -43,7 +44,7 @@ Last updated: 2026-11-24
   daemon on macOS, All accounts and colors, "Send mail as"): Bcc, reply in the right conversation,
   forward with attachments, attachment open, Gmail search, drafts (save, continue one started on the web, send),
   recipients by name, formatted mail as it looks in Gmail, Read Together,
-  `O` opening the conversation (and a draft's compose window) in Gmail,
+  `O` opening the mailbox or search (list), the conversation (reader) and a draft's compose window in Gmail,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
   first-sync progress on a fresh login, framed panes and account colors on a light terminal
 

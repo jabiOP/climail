@@ -40,7 +40,7 @@ Spam and Trash, their unread counts added up. Actions, replies and attachments u
 | `N`, `*` | mark read/unread, star/unstar |
 | `x`, `u` | select (actions then apply to every selected conversation), undo the last change (again: the ones before, up to 50) |
 | `T` | read together: the selected conversations, else every unread one listed, on one page, marked read. The one at the top is current: `▶` on its subject, a bar down its left edge, and its subject in the title (`Together 2/4 · …`): `a`, `dd`, `r`… act on it alone, and the next one moves up (`u` puts it back); `n`/`p` jump between them, `esc` goes back |
-| `o`, `O` | expand/collapse all messages, open in Gmail on the web |
+| `o`, `O` | expand/collapse all messages; open in Gmail on the web: from the list, the mailbox (or search) shown; from the reader, the conversation |
 | `/` | search mail as you type (local cache); `enter` then searches all of Gmail, with its syntax (`from:maya has:attachment`); `esc` cancels |
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
 | `c`, `r`, `R`, `f` | write a new mail, reply all, reply (to the sender only), forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
