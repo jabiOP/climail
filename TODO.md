@@ -14,23 +14,28 @@ Last updated: 2026-11-23
 - CLI: auth, sync, labels, list, show, archive/trash/inbox/read/unread/star/unstar; TTY/TSV/JSON output; multi-account `-a`
 - TUI: adaptive layout (sidebar | list | reader, or one pane), Gmail-style reader, triage keys, selection, undo, live search, accounts
 - `climail demo`: the TUI on made-up mailboxes, no Google account needed; mail between its two accounts is delivered
-- Compose, reply, reply all, forward in `$VISUAL`/`$EDITOR` (CLI and TUI); `send` for scripts; send queue with `outbox`
+- Compose, reply, reply all, forward in `$VISUAL`/`$EDITOR` (CLI and TUI); replies open on the message's first line; `send` for scripts; send queue with `outbox`
 - The reader marks a message (`▶` and a bar), which reply, forward and the attachment keys act on: the one a reply answers, until `tab`/`shift+tab` move it (read together: across conversations); `enter` opens or closes it; `j`/`k` move it too when there's nothing more to scroll; `J`/`K` read the next/previous message
 - Gmail search (`climail search`, `enter` in the TUI search) with Gmail's syntax; matches outside the cache are fetched into it
 - Attachments: list, download, open (CLI and TUI); forwards carry the original's attachments
 - Mail goes out with the display name from Gmail's "Send mail as" settings
 - Mail is written in Markdown and sent formatted (HTML in Gmail's default style, plus the plain text); `send --plain` for scripts
 - Drafts written in Gmail are continued with their formatting as Markdown; climail asks first when fonts, colours or images would be lost
-- Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it, sending removes it
+- Drafts live in Gmail's Drafts: `q` after editing saves one, `enter` in Drafts continues it (and asks even if left unchanged), sending removes it; `d` after editing discards (CLI too)
 - Recipients by name: `maya` in To/Cc/Bcc (and `send --to`) becomes the one matching person; `climail contacts`
 - Read Together (HEY-style): `T` shows the selected conversations, else the unread ones listed, on one page; each is archived (or replied to…) on its own as you read on, and undoing puts it back on the page
 - Attachments saved on macOS are marked as downloaded (quarantine), so macOS asks before opening a risky one
 - The config and data folders and the mail cache are private to the user, made so even if an earlier run left them open
 - Mail can't send escape sequences to the terminal (clipboard writes, hidden links, faked screen content): TUI and CLI print it cleaned
+- TUI: panes side by side are framed; the focused one has a double frame in the account's color, which also colors its title, the cursor row and the reader's bar (blue with All accounts)
+- TUI shows how a sync's download goes (`⟳ you@work.example: downloading 120/300`; on an empty first list, in its middle)
+- Log of what Gmail rejected (as in clindar): `climail log`, `L` in the TUI, and a count in the status bar; label changes refused or on mail deleted in Gmail, mail it won't send or save
+- Sidebar: `J`/`K` go to the next/previous account
+- Status bar: questions, messages and the sync state wrap onto more lines (up to a third of the screen) instead of being cut; only the key hints are cut
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 - All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
 - Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it
-- Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts
+- Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts; chosen from Google Calendar's 24 (clindar's palette, in a grid by family) with `C` in the sidebar, or `[account_colors]` in config.toml
 
 ## Next
 
@@ -41,12 +46,12 @@ Last updated: 2026-11-23
   formatted mail as it looks in Gmail, `O` on a draft opening it in Gmail's compose window, Read Together,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
   All accounts with real accounts (actions and replies in the right account; the colors readable on light and dark terminals),
-  `From:` changed to another account on a new mail
+  `From:` changed to another account on a new mail,
+  first-sync progress on a fresh login, framed panes and account colors on a light terminal
 
 ## Later
 
-- Log of changes Google rejected
-- TUI: show first-sync progress; label picker to add/remove labels; mouse
+- TUI: label picker to add/remove labels; mouse
 
 ## Known issues
 
@@ -58,6 +63,7 @@ Last updated: 2026-11-23
 - The list unit is the thread (conversation), as in Gmail.
 - Multiple Google accounts from the start; every table is keyed by account.
 - Keys follow clindar/mutt style: vim movement, single-key actions (`a` archive, `dd` trash, `s` sync).
+- `r` replies to all and `R` to the sender only: replying to everyone is the common case, so it gets the easier key.
 - Adaptive TUI layout: sidebar | list | reader when wide, one full-screen pane at a time when narrow.
 - Labels are stored once, as a `,A,B,` column; membership queries use `instr`. Simple and fast enough for a cache of thousands of messages.
 - Outbox holds one label delta per message; a change that undoes a pending one cancels it. Trash is the TRASH label, pushed through Gmail's trash endpoint. Label deltas are idempotent, so there are no conflicts.
@@ -77,5 +83,6 @@ Last updated: 2026-11-23
 - Dependency `golang.org/x/sys` v0.50.0 (already in the module graph via `x/term`) sets the macOS quarantine mark on saved attachments, as Mail and browsers do.
 - All accounts merges each account's newest conversations in the service (no cross-account SQL): the store stays per account, and N accounts × one page is cheap. Only system mailboxes are shown there; user labels belong to one account.
 - The TUI tells conversations apart by account and ID: two accounts' IDs can collide (the demo's do).
-- Account colors follow the order accounts were added, from Google Calendar's event palette; not configurable until someone needs it.
+- Account colors follow the order accounts were added, from Google Calendar's event palette, unless config.toml's `[account_colors]` names one. `C` writes its choice there by editing the table's lines, so the user's comments and layout survive (a TOML encoder would drop them).
+- Rejections are logged in the store when sync drops them (clindar's log table and `log`/`L`); the TUI counts those since it opened, so old ones don't nag.
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

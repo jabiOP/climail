@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jabiOP/climail/internal/compose"
+	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/service"
 )
@@ -34,6 +36,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.help = false
 		return m, nil
 	}
+	if m.log != nil {
+		m.log = nil
+		return m, nil
+	}
 	if m.searching {
 		return m.handleSearchKey(msg)
 	}
@@ -45,6 +51,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.askDraft != nil {
 		return m.askDraftKey(msg)
+	}
+	if m.picking != "" {
+		return m.pickKey(msg)
 	}
 	m.message, m.isError = "", false
 	if p := m.pending; p != "" {
@@ -74,6 +83,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Help):
 		m.help = true
 		return m, nil
+	case key.Matches(msg, keys.Log):
+		return m, m.showLog()
 	case key.Matches(msg, keys.Sync):
 		if m.deps.Sync == nil {
 			return m, nil
@@ -492,7 +503,13 @@ func (m *Model) backOnPage(p page) {
 }
 
 // listRows is how many conversations fit on screen.
-func (m Model) listRows() int { return max(m.height-2, 1) } // minus the header and the status bar
+func (m Model) listRows() int { // minus the header and the status bar, and the bottom border when boxed
+	rows := m.height - 1 - len(m.statusLines())
+	if m.wide() {
+		rows--
+	}
+	return max(rows, 1)
+}
 
 // top goes to the first conversation, mailbox or line, wherever the focus is.
 func (m Model) top() (tea.Model, tea.Cmd) {
@@ -700,6 +717,17 @@ func (m Model) boxRow() int {
 func (m Model) sidebarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	rows := m.sideRows()
 	switch {
+	case key.Matches(msg, keys.ReadNext), key.Matches(msg, keys.ReadPrev): // J/K: the next/previous account
+		by := 1
+		if key.Matches(msg, keys.ReadPrev) {
+			by = -1
+		}
+		for i := m.side + by; i >= 0 && i < len(rows); i += by {
+			if rows[i].box == nil {
+				m.side = i
+				break
+			}
+		}
 	case key.Matches(msg, keys.Down):
 		m.side = min(m.side+1, len(rows)-1)
 	case key.Matches(msg, keys.Up):
@@ -718,8 +746,69 @@ func (m Model) sidebarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.useAccount(r.account)
 		}
 		return m.openBox(r.box.ID)
+	case key.Matches(msg, keys.PickColor):
+		if m.side < len(rows) && rows[m.side].box == nil && rows[m.side].account != service.AllAccounts {
+			m.picking = rows[m.side].account
+			m.pickAt = max(slices.IndexFunc(config.Colors, func(c config.Color) bool {
+				return c.Hex == m.accountHex(m.picking)
+			}), 0)
+			m.pickCol = pickColumn(m.pickAt)
+		}
 	case key.Matches(msg, keys.Back):
 		m.focus = paneList
+	}
+	return m, nil
+}
+
+// pickColumn is a color's column in the grid.
+func pickColumn(at int) int {
+	return at - slices.IndexFunc(config.Colors, func(c config.Color) bool { return c.Row == config.Colors[at].Row })
+}
+
+// pickRow moves the color grid's cursor a row down (or up), to column col,
+// or the row's last when it is shorter.
+func pickRow(at, by, col int) int {
+	row := config.Colors[at].Row + by
+	first := slices.IndexFunc(config.Colors, func(c config.Color) bool { return c.Row == row })
+	if first < 0 {
+		return at
+	}
+	last := first
+	for last+1 < len(config.Colors) && config.Colors[last+1].Row == row {
+		last++
+	}
+	return min(first+col, last)
+}
+
+// colorSavedMsg reports writing a chosen color into config.toml.
+type colorSavedMsg struct{ err error }
+
+// pickKey moves through the colors; enter gives the account the one under the cursor.
+func (m Model) pickKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, keys.Down):
+		m.pickAt = pickRow(m.pickAt, 1, m.pickCol)
+	case key.Matches(msg, keys.Up):
+		m.pickAt = pickRow(m.pickAt, -1, m.pickCol)
+	case key.Matches(msg, keys.Right):
+		if i := m.pickAt + 1; i < len(config.Colors) && config.Colors[i].Row == config.Colors[m.pickAt].Row {
+			m.pickAt, m.pickCol = i, pickColumn(i)
+		}
+	case key.Matches(msg, keys.Left):
+		if i := m.pickAt - 1; i >= 0 && config.Colors[i].Row == config.Colors[m.pickAt].Row {
+			m.pickAt, m.pickCol = i, pickColumn(i)
+		}
+	case key.Matches(msg, keys.Open):
+		account, color := m.picking, strings.ToLower(config.Colors[m.pickAt].Name)
+		m.picking = ""
+		m.colors[account] = color
+		save := m.deps.SaveAccountColor
+		if save == nil {
+			return m, nil
+		}
+		return m, func() tea.Msg { return colorSavedMsg{save(account, color)} }
+	case key.Matches(msg, keys.Back):
+		m.picking = ""
 	}
 	return m, nil
 }

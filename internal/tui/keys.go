@@ -16,7 +16,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 var keys = struct {
 	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev, NextMessage, PrevMessage, ReadNext, ReadPrev,
 	Archive, Trash, Inbox, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
-	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit, ForceQuit key.Binding
+	Search, Sync, PrevAccount, NextAccount, Sidebar, PickColor, Log, Help, Quit, ForceQuit key.Binding
 }{
 	Up:          bind("k", "up", "k", "up"),
 	Down:        bind("j", "down", "j", "down"),
@@ -47,8 +47,8 @@ var keys = struct {
 	Expand:      bind("o", "expand / collapse messages (reader)", "o"),
 	Browser:     bind("O", "open in Gmail on the web", "O"),
 	Compose:     bind("c", "write a new mail", "c"),
-	Reply:       bind("r", "reply", "r"),
-	ReplyAll:    bind("R", "reply all", "R"),
+	Reply:       bind("R", "reply", "R"),
+	ReplyAll:    bind("r", "reply all", "r"),
 	Forward:     bind("f", "forward", "f"),
 	SaveFiles:   bind("D", "save the attachments", "D"),
 	OpenFile:    bind("A", "open an attachment", "A"),
@@ -57,6 +57,8 @@ var keys = struct {
 	PrevAccount: bind("[", "previous account", "["),
 	NextAccount: bind("]", "next account", "]"),
 	Sidebar:     bind("b", "show / hide mailboxes (wide screens)", "b"),
+	PickColor:   bind("C", "the account's color (mailboxes)", "C"),
+	Log:         bind("L", "what Gmail rejected", "L"),
 	Help:        bind("?", "help", "?"),
 	Quit:        bind("ZZ", "quit", "Z"),
 	ForceQuit:   bind("^c", "quit", "ctrl+c"),
@@ -89,7 +91,7 @@ func helpText() string {
 	}
 	left := helpColumn(
 		"Move", []helpRow{
-			pair(keys.Down, keys.Up, "down / up"), pair(keys.PageDown, keys.PageUp, "page / next msg (reader)"),
+			pair(keys.Down, keys.Up, "down / up"), pair(keys.PageDown, keys.PageUp, "page; sidebar: account"),
 			pair(keys.HalfDown, keys.HalfUp, "half page down / up"), pair(keys.Top, keys.Bottom, "top / bottom"),
 			pair(keys.Left, keys.Right, "pane left / right"), pair(keys.Open, keys.Back, "open / back"),
 			pair(keys.Next, keys.Prev, "next / prev (reader)"),
@@ -98,11 +100,13 @@ func helpText() string {
 		"Everywhere", []helpRow{
 			one(keys.Compose, "write a new mail"), one(keys.Search, "search all mail"), one(keys.Sync, "sync now"),
 			pair(keys.PrevAccount, keys.NextAccount, "previous / next account"),
-			one(keys.Sidebar, "show / hide mailboxes"), one(keys.Help, "this help"), one(keys.Quit, "quit (q: in the list)"),
+			one(keys.Sidebar, "show / hide mailboxes"), one(keys.PickColor, "account color (sidebar)"),
+			one(keys.Log, "what Gmail rejected"),
+			one(keys.Help, "this help"), one(keys.Quit, "quit (q: in the list)"),
 		})
 	right := helpColumn(
 		"Conversations", []helpRow{
-			pair(keys.Reply, keys.ReplyAll, "reply / reply all"), one(keys.Forward, "forward"),
+			pair(keys.ReplyAll, keys.Reply, "reply all / reply"), one(keys.Forward, "forward"),
 			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"),
 			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -386,5 +387,43 @@ func TestSync_SendingADraftRemovesIt(t *testing.T) {
 	}
 	if n := len(w.fake.Sent()); n != 2 {
 		t.Errorf("sent %d, want both (a draft already gone doesn't stop the mail)", n)
+	}
+}
+
+// logged is the sync log's messages, newest first.
+func (w *world) logged(t *testing.T) []string {
+	t.Helper()
+	entries, err := w.store.Logs(ctx, acct, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, e := range entries {
+		out = append(out, e.Message)
+	}
+	return out
+}
+
+func TestSync_RejectedChangesAreLogged(t *testing.T) {
+	w := newWorld(t)
+	w.fake.Deliver(msg("a1", "Plan", 0, "INBOX"), msg("b1", "Lunch", 1, "INBOX"))
+	w.sync(t)
+	w.store.ApplyLabels(ctx, acct, []string{"a1", "b1"}, nil, []string{"INBOX"})
+	w.fake.Refuse("a1")
+	w.fake.Delete("b1")
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Summary: "“Hi” to Maya", Raw: []byte("not a mail")})
+
+	w.sync(t)
+
+	want := []string{
+		"“Lunch”: no longer in Gmail; the change was dropped",
+		"“Plan”: Gmail rejected the change (archive); it shows as in Gmail again",
+		"“Hi” to Maya: Gmail refused to send it; it waits in the outbox",
+	}
+	if diff := cmp.Diff(want, w.logged(t), cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+		t.Errorf("log (-want +got):\n%s", diff)
+	}
+	if !slices.Contains(w.remote(t, "a1"), "INBOX") || !slices.Contains(w.local(t, "a1"), "INBOX") {
+		t.Errorf("a1 local %v, remote %v; want Gmail's state back", w.local(t, "a1"), w.remote(t, "a1"))
 	}
 }

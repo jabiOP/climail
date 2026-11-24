@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 
+	"github.com/jabiOP/climail/internal/service"
+
 	"github.com/spf13/cobra"
 )
 
@@ -51,6 +53,42 @@ func newSyncCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&full, "full", false, "download recent mail again (fixes a confused cache)")
+	addAccountFlag(cmd, &account)
+	return cmd
+}
+
+func newLogCmd(app *App) *cobra.Command {
+	var n int
+	var account string
+	cmd := &cobra.Command{
+		Use:   "log",
+		Short: "Show changes and mail Gmail rejected, newest first (every account, or the one given)",
+		Args:  exactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			acct := service.AllAccounts
+			if account != "" {
+				one, err := app.Account(ctx, account)
+				if err != nil {
+					return err
+				}
+				acct = one
+			}
+			svc, err := app.Service()
+			if err != nil {
+				return err
+			}
+			entries, err := svc.Logs(ctx, acct, n)
+			if err != nil {
+				return err
+			}
+			for _, e := range entries {
+				fmt.Fprintf(app.Stdout, "%s  %s  %s\n", e.Time.In(app.Now().Location()).Format("2006-01-02 15:04"), e.Account, e.Message)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().IntVarP(&n, "lines", "n", 20, "number of entries")
 	addAccountFlag(cmd, &account)
 	return cmd
 }

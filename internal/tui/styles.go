@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/output"
 )
 
@@ -85,30 +86,63 @@ type seg struct {
 
 func s(text string, style lipgloss.Style) seg { return seg{text, style} }
 
-// accountColors are Google Calendar's event colors (as clindar draws them),
-// given to accounts in the order they were added, so their mail is told
-// apart at a glance.
-var accountColors = []string{
-	"#039be5", // Peacock
-	"#d50000", // Tomato
-	"#0b8043", // Basil
-	"#f6bf26", // Banana
-	"#8e24aa", // Grape
-	"#f4511e", // Tangerine
-	"#3f51b5", // Blueberry
-	"#e67c73", // Flamingo
-	"#33b679", // Sage
-	"#7986cb", // Lavender
-	"#616161", // Graphite
+// accountHex is the account's color: the one chosen for it, else one of
+// Google Calendar's event colors (as clindar draws them), given in the order
+// accounts were added, so their mail is told apart at a glance. "" for an
+// unknown account.
+func (m Model) accountHex(account string) string {
+	if hex := config.ColorHex(m.colors[account]); hex != "" {
+		return hex
+	}
+	i := slices.Index(m.accounts, account)
+	if i < 0 {
+		return ""
+	}
+	return config.ColorHex(config.AutoColors[i%len(config.AutoColors)])
 }
 
 // accountStyle draws in the account's color.
 func (m Model) accountStyle(account string) lipgloss.Style {
-	i := slices.Index(m.accounts, account)
-	if i < 0 {
+	hex := m.accountHex(account)
+	if hex == "" {
 		return dim
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(accountColors[i%len(accountColors)]))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
+}
+
+// hiHex is the color that shows where you are: the shown account's, or the
+// accent when every account is shown.
+func (m Model) hiHex() string {
+	if m.all {
+		return ""
+	}
+	return m.accountHex(m.shown())
+}
+
+// hiFg draws in that color: the focused pane's border and title, the cursor's bar.
+func (m Model) hiFg() lipgloss.Style {
+	if hex := m.hiHex(); hex != "" {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
+	}
+	return accentFg
+}
+
+// hiBg is the cursor row's background: that color, faded into the terminal's.
+func (m Model) hiBg() lipgloss.TerminalColor {
+	hex := m.hiHex()
+	if hex == "" {
+		return cursorBg
+	}
+	return lipgloss.AdaptiveColor{Light: blend(hex, "#ffffff", 0.82), Dark: blend(hex, "#202124", 0.70)}
+}
+
+// blend mixes two "#rrggbb" colors: share of the second, the rest of the first.
+func blend(a, b string, share float64) string {
+	var ar, ag, ab, br, bg, bb int
+	fmt.Sscanf(a, "#%02x%02x%02x", &ar, &ag, &ab)
+	fmt.Sscanf(b, "#%02x%02x%02x", &br, &bg, &bb)
+	mix := func(x, y int) int { return int(float64(x)*(1-share) + float64(y)*share + 0.5) }
+	return fmt.Sprintf("#%02x%02x%02x", mix(ar, br), mix(ag, bg), mix(ab, bb))
 }
 
 // labelStyle draws a label in its Gmail color, if it has one.

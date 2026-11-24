@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/jabiOP/climail/internal/compose"
 	"github.com/jabiOP/climail/internal/demo"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/output"
@@ -35,9 +36,10 @@ var now = time.Date(2026, 11, 20, 15, 0, 0, 0, time.UTC)
 const workAcct, homeAcct = "you@work.example", "you@home.example"
 
 type fixture struct {
-	t  *testing.T
-	st *store.Store
-	m  tea.Model
+	t        *testing.T
+	st       *store.Store
+	m        tea.Model
+	editLine int // the line the editor was last opened at
 }
 
 // newFixture opens the TUI on the demo mailboxes, as `climail demo` does.
@@ -71,7 +73,10 @@ func newFixtureWith(t *testing.T, w, h int, d Deps) *fixture {
 	if d.OpenDir == "" {
 		d.OpenDir = t.TempDir()
 	}
-	d.Editor = func(string) *exec.Cmd { return exec.Command("true") } // tests send editedMsg themselves
+	d.Editor = func(_ string, line int) *exec.Cmd { // tests send editedMsg themselves
+		f.editLine = line
+		return exec.Command("true")
+	}
 	m := New(ctx, d)
 	f.m = f.drain(m, m.Init())
 	f.send(tea.WindowSizeMsg{Width: w, Height: h})
@@ -182,6 +187,52 @@ func TestView_NarrowReader(t *testing.T) {
 	f.keys("enter")
 
 	golden(t, "narrow_reader", f.view())
+}
+
+// Every line must fill the terminal exactly: a line one cell too wide shifts
+// the panes to its right and leaves stale cells behind (seen in iTerm2).
+func TestView_EveryLineFillsTheWidth(t *testing.T) {
+	for _, w := range []int{80, 100, 126, 127, 150, 200} {
+		for _, keys := range [][]string{nil, {"enter"}, {"]", "]"}} {
+			f := newFixture(t, w, 24)
+			f.keys(keys...)
+			for i, l := range strings.Split(f.view(), "\n") {
+				if got := lipgloss.Width(l); got != w {
+					t.Errorf("width %d, keys %v: line %d is %d cells wide: %q", w, keys, i, got, l)
+				}
+			}
+		}
+	}
+}
+
+// A message too long for the status bar wraps onto more lines, which the
+// panes give up, instead of being cut.
+func TestStatusBar_LongMessageWraps(t *testing.T) {
+	for _, w := range []int{80, 130} {
+		f := newFixture(t, w, 24)
+		long := "not sent: Gmail says the recipient address is invalid, check the To line and try again " +
+			"(this message is long on purpose, to need more than one line of the status bar)"
+		m := f.model()
+		m.message, m.isError = long, true
+		f.m = m
+
+		lines := strings.Split(f.view(), "\n")
+		if len(lines) != 24 {
+			t.Errorf("width %d: %d lines, want 24", w, len(lines))
+		}
+		for i, l := range lines {
+			if lipgloss.Width(l) != w {
+				t.Errorf("width %d: line %d is %d wide", w, i, lipgloss.Width(l))
+			}
+		}
+		var text string
+		for _, l := range lines[len(lines)-3:] {
+			text += strings.TrimSpace(l) + " "
+		}
+		if !strings.Contains(strings.Join(strings.Fields(text), " "), "to need more than one line of the status bar)") {
+			t.Errorf("width %d: message cut:\n%s", w, f.view())
+		}
+	}
 }
 
 func TestView_Help(t *testing.T) {
@@ -367,7 +418,7 @@ func TestAccounts_AllInOneInbox(t *testing.T) {
 			t.Errorf("not newest first at %d", i)
 		}
 	}
-	if !strings.Contains(f.view(), "All accounts") || !strings.Contains(f.view(), "│ ▌ ") {
+	if !strings.Contains(f.view(), "All accounts") || !strings.Contains(f.view(), "║ ▌ ") {
 		t.Errorf("no title or account stripes:\n%s", f.view())
 	}
 	if want := m.others[workAcct] + m.others[homeAcct]; m.boxes[0].Unread != want {
@@ -420,6 +471,75 @@ func TestAccounts_EachHasItsColor(t *testing.T) {
 
 	if m.accountStyle(workAcct).GetForeground() == m.accountStyle(homeAcct).GetForeground() {
 		t.Errorf("both accounts drawn in %v", m.accountStyle(workAcct).GetForeground())
+	}
+}
+
+func TestAccounts_ColorFromConfig(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{AccountColors: map[string]string{homeAcct: "Basil"}})
+
+	if got := f.model().accountStyle(homeAcct).GetForeground(); got != lipgloss.Color("#0b8043") {
+		t.Errorf("home drawn in %v, want basil", got)
+	}
+}
+
+func TestAccounts_PickAColor(t *testing.T) {
+	var saved []string
+	f := newFixtureWith(t, 130, 24, Deps{SaveAccountColor: func(account, color string) error {
+		saved = append(saved, account+"="+color)
+		return nil
+	}})
+	f.keys("h") // the mailboxes
+	for r := f.model().sideRows()[f.model().side]; r.box != nil || r.account != workAcct; r = f.model().sideRows()[f.model().side] {
+		f.keys("k")
+	}
+
+	f.keys("C")
+	if !strings.Contains(f.view(), "Cherry blossom") {
+		t.Fatalf("no colors to pick from:\n%s", f.view())
+	}
+	f.keys("kkkkk", "enter") // from peacock (blues) up to the reds: tomato
+
+	if !slices.Equal(saved, []string{workAcct + "=tomato"}) {
+		t.Errorf("saved %v", saved)
+	}
+	if got := f.model().accountStyle(workAcct).GetForeground(); got != lipgloss.Color("#d50000") {
+		t.Errorf("work drawn in %v, want tomato", got)
+	}
+	if strings.Contains(f.view(), "Cherry blossom") {
+		t.Error("the picker is still open")
+	}
+}
+
+func TestFocus_DoubleBorderInTheAccountsColor(t *testing.T) {
+	f := newFixture(t, 150, 24)
+
+	f.keys("l") // the reader
+
+	if v := f.view(); !strings.Contains(v, "╔═ Launch plan") || !strings.Contains(v, "╭─ Inbox") {
+		t.Errorf("the reader isn't the one with the double border:\n%s", v)
+	}
+	m := f.model()
+	if got, want := m.hiFg().GetForeground(), m.accountStyle(workAcct).GetForeground(); got != want {
+		t.Errorf("focus drawn in %v, want the account's %v", got, want)
+	}
+}
+
+func TestSidebar_JKMoveBetweenAccounts(t *testing.T) {
+	f := newFixture(t, 150, 24)
+	f.keys("h") // the mailboxes, on Inbox
+	row := func() sideRow { return f.model().sideRows()[f.model().side] }
+
+	f.keys("J")
+	if r := row(); r.box != nil || r.account != homeAcct {
+		t.Errorf("J: on %+v, want the home account", r)
+	}
+	f.keys("K")
+	if r := row(); r.box != nil || r.account != workAcct {
+		t.Errorf("K: on %+v, want the work account", r)
+	}
+	f.keys("K")
+	if r := row(); r.box != nil || r.account != service.AllAccounts {
+		t.Errorf("K again: on %+v, want All accounts", r)
 	}
 }
 
@@ -513,7 +633,7 @@ func TestSync_RetriedWhileChangesWait(t *testing.T) {
 	t.Cleanup(func() { pushRetry = old })
 	syncs := 0
 	var st *store.Store
-	f := newFixtureWith(t, 100, 24, Deps{Sync: func(ctx context.Context) error {
+	f := newFixtureWith(t, 100, 24, Deps{Sync: func(ctx context.Context, _ func(string, int, int)) error {
 		syncs++
 		if syncs == 3 { // the daemon let go of the lock: push
 			ops, _ := st.PendingOps(ctx, workAcct)
@@ -558,10 +678,50 @@ func (f *fixture) outbox() []string {
 	return s
 }
 
+func TestSync_ShowsHowTheDownloadGoes(t *testing.T) {
+	f := newFixtureWith(t, 150, 24, Deps{Sync: func(ctx context.Context, progress func(string, int, int)) error {
+		progress(homeAcct, 120, 300)
+		return nil
+	}})
+
+	m := f.model()
+	m.syncing = true // a sync under way
+	f.m = m
+	f.send(progressMsg{account: homeAcct, done: 120, total: 300})
+
+	if !strings.Contains(f.view(), "downloading 120/300") {
+		t.Errorf("no progress shown:\n%s", f.view())
+	}
+	f.keys("s") // a sync that reports through the channel, then ends
+	if strings.Contains(f.view(), "downloading") {
+		t.Errorf("progress still shown after the sync ended:\n%s", f.view())
+	}
+}
+
+func TestLog_RejectedChangesShowWithL(t *testing.T) {
+	f := newFixture(t, 150, 24)
+	f.st.AddLog(context.Background(), store.LogEntry{Time: now, Kind: store.LogError, Account: workAcct,
+		Message: "“Plan”: Gmail rejected the change (archive); it shows as in Gmail again"})
+
+	f.keys("g", "i") // reload
+
+	if !strings.Contains(f.view(), "1 rejected: L to see") {
+		t.Fatalf("no notice:\n%s", f.view())
+	}
+	f.keys("L")
+	if !strings.Contains(f.view(), "“Plan”: Gmail rejected the change (archive)") {
+		t.Errorf("log not shown:\n%s", f.view())
+	}
+	f.keys("x") // any key closes it
+	if strings.Contains(f.view(), "“Plan”: Gmail rejected") {
+		t.Error("log still shown")
+	}
+}
+
 func TestReply_EditConfirmSend(t *testing.T) {
 	f := newFixture(t, 100, 24)
 
-	f.keys("r")
+	f.keys("R")
 	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
 
 	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen?") {
@@ -577,10 +737,20 @@ func TestReply_EditConfirmSend(t *testing.T) {
 	}
 }
 
+func TestReply_EditorOpensAtTheMessage(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("r")
+
+	if want := compose.StartLine(f.model().composing.base); f.editLine != want || want == 0 {
+		t.Errorf("editor at line %d, want %d (the body's first)", f.editLine, want)
+	}
+}
+
 func TestReplyAll_IncludesEveryone(t *testing.T) {
 	f := newFixture(t, 130, 24)
 
-	f.keys("R")
+	f.keys("r")
 	f.editDraft(func(old string) string { return old + "ok\n" })
 
 	if !strings.Contains(f.view(), "From you@work.example: send “Re: Launch plan for the 2.0 release” to Maya Chen, Tom Okafor?") {
@@ -645,6 +815,42 @@ func TestDrafts_EnterContinuesTheDraftAndSendingRemovesIt(t *testing.T) {
 	}
 	if !strings.Contains(f.view(), "No conversations in Drafts") {
 		t.Errorf("the draft is still listed:\n%s", f.view())
+	}
+}
+
+// A draft continued from Drafts is ready as it is: closing the editor
+// without changes still asks, so it can be sent.
+func TestDrafts_UnchangedContinuedDraftCanBeSent(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.keys("g", "d", "enter")
+
+	f.editDraft(func(old string) string { return old })
+
+	if !strings.Contains(f.view(), "send “Ideas for the offsite”") {
+		t.Fatalf("not asked:\n%s", f.view())
+	}
+	f.keys("y")
+	if out, _ := f.st.Outgoing(context.Background(), workAcct); len(out) != 1 || out[0].Save {
+		t.Errorf("queued %+v", out)
+	}
+}
+
+func TestCompose_DiscardNeitherSendsNorSaves(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.keys("c")
+	path := f.model().composing.path
+	f.editDraft(func(old string) string { return strings.Replace(old, "To: ", "To: bob@example.com", 1) })
+
+	if !strings.Contains(f.view(), "d discard") {
+		t.Errorf("the question doesn't offer d:\n%s", f.view())
+	}
+	f.keys("d")
+
+	if f.model().composing != nil || len(f.outbox()) != 0 || !strings.Contains(f.view(), "Discarded") {
+		t.Errorf("composing %v, outbox %v:\n%s", f.model().composing, f.outbox(), f.view())
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("the draft file is still on disk")
 	}
 }
 
@@ -1125,7 +1331,7 @@ func TestReadTogether_TabMovesWithinTheCurrentConversation(t *testing.T) {
 
 func TestReader_ActionsApplyToTheMarkedMessage(t *testing.T) {
 	for _, tc := range []struct{ keys, want string }{
-		{"r", "To: Tom Okafor <tom@work.example>"},
+		{"R", "To: Tom Okafor <tom@work.example>"},
 		{"f", "From: Tom Okafor <tom@work.example>"},
 	} {
 		f := newFixture(t, 80, 24)

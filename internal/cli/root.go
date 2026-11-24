@@ -68,8 +68,8 @@ func NewApp() (*App, error) {
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
 		IsTTY:   term.IsTerminal(int(os.Stdout.Fd())),
 		OpenURL: browser.Open,
-		Edit: func(path string) error {
-			c := compose.EditorCmd(path)
+		Edit: func(path string, line int) error {
+			c := compose.EditorCmd(path, line)
 			c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 			return c.Run()
 		},
@@ -116,7 +116,7 @@ func NewRootCmd(app *App) *cobra.Command {
 	root.AddCommand(newAuthCmd(app), newSyncCmd(app), newLabelsCmd(app), newListCmd(app), newShowCmd(app),
 		newDemoCmd(app), newDaemonCmd(app), newComposeCmd(app), newReplyCmd(app), newForwardCmd(app),
 		newSendCmd(app), newContactsCmd(app), newOutboxCmd(app), newAttachmentsCmd(app), newDownloadCmd(app),
-		newSearchCmd(app))
+		newSearchCmd(app), newLogCmd(app))
 	root.AddCommand(newActionCmds(app)...)
 	return root
 }
@@ -125,19 +125,23 @@ func NewRootCmd(app *App) *cobra.Command {
 func tuiDeps(app *App, svc *service.Service) tui.Deps {
 	return tui.Deps{
 		Service: svc,
-		Sync: func(ctx context.Context) error {
-			_, err := app.SyncNow(ctx, nil) // skipped quietly if another process is syncing
+		Sync: func(ctx context.Context, progress func(account string, done, total int)) error {
+			_, err := app.SyncNow(ctx, progress) // skipped quietly if another process is syncing
 			return err
 		},
-		Now:          app.Now,
-		SyncInterval: app.Config.SyncInterval.Duration,
-		OpenURL:      app.OpenURL,
-		DraftDir:     app.Paths.DraftDir(),
-		Editor:       compose.EditorCmd,
-		Download:     app.Download,
-		DownloadDir:  app.Config.DownloadDir,
-		OpenDir:      app.Paths.OpenDir(),
-		Search:       app.Search,
+		Now:           app.Now,
+		SyncInterval:  app.Config.SyncInterval.Duration,
+		OpenURL:       app.OpenURL,
+		DraftDir:      app.Paths.DraftDir(),
+		Editor:        compose.EditorCmd,
+		Download:      app.Download,
+		DownloadDir:   app.Config.DownloadDir,
+		OpenDir:       app.Paths.OpenDir(),
+		Search:        app.Search,
+		AccountColors: app.Config.AccountColors,
+		SaveAccountColor: func(account, color string) error {
+			return config.SetAccountColor(app.Paths.ConfigFile(), account, color)
+		},
 	}
 }
 

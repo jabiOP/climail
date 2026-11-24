@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +66,44 @@ func (e *Engine) Sync(ctx context.Context) error {
 	return e.Store.SetLastSync(ctx, e.Account, e.Now())
 }
 
+// logOp records a label change Gmail won't take, naming the conversation.
+func (e *Engine) logOp(ctx context.Context, op store.Op, what string, cause error) error {
+	subject := op.MessageID
+	if m, err := e.Store.Message(ctx, e.Account, op.MessageID); err == nil {
+		subject = m.Subject
+	}
+	return e.Store.AddLog(ctx, store.LogEntry{Time: e.Now(), Kind: store.LogError, Account: e.Account,
+		MessageID: op.MessageID, Message: fmt.Sprintf("“%s”: %s", subject, what), Detail: cause.Error()})
+}
+
+// describe says what a label change does, as the TUI's keys name it.
+func describe(op store.Op) string {
+	names := map[string]string{
+		"-" + model.Inbox: "archive", "+" + model.Inbox: "move to Inbox", "+" + model.Trash: "move to Trash",
+		"-" + model.Trash: "take out of Trash", "-" + model.Unread: "mark read", "+" + model.Unread: "mark unread",
+		"+" + model.Starred: "star", "-" + model.Starred: "unstar",
+	}
+	var out []string
+	for _, d := range append(prefixed("+", op.Add), prefixed("-", op.Remove)...) {
+		if name, ok := names[d]; ok {
+			out = append(out, name)
+		} else if d[0] == '+' {
+			out = append(out, "add label "+d[1:])
+		} else {
+			out = append(out, "remove label "+d[1:])
+		}
+	}
+	return strings.Join(out, ", ")
+}
+
+func prefixed(p string, ids []string) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = p + id
+	}
+	return out
+}
+
 // Push sends queued mail, then queued label changes. It stops at the first
 // transient error.
 func (e *Engine) Push(ctx context.Context) error {
@@ -81,10 +120,12 @@ func (e *Engine) Push(ctx context.Context) error {
 		case err == nil:
 			err = e.Store.CompleteOp(ctx, op)
 		case errors.Is(err, gmail.ErrNotFound): // deleted on Gmail meanwhile
-			err = errors.Join(e.Store.DropOp(ctx, e.Account, op.MessageID),
+			lerr := e.logOp(ctx, op, "no longer in Gmail; the change was dropped", err)
+			err = errors.Join(lerr, e.Store.DropOp(ctx, e.Account, op.MessageID),
 				e.Store.DeleteMessages(ctx, e.Account, []string{op.MessageID}))
 		case errors.Is(err, gmail.ErrPermanent): // retrying won't help: show Gmail's state again
-			err = e.Store.DropOp(ctx, e.Account, op.MessageID)
+			lerr := e.logOp(ctx, op, "Gmail rejected the change ("+describe(op)+"); it shows as in Gmail again", err)
+			err = errors.Join(lerr, e.Store.DropOp(ctx, e.Account, op.MessageID))
 			if labels, lerr := e.Remote.MessageLabels(ctx, op.MessageID); lerr == nil && err == nil {
 				err = e.Store.SetLabels(ctx, e.Account, op.MessageID, labels)
 			}
@@ -135,7 +176,13 @@ func (e *Engine) pushSends(ctx context.Context) error {
 		case err == nil:
 			err = e.Store.DeleteSend(ctx, e.Account, o.ID)
 		case errors.Is(err, gmail.ErrPermanent), errors.Is(err, gmail.ErrNotFound):
-			err = e.Store.SendFailed(ctx, o.ID, err.Error(), true)
+			what := "Gmail refused to send it"
+			if o.Save {
+				what = "Gmail refused to save it in Drafts"
+			}
+			err = errors.Join(e.Store.AddLog(ctx, store.LogEntry{Time: e.Now(), Kind: store.LogError, Account: e.Account,
+				Message: o.Summary + ": " + what + "; it waits in the outbox", Detail: err.Error()}),
+				e.Store.SendFailed(ctx, o.ID, err.Error(), true))
 		default:
 			return errors.Join(err, e.Store.SendFailed(ctx, o.ID, err.Error(), false))
 		}

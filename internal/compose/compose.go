@@ -252,9 +252,21 @@ func (d Draft) Summary() string {
 	return s
 }
 
+// StartLine is the line the editor should open on: the body's first, when
+// the recipients are already there (a reply, a draft continued); 0, the top,
+// when To is still to be written.
+func StartLine(d Draft) int {
+	if d.To == "" {
+		return 0
+	}
+	head, _, _ := strings.Cut(d.Text(), "\n\n")
+	return strings.Count(head, "\n") + 3 // the headers, the blank line after them, then the body
+}
+
 // EditorCmd opens path in the user's editor: $VISUAL, else $EDITOR, else vi.
-// The variable may hold arguments ("code --wait").
-func EditorCmd(path string) *exec.Cmd {
+// The variable may hold arguments ("code --wait"). With line (from 1), it
+// opens there, in the editors known to take a line.
+func EditorCmd(path string, line int) *exec.Cmd {
 	editor := os.Getenv("VISUAL")
 	if editor == "" {
 		editor = os.Getenv("EDITOR")
@@ -262,6 +274,14 @@ func EditorCmd(path string) *exec.Cmd {
 	args := strings.Fields(editor)
 	if len(args) == 0 {
 		args = []string{"vi"}
+	}
+	if line > 0 {
+		switch filepath.Base(args[0]) {
+		case "vi", "vim", "nvim", "nano", "emacs", "emacsclient", "micro", "kak", "mg":
+			args = append(args, fmt.Sprintf("+%d", line))
+		case "hx", "helix":
+			path = fmt.Sprintf("%s:%d", path, line)
+		}
 	}
 	return exec.Command(args[0], append(args[1:], path)...)
 }

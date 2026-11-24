@@ -33,7 +33,7 @@ type App struct {
 	// OpenURL opens a link in the browser (nil: links can't be opened).
 	OpenURL func(string) error
 	// Edit opens a file in the user's editor and waits for it to close.
-	Edit func(path string) error
+	Edit func(path string, line int) error // opens path in the editor, at line (0: the top)
 
 	store *store.Store
 }

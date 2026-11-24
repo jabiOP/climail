@@ -1,7 +1,7 @@
    ╭────────────────────────────────────────────────────────────────────────╮   
    │ Move                                Conversations                      │   
-   │ j/k       down / up                 r/R       reply / reply all        │   
-   │ J/K       page / next msg (reader)  f         forward                  │   
+   │ j/k       down / up                 r/R       reply all / reply        │   
+   │ J/K       page; sidebar: account    f         forward                  │   
    │ ^d/^u     half page down / up       A/D       open / save attachments  │   
    │ gg/G      top / bottom              a         archive                  │   
    │ h/l       pane left / right         dd        move to Trash            │   
@@ -15,10 +15,10 @@
    │ s         sync now                                                     │   
    │ [/]       previous / next account   Go to                              │   
    │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   
-   │ ?         this help                 gt/gd     Sent / Drafts            │   
-   │ ZZ        quit (q: in the list)     ga/g#     All Mail / Trash         │   
-   │                                     g!        Spam                     │   
+   │ C         account color (sidebar)   gt/gd     Sent / Drafts            │   
+   │ L         what Gmail rejected       ga/g#     All Mail / Trash         │   
+   │ ?         this help                 g!        Spam                     │   
+   │ ZZ        quit (q: in the list)                                        │   
    │                                                                        │   
    │ Press any key to close.                                                │   
    ╰────────────────────────────────────────────────────────────────────────╯   
-                                                                                

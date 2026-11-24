@@ -24,13 +24,15 @@ import (
 
 // Deps are the TUI's connections to the rest of the app.
 type Deps struct {
-	Service      *service.Service
-	Sync         func(context.Context) error // syncs every account; nil disables syncing (tests)
+	Service *service.Service
+	// Sync syncs every account, telling progress how a first sync's download
+	// goes; nil disables syncing (tests).
+	Sync         func(ctx context.Context, progress func(account string, done, total int)) error
 	Now          func() time.Time
-	SyncInterval time.Duration      // 0 disables periodic sync (tests)
-	OpenURL      func(string) error // opens a link in the browser; nil when there's none
-	DraftDir     string             // where drafts are written for the editor
-	Editor       func(path string) *exec.Cmd
+	SyncInterval time.Duration                         // 0 disables periodic sync (tests)
+	OpenURL      func(string) error                    // opens a link in the browser; nil when there's none
+	DraftDir     string                                // where drafts are written for the editor
+	Editor       func(path string, line int) *exec.Cmd // line: where to start (0: the top)
 	// Download saves attachments into dir and returns their paths; nil: no downloads.
 	Download    func(ctx context.Context, account string, refs []model.AttachmentRef, dir string) ([]string, error)
 	DownloadDir string // where D saves
@@ -38,6 +40,10 @@ type Deps struct {
 	// Search asks Gmail and returns matching conversation IDs, fetched into
 	// the cache; nil: local search only.
 	Search func(ctx context.Context, account, query string) ([]string, error)
+	// AccountColors are the colors config.toml gives accounts (config.ColorHex values).
+	AccountColors map[string]string
+	// SaveAccountColor writes a color chosen with C into config.toml; nil: not saved.
+	SaveAccountColor func(account, color string) error
 }
 
 type pane int
@@ -97,8 +103,9 @@ type Model struct {
 	status    service.Status
 	syncing   bool
 	syncError string
-	checkPend bool // after a sync: retry soon if changes are still waiting (the daemon held the lock)
-	retrying  bool // a retryMsg is on its way
+	progress  progressMsg // how a first sync's download goes; total 0: none
+	checkPend bool        // after a sync: retry soon if changes are still waiting (the daemon held the lock)
+	retrying  bool        // a retryMsg is on its way
 	message   string
 	isError   bool
 	undos     []undoEntry // the changes u undoes, the newest last
@@ -107,6 +114,13 @@ type Model struct {
 	composing *composing            // a mail being written
 	choosing  []model.AttachmentRef // A: which attachment to open
 	askDraft  *model.Message        // a draft whose formatting Markdown can't hold: edit it anyway?
+	started   time.Time             // when the TUI opened: rejections since are announced
+	rejected  int                   // changes and mail Gmail rejected since then
+	log       []store.LogEntry      // L: shown while not nil
+	colors    map[string]string     // each account's color, if chosen (config.ColorHex values)
+	picking   string                // C: the account whose color is being chosen
+	pickAt    int                   // the color under the cursor, in config.Colors
+	pickCol   int                   // the grid column j/k keep to, through shorter rows
 }
 
 // --- messages ---
@@ -121,10 +135,18 @@ type loadedMsg struct {
 	boxesOf  map[string][]service.Mailbox
 	threads  []model.Thread
 	status   service.Status
+	rejected int // log entries since the TUI started
 	err      error
 }
 
 type syncDoneMsg struct{ err error }
+
+// progressMsg is how far a sync has downloaded an account's conversations.
+type progressMsg struct {
+	account     string
+	done, total int
+	next        <-chan progressMsg // the ones after it
+}
 type tickMsg struct{}
 
 // retryMsg retries a sync while local changes are still waiting.
@@ -179,7 +201,12 @@ func New(ctx context.Context, d Deps) Model {
 	in.Prompt = "/ "
 	in.Placeholder = "search all mail"
 	in.Cursor.SetMode(cursor.CursorStatic)
+	colors := map[string]string{}
+	for a, c := range d.AccountColors {
+		colors[a] = c
+	}
 	return Model{
+		colors: colors, started: d.Now(),
 		deps: d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
 		box: service.Mailbox{ID: model.Inbox, Name: "Inbox"}, selected: map[string]bool{}, input: in,
 		syncing: d.Sync != nil, // Init starts one
@@ -200,7 +227,7 @@ func (m *Model) load() tea.Cmd {
 }
 
 func (m Model) loadCmd(seq int) tea.Cmd {
-	svc, ctx := m.deps.Service, m.ctx
+	svc, ctx, started := m.deps.Service, m.ctx, m.started
 	account, all, view, limit, found := m.account, m.all, store.View{Label: m.box.ID, Search: m.search}, m.limit, m.found
 	return func() tea.Msg {
 		msg := loadedMsg{seq: seq, others: map[string]int{}, boxesOf: map[string][]service.Mailbox{}}
@@ -250,8 +277,26 @@ func (m Model) loadCmd(seq int) tea.Cmd {
 		if msg.err != nil {
 			return msg
 		}
-		msg.status, msg.err = svc.Status(ctx, shown)
+		if msg.status, msg.err = svc.Status(ctx, shown); msg.err != nil {
+			return msg
+		}
+		msg.rejected, msg.err = svc.RejectedSince(ctx, service.AllAccounts, started)
 		return msg
+	}
+}
+
+// logMsg carries the entries L shows.
+type logMsg struct {
+	entries []store.LogEntry
+	err     error
+}
+
+// showLog loads what Gmail rejected lately, for the L pop-up.
+func (m Model) showLog() tea.Cmd {
+	svc, ctx := m.deps.Service, m.ctx
+	return func() tea.Msg {
+		entries, err := svc.Logs(ctx, service.AllAccounts, 10)
+		return logMsg{entries, err}
 	}
 }
 
@@ -260,7 +305,32 @@ func (m Model) syncCmd() tea.Cmd {
 		return nil
 	}
 	sync, ctx := m.deps.Sync, m.ctx
-	return func() tea.Msg { return syncDoneMsg{err: sync(ctx)} }
+	ch := make(chan progressMsg, 1)
+	report := func(account string, done, total int) {
+		select { // the newest that fits; the UI only needs to keep up roughly
+		case ch <- progressMsg{account: account, done: done, total: total, next: ch}:
+		default:
+		}
+	}
+	run := func() tea.Msg {
+		err := sync(ctx, report)
+		close(ch)
+		return syncDoneMsg{err: err}
+	}
+	return tea.Batch(run, waitProgress(ch))
+}
+
+// waitProgress delivers the next progress report, until the sync ends.
+func waitProgress(ch <-chan progressMsg) tea.Cmd {
+	if ch == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		if p, ok := <-ch; ok {
+			return p
+		}
+		return nil
+	}
 }
 
 func (m Model) tick() tea.Cmd {
@@ -309,8 +379,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil // a newer load is on its way
 		}
 		return m.applyLoaded(msg)
+	case progressMsg:
+		if !m.syncing { // reported before the sync ended, read after
+			return m, nil
+		}
+		m.progress = msg
+		return m, waitProgress(msg.next)
 	case syncDoneMsg:
-		m.syncing = false
+		m.syncing, m.progress = false, progressMsg{}
 		m.syncError = ""
 		if msg.err != nil {
 			m.syncError = syncErrorText(msg.err)
@@ -391,6 +467,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
+	case logMsg:
+		if msg.err != nil {
+			m.message, m.isError = "couldn't read the log: "+msg.err.Error(), true
+			return m, nil
+		}
+		m.log = msg.entries
+		if m.log == nil {
+			m.log = []store.LogEntry{}
+		}
+		return m, nil
+	case colorSavedMsg:
+		if msg.err != nil {
+			m.message, m.isError = "the color isn't saved in config.toml: "+msg.err.Error(), true
+		}
+		return m, nil
 	case infoMsg:
 		m.message, m.isError = msg.text, msg.isErr
 		m.syncing = m.deps.Sync != nil
@@ -413,7 +504,7 @@ func (m Model) applyLoaded(msg loadedMsg) (tea.Model, tea.Cmd) {
 	}
 	m.accounts, m.account, m.all, m.others, m.boxes, m.boxesOf, m.status =
 		msg.accounts, msg.account, msg.all, msg.others, msg.boxes, msg.boxesOf, msg.status
-	m.threads, m.loaded = msg.threads, true
+	m.threads, m.loaded, m.rejected = msg.threads, true, msg.rejected
 	if i := slices.IndexFunc(m.threads, func(t model.Thread) bool { return threadKey(t) == keep }); i >= 0 {
 		m.cursor = i
 	}

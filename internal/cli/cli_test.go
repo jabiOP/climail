@@ -41,7 +41,7 @@ func newHarness(t *testing.T, accounts ...string) *harness {
 		Config: config.Default(),
 		Now:    func() time.Time { return now },
 		Remote: func(_ context.Context, account string) (syncer.Remote, error) { return h.gmail[account], nil },
-		Edit: func(path string) error {
+		Edit: func(path string, _ int) error {
 			old, err := os.ReadFile(path)
 			if err != nil || h.edit == nil {
 				return err

@@ -57,6 +57,24 @@ func TestCompose_QuitSavesToDrafts(t *testing.T) {
 	}
 }
 
+func TestCompose_DiscardNeitherSendsNorSaves(t *testing.T) {
+	h := newHarness(t, work)
+	h.edit = func(old string) string { return strings.Replace(old, "To: ", "To: bob@example.com", 1) }
+	h.stdin = "d\n"
+
+	_, errOut, _ := h.run("compose", "-s", "Never")
+
+	if len(h.gmail[work].Sent()) != 0 || !strings.Contains(errOut, "Discarded.") {
+		t.Errorf("stderr %q", errOut)
+	}
+	if out := h.mustRun("outbox"); out != "" {
+		t.Errorf("outbox = %q", out)
+	}
+	if files, _ := filepath.Glob(filepath.Join(h.app.Paths.DraftDir(), "*.eml")); len(files) != 0 {
+		t.Errorf("local drafts = %v", files)
+	}
+}
+
 func TestCompose_UnreadableDraftStaysOnDisk(t *testing.T) {
 	h := newHarness(t, work)
 	h.edit = func(old string) string { return "Frm: oops\n" + old }
@@ -191,5 +209,19 @@ func TestSend_FormattedUnlessPlain(t *testing.T) {
 	h.mustRun("send", "--to", "bob@example.com", "-s", "B", "--plain")
 	if raw := h.sentText(work); strings.Contains(raw, "text/html") {
 		t.Errorf("--plain sent HTML:\n%s", raw)
+	}
+}
+
+func TestLog_ShowsWhatGmailRejected(t *testing.T) {
+	h := newHarness(t, work)
+	h.gmail[work].Deliver(model.Message{ID: "m1", ThreadID: "t1", Date: now, Subject: "Plan", Labels: []string{"INBOX"}})
+	h.mustRun("sync")
+	h.gmail[work].Refuse("m1")
+
+	h.mustRun("archive", "t1")
+
+	out := h.mustRun("log")
+	if want := work + "  “Plan”: Gmail rejected the change (archive); it shows as in Gmail again\n"; !strings.HasSuffix(out, want) {
+		t.Errorf("log = %q, want it to end with %q", out, want)
 	}
 }

@@ -314,3 +314,31 @@ func TestContacts_PeopleWrittenToFirstWithTheirLatestName(t *testing.T) {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestLog_NewestFirstByAccountOrAll(t *testing.T) {
+	s := openStore(t)
+	for i, e := range []store.LogEntry{
+		{Account: acct, Message: "first"},
+		{Account: "other@example.com", Message: "second"},
+		{Account: acct, Message: "third"},
+	} {
+		e.Time, e.Kind = base.Add(time.Duration(i)*time.Minute), store.LogError
+		if err := s.AddLog(ctx, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	mine, _ := s.Logs(ctx, acct, 10)
+	all, _ := s.Logs(ctx, "", 2)
+	since, _ := s.CountLogsSince(ctx, "", base.Add(time.Minute))
+
+	if len(mine) != 2 || mine[0].Message != "third" || mine[1].Message != "first" {
+		t.Errorf("mine = %+v", mine)
+	}
+	if len(all) != 2 || all[0].Message != "third" || all[1].Message != "second" {
+		t.Errorf("all = %+v", all)
+	}
+	if since != 2 {
+		t.Errorf("since = %d, want 2", since)
+	}
+}
