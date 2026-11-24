@@ -120,6 +120,17 @@ func TestLoad_AccountColors(t *testing.T) {
 	}
 }
 
+func TestLoad_AllAccountsColor(t *testing.T) {
+	c, err := config.Load(writeConfig(t, "[account_colors]\n\"all\" = \"grape\"\n"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := config.ColorHex(c.AccountColors["all"]); got != "#8e24aa" {
+		t.Errorf("all = %q, want grape", got)
+	}
+}
+
 func TestSetAccountColor_KeepsTheRestOfTheFile(t *testing.T) {
 	tests := []struct{ name, before, after string }{
 		{"no file", "", "[account_colors]\n\"a@b.c\" = \"basil\"\n"},

@@ -123,7 +123,7 @@ type Model struct {
 	rejected  int                   // changes and mail Gmail rejected since then
 	log       []store.LogEntry      // L: shown while not nil
 	colors    map[string]string     // each account's color, if chosen (config.ColorHex values)
-	picking   string                // C: the account whose color is being chosen
+	picking   string                // C: the colors key (colorKey) whose color is being chosen
 	pickAt    int                   // the color under the cursor, in config.Colors
 	pickCol   int                   // the grid column j/k keep to, through shorter rows
 }

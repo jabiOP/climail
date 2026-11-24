@@ -37,7 +37,8 @@ type Config struct {
 	// AccountAtLaunch is the account the TUI opens on: an address or its start,
 	// or "all" for every account at once; "": the first account added.
 	AccountAtLaunch string `toml:"account_at_launch"`
-	// AccountColors gives accounts a color, by address: a Colors name or "#rrggbb".
+	// AccountColors gives accounts a color, by address (AllColorKey: all
+	// accounts at once): a Colors name or "#rrggbb".
 	AccountColors map[string]string `toml:"account_colors"`
 }
 
@@ -65,7 +66,7 @@ func Load(path string) (Config, error) {
 		}
 		if _, rerr := toml.DecodeFile(path, &raw); rerr == nil {
 			for key := range raw.AccountColors {
-				if !strings.Contains(key, "@") {
+				if !strings.Contains(key, "@") && key != AllColorKey {
 					return Config{}, fmt.Errorf("%s: %w", path, misplaced(key))
 				}
 			}
@@ -89,7 +90,7 @@ func (c Config) validate() error {
 		return fmt.Errorf("sync_threads must be at least 1, got %d", c.SyncThreads)
 	}
 	for account, color := range c.AccountColors {
-		if !strings.Contains(account, "@") {
+		if !strings.Contains(account, "@") && account != AllColorKey {
 			return misplaced(account)
 		}
 		if ColorHex(color) == "" {
@@ -98,6 +99,9 @@ func (c Config) validate() error {
 	}
 	return nil
 }
+
+// AllColorKey is the [account_colors] key of the all-accounts view's color.
+const AllColorKey = "all"
 
 // misplaced is the error for a setting written below [account_colors]: TOML
 // puts every key after a table's header in that table.

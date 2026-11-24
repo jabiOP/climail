@@ -9,6 +9,7 @@ import (
 
 	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/output"
+	"github.com/jabiOP/climail/internal/service"
 )
 
 // Colors adapt to light and dark terminals.
@@ -89,9 +90,9 @@ func s(text string, style lipgloss.Style) seg { return seg{text, style} }
 // accountHex is the account's color: the one chosen for it, else one of
 // Google Calendar's event colors (as clindar draws them), given in the order
 // accounts were added, so their mail is told apart at a glance. "" for an
-// unknown account.
+// unknown account. service.AllAccounts has only a chosen one.
 func (m Model) accountHex(account string) string {
-	if hex := config.ColorHex(m.colors[account]); hex != "" {
+	if hex := config.ColorHex(m.colors[colorKey(account)]); hex != "" {
 		return hex
 	}
 	i := slices.Index(m.accounts, account)
@@ -110,12 +111,17 @@ func (m Model) accountStyle(account string) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
 }
 
-// hiHex is the color that shows where you are: the shown account's, or the
-// accent when every account is shown.
-func (m Model) hiHex() string {
-	if m.all {
-		return ""
+// colorKey is an account's key in the colors (config.AllColorKey for all of them).
+func colorKey(account string) string {
+	if account == service.AllAccounts {
+		return config.AllColorKey
 	}
+	return account
+}
+
+// hiHex is the color that shows where you are: the shown account's (all
+// accounts' only when chosen; "" draws the accent).
+func (m Model) hiHex() string {
 	return m.accountHex(m.shown())
 }
 
