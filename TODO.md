@@ -30,7 +30,7 @@ Last updated: 2026-11-23
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 - All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
 - Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it
-- Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts
+- Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts; chosen with `C` in the sidebar or `[account_colors]` in config.toml
 
 ## Next
 
@@ -78,5 +78,5 @@ Last updated: 2026-11-23
 - Dependency `golang.org/x/sys` v0.50.0 (already in the module graph via `x/term`) sets the macOS quarantine mark on saved attachments, as Mail and browsers do.
 - All accounts merges each account's newest conversations in the service (no cross-account SQL): the store stays per account, and N accounts × one page is cheap. Only system mailboxes are shown there; user labels belong to one account.
 - The TUI tells conversations apart by account and ID: two accounts' IDs can collide (the demo's do).
-- Account colors follow the order accounts were added, from Google Calendar's event palette; not configurable until someone needs it.
+- Account colors follow the order accounts were added, from Google Calendar's event palette, unless config.toml's `[account_colors]` names one. `C` writes its choice there by editing the table's lines, so the user's comments and layout survive (a TOML encoder would drop them).
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

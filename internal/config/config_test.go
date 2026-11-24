@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func TestLoad_MissingFileGivesDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c != config.Default() {
+	if !reflect.DeepEqual(c, config.Default()) {
 		t.Errorf("Load = %+v, want defaults", c)
 	}
 }
@@ -49,6 +50,7 @@ func TestLoad_Rejects(t *testing.T) {
 		{"unknown key", "colour = 1\n", `unknown key "colour"`},
 		{"interval too short", "sync_interval = \"2s\"\n", "at least 10s"},
 		{"bad sync_threads", "sync_threads = 0\n", "sync_threads"},
+		{"unknown color", "[account_colors]\n\"a@b.c\" = \"mauve\"\n", `"mauve"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -91,5 +93,51 @@ func TestEnsureDirs_MakesExistingDirsPrivate(t *testing.T) {
 		if fi, err := os.Stat(d); err != nil || fi.Mode().Perm() != 0o700 {
 			t.Errorf("%s: %v, %v; want 0700", d, fi.Mode().Perm(), err)
 		}
+	}
+}
+
+func TestLoad_AccountColors(t *testing.T) {
+	c, err := config.Load(writeConfig(t, "[account_colors]\n\"a@b.c\" = \"Tomato\"\n\"d@e.f\" = \"#123abc\"\n"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := config.ColorHex(c.AccountColors["a@b.c"]); got != "#d50000" {
+		t.Errorf("Tomato = %q, want #d50000", got)
+	}
+	if got := config.ColorHex(c.AccountColors["d@e.f"]); got != "#123abc" {
+		t.Errorf("hex = %q", got)
+	}
+}
+
+func TestSetAccountColor_KeepsTheRestOfTheFile(t *testing.T) {
+	tests := []struct{ name, before, after string }{
+		{"no file", "", "[account_colors]\n\"a@b.c\" = \"basil\"\n"},
+		{"no table",
+			"# mine\nsync_threads = 50\n",
+			"# mine\nsync_threads = 50\n\n[account_colors]\n\"a@b.c\" = \"basil\"\n"},
+		{"replaces the account's line",
+			"[account_colors]\n\"a@b.c\" = \"tomato\"  # work\n\"d@e.f\" = \"sage\"\n",
+			"[account_colors]\n\"a@b.c\" = \"basil\"\n\"d@e.f\" = \"sage\"\n"},
+		{"adds to the table, before the next one",
+			"[account_colors]\n\"d@e.f\" = \"sage\"\n\n[other]\nx = 1\n",
+			"[account_colors]\n\"d@e.f\" = \"sage\"\n\"a@b.c\" = \"basil\"\n\n[other]\nx = 1\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			if tt.before != "" {
+				os.WriteFile(path, []byte(tt.before), 0o600)
+			}
+
+			if err := config.SetAccountColor(path, "a@b.c", "basil"); err != nil {
+				t.Fatal(err)
+			}
+
+			got, _ := os.ReadFile(path)
+			if string(got) != tt.after {
+				t.Errorf("file =\n%s\nwant\n%s", got, tt.after)
+			}
+		})
 	}
 }

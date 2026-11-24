@@ -16,7 +16,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 var keys = struct {
 	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev, NextMessage, PrevMessage, ReadNext, ReadPrev,
 	Archive, Trash, Inbox, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
-	Search, Sync, PrevAccount, NextAccount, Sidebar, Help, Quit, ForceQuit key.Binding
+	Search, Sync, PrevAccount, NextAccount, Sidebar, PickColor, Help, Quit, ForceQuit key.Binding
 }{
 	Up:          bind("k", "up", "k", "up"),
 	Down:        bind("j", "down", "j", "down"),
@@ -57,6 +57,7 @@ var keys = struct {
 	PrevAccount: bind("[", "previous account", "["),
 	NextAccount: bind("]", "next account", "]"),
 	Sidebar:     bind("b", "show / hide mailboxes (wide screens)", "b"),
+	PickColor:   bind("C", "the account's color (mailboxes)", "C"),
 	Help:        bind("?", "help", "?"),
 	Quit:        bind("ZZ", "quit", "Z"),
 	ForceQuit:   bind("^c", "quit", "ctrl+c"),
@@ -98,7 +99,8 @@ func helpText() string {
 		"Everywhere", []helpRow{
 			one(keys.Compose, "write a new mail"), one(keys.Search, "search all mail"), one(keys.Sync, "sync now"),
 			pair(keys.PrevAccount, keys.NextAccount, "previous / next account"),
-			one(keys.Sidebar, "show / hide mailboxes"), one(keys.Help, "this help"), one(keys.Quit, "quit (q: in the list)"),
+			one(keys.Sidebar, "show / hide mailboxes"), one(keys.PickColor, "account color (sidebar)"),
+			one(keys.Help, "this help"), one(keys.Quit, "quit (q: in the list)"),
 		})
 	right := helpColumn(
 		"Conversations", []helpRow{

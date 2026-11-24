@@ -25,7 +25,7 @@ side by side (the reader previews the conversation under the cursor without mark
 time. `?` lists every key.
 
 With several accounts, each has its own color (Google Calendar's, as in clindar), on its dot in the sidebar and its
-name above the list. `All accounts`, first in the sidebar and in the `[`/`]` round, shows every account's mail in one
+name above the list; `C` on an account in the sidebar chooses another, saved in `config.toml`. `All accounts`, first in the sidebar and in the `[`/`]` round, shows every account's mail in one
 list, newest first, each conversation with a stripe in its account's color: Inbox, Starred, Sent, Drafts, All Mail,
 Spam and Trash, their unread counts added up. Actions, replies and attachments use the conversation's own account;
 `c` writes from the default account (the first added), which the draft's `From:` line can change.
@@ -99,6 +99,9 @@ stale_after = "2m"     # CLI reads sync first when the last sync is older
 sync_timeout = "10s"   # how long a CLI command waits for that sync
 sync_threads = 300     # conversations a first (or --full) sync downloads per account
 download_dir = "~/Downloads"  # where attachments are saved
+
+[account_colors]  # by address: peacock, tomato, basil, banana, grape, tangerine,
+"you@work.example" = "tomato"   # blueberry, flamingo, sage, lavender, graphite or "#rrggbb"
 ```
 
 To keep mail fresh, and changes flowing to Gmail, even when climail isn't open:

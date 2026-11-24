@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jabiOP/climail/internal/compose"
+	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/service"
 )
@@ -45,6 +46,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.askDraft != nil {
 		return m.askDraftKey(msg)
+	}
+	if m.picking != "" {
+		return m.pickKey(msg)
 	}
 	m.message, m.isError = "", false
 	if p := m.pending; p != "" {
@@ -718,8 +722,40 @@ func (m Model) sidebarKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.useAccount(r.account)
 		}
 		return m.openBox(r.box.ID)
+	case key.Matches(msg, keys.PickColor):
+		if m.side < len(rows) && rows[m.side].box == nil && rows[m.side].account != service.AllAccounts {
+			m.picking = rows[m.side].account
+			m.pickAt = max(slices.IndexFunc(config.Colors, func(c struct{ Name, Hex string }) bool {
+				return c.Hex == m.accountHex(m.picking)
+			}), 0)
+		}
 	case key.Matches(msg, keys.Back):
 		m.focus = paneList
+	}
+	return m, nil
+}
+
+// colorSavedMsg reports writing a chosen color into config.toml.
+type colorSavedMsg struct{ err error }
+
+// pickKey moves through the colors; enter gives the account the one under the cursor.
+func (m Model) pickKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, keys.Down):
+		m.pickAt = min(m.pickAt+1, len(config.Colors)-1)
+	case key.Matches(msg, keys.Up):
+		m.pickAt = max(m.pickAt-1, 0)
+	case key.Matches(msg, keys.Open):
+		account, color := m.picking, config.Colors[m.pickAt].Name
+		m.picking = ""
+		m.colors[account] = color
+		save := m.deps.SaveAccountColor
+		if save == nil {
+			return m, nil
+		}
+		return m, func() tea.Msg { return colorSavedMsg{save(account, color)} }
+	case key.Matches(msg, keys.Back):
+		m.picking = ""
 	}
 	return m, nil
 }

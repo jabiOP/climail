@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/output"
 )
 
@@ -85,30 +86,28 @@ type seg struct {
 
 func s(text string, style lipgloss.Style) seg { return seg{text, style} }
 
-// accountColors are Google Calendar's event colors (as clindar draws them),
-// given to accounts in the order they were added, so their mail is told
-// apart at a glance.
-var accountColors = []string{
-	"#039be5", // Peacock
-	"#d50000", // Tomato
-	"#0b8043", // Basil
-	"#f6bf26", // Banana
-	"#8e24aa", // Grape
-	"#f4511e", // Tangerine
-	"#3f51b5", // Blueberry
-	"#e67c73", // Flamingo
-	"#33b679", // Sage
-	"#7986cb", // Lavender
-	"#616161", // Graphite
+// accountHex is the account's color: the one chosen for it, else one of
+// Google Calendar's event colors (as clindar draws them), given in the order
+// accounts were added, so their mail is told apart at a glance. "" for an
+// unknown account.
+func (m Model) accountHex(account string) string {
+	if hex := config.ColorHex(m.colors[account]); hex != "" {
+		return hex
+	}
+	i := slices.Index(m.accounts, account)
+	if i < 0 {
+		return ""
+	}
+	return config.Colors[i%len(config.Colors)].Hex
 }
 
 // accountStyle draws in the account's color.
 func (m Model) accountStyle(account string) lipgloss.Style {
-	i := slices.Index(m.accounts, account)
-	if i < 0 {
+	hex := m.accountHex(account)
+	if hex == "" {
 		return dim
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(accountColors[i%len(accountColors)]))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(hex))
 }
 
 // labelStyle draws a label in its Gmail color, if it has one.

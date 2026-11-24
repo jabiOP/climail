@@ -439,6 +439,42 @@ func TestAccounts_EachHasItsColor(t *testing.T) {
 	}
 }
 
+func TestAccounts_ColorFromConfig(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{AccountColors: map[string]string{homeAcct: "Basil"}})
+
+	if got := f.model().accountStyle(homeAcct).GetForeground(); got != lipgloss.Color("#0b8043") {
+		t.Errorf("home drawn in %v, want basil", got)
+	}
+}
+
+func TestAccounts_PickAColor(t *testing.T) {
+	var saved []string
+	f := newFixtureWith(t, 130, 24, Deps{SaveAccountColor: func(account, color string) error {
+		saved = append(saved, account+"="+color)
+		return nil
+	}})
+	f.keys("h") // the mailboxes
+	for r := f.model().sideRows()[f.model().side]; r.box != nil || r.account != workAcct; r = f.model().sideRows()[f.model().side] {
+		f.keys("k")
+	}
+
+	f.keys("C")
+	if !strings.Contains(f.view(), "Tomato") {
+		t.Fatalf("no colors to pick from:\n%s", f.view())
+	}
+	f.keys("j", "enter") // peacock is first, then tomato
+
+	if !slices.Equal(saved, []string{workAcct + "=tomato"}) {
+		t.Errorf("saved %v", saved)
+	}
+	if got := f.model().accountStyle(workAcct).GetForeground(); got != lipgloss.Color("#d50000") {
+		t.Errorf("work drawn in %v, want tomato", got)
+	}
+	if strings.Contains(f.view(), "Tomato") {
+		t.Error("the picker is still open")
+	}
+}
+
 func TestGoTo_Mailboxes(t *testing.T) {
 	f := newFixture(t, 100, 24)
 

@@ -38,6 +38,10 @@ type Deps struct {
 	// Search asks Gmail and returns matching conversation IDs, fetched into
 	// the cache; nil: local search only.
 	Search func(ctx context.Context, account, query string) ([]string, error)
+	// AccountColors are the colors config.toml gives accounts (config.ColorHex values).
+	AccountColors map[string]string
+	// SaveAccountColor writes a color chosen with C into config.toml; nil: not saved.
+	SaveAccountColor func(account, color string) error
 }
 
 type pane int
@@ -107,6 +111,9 @@ type Model struct {
 	composing *composing            // a mail being written
 	choosing  []model.AttachmentRef // A: which attachment to open
 	askDraft  *model.Message        // a draft whose formatting Markdown can't hold: edit it anyway?
+	colors    map[string]string     // each account's color, if chosen (config.ColorHex values)
+	picking   string                // C: the account whose color is being chosen
+	pickAt    int                   // the color under the cursor, in config.Colors
 }
 
 // --- messages ---
@@ -179,8 +186,13 @@ func New(ctx context.Context, d Deps) Model {
 	in.Prompt = "/ "
 	in.Placeholder = "search all mail"
 	in.Cursor.SetMode(cursor.CursorStatic)
+	colors := map[string]string{}
+	for a, c := range d.AccountColors {
+		colors[a] = c
+	}
 	return Model{
-		deps: d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
+		colors: colors,
+		deps:   d, ctx: ctx, width: 80, height: 24, focus: paneList, limit: pageSize,
 		box: service.Mailbox{ID: model.Inbox, Name: "Inbox"}, selected: map[string]bool{}, input: in,
 		syncing: d.Sync != nil, // Init starts one
 		loadSeq: 1,             // Init's load
@@ -391,6 +403,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
+	case colorSavedMsg:
+		if msg.err != nil {
+			m.message, m.isError = "the color isn't saved in config.toml: "+msg.err.Error(), true
+		}
+		return m, nil
 	case infoMsg:
 		m.message, m.isError = msg.text, msg.isErr
 		m.syncing = m.deps.Sync != nil

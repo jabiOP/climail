@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jabiOP/climail/internal/config"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/output"
 	"github.com/jabiOP/climail/internal/service"
@@ -50,6 +51,10 @@ func (m Model) View() string {
 	h := max(m.height-1, 1) // the status bar takes the last line
 	if m.help {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(helpText()),
+			lipgloss.WithWhitespaceChars(" "))
+	}
+	if m.picking != "" {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(m.pickText()),
 			lipgloss.WithWhitespaceChars(" "))
 	}
 	l := m.layout()
@@ -505,6 +510,20 @@ func isFootnote(l string) bool {
 	return err == nil && strings.HasPrefix(rest, "http")
 }
 
+// pickText is the C pop-up: the colors to give an account.
+func (m Model) pickText() string {
+	lines := []string{title.Render("Color for " + accountName(m.picking)), ""}
+	for i, c := range config.Colors {
+		mark := "  "
+		if i == m.pickAt {
+			mark = "▶ "
+		}
+		name := strings.ToUpper(c.Name[:1]) + c.Name[1:]
+		lines = append(lines, accentFg.Render(mark)+lipgloss.NewStyle().Foreground(lipgloss.Color(c.Hex)).Render("● ")+fit(name, 12))
+	}
+	return strings.Join(append(lines, "", dim.Render("enter choose · esc cancel")), "\n")
+}
+
 // --- status bar ---
 
 func (m Model) statusBar() string {
@@ -542,7 +561,7 @@ func (m Model) statusBar() string {
 func (m Model) hints() string {
 	switch m.focus {
 	case paneSidebar:
-		return "enter open · [ ] accounts · l list · ? help"
+		return "enter open · [ ] accounts · C color · l list · ? help"
 	case paneReader:
 		if m.reading() {
 			return "j/k scroll · n/p next/prev · a archive this · r reply all · esc back · ? help"

@@ -15,9 +15,9 @@
    │ s         sync now                                                     │   
    │ [/]       previous / next account   Go to                              │   
    │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   
-   │ ?         this help                 gt/gd     Sent / Drafts            │   
-   │ ZZ        quit (q: in the list)     ga/g#     All Mail / Trash         │   
-   │                                     g!        Spam                     │   
+   │ C         account color (sidebar)   gt/gd     Sent / Drafts            │   
+   │ ?         this help                 ga/g#     All Mail / Trash         │   
+   │ ZZ        quit (q: in the list)     g!        Spam                     │   
    │                                                                        │   
    │ Press any key to close.                                                │   
    ╰────────────────────────────────────────────────────────────────────────╯   

@@ -4,6 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -27,6 +31,8 @@ type Config struct {
 	SyncTimeout  Duration `toml:"sync_timeout"`  // max time a CLI command waits for that sync
 	SyncThreads  int      `toml:"sync_threads"`  // conversations a full sync fetches per account, newest first
 	DownloadDir  string   `toml:"download_dir"`  // where attachments are saved
+	// AccountColors gives accounts a color, by address: a Colors name or "#rrggbb".
+	AccountColors map[string]string `toml:"account_colors"`
 }
 
 func Default() Config {
@@ -65,5 +71,84 @@ func (c Config) validate() error {
 	if c.SyncThreads < 1 {
 		return fmt.Errorf("sync_threads must be at least 1, got %d", c.SyncThreads)
 	}
+	for account, color := range c.AccountColors {
+		if ColorHex(color) == "" {
+			return fmt.Errorf("account_colors: %s: %q is neither #rrggbb nor one of %s", account, color, colorNames())
+		}
+	}
 	return nil
+}
+
+// Colors are Google Calendar's event colors (as clindar draws them), by name.
+var Colors = []struct{ Name, Hex string }{
+	{"peacock", "#039be5"}, {"tomato", "#d50000"}, {"basil", "#0b8043"}, {"banana", "#f6bf26"},
+	{"grape", "#8e24aa"}, {"tangerine", "#f4511e"}, {"blueberry", "#3f51b5"}, {"flamingo", "#e67c73"},
+	{"sage", "#33b679"}, {"lavender", "#7986cb"}, {"graphite", "#616161"},
+}
+
+func colorNames() string {
+	names := make([]string, len(Colors))
+	for i, c := range Colors {
+		names[i] = c.Name
+	}
+	return strings.Join(names, ", ")
+}
+
+// ColorHex is a color's "#rrggbb", given that or a Colors name (any case); "" if it is neither.
+func ColorHex(color string) string {
+	for _, c := range Colors {
+		if strings.EqualFold(color, c.Name) {
+			return c.Hex
+		}
+	}
+	var r, g, b int
+	if n, err := fmt.Sscanf(color, "#%02x%02x%02x", &r, &g, &b); err == nil && n == 3 && len(color) == 7 {
+		return strings.ToLower(color)
+	}
+	return ""
+}
+
+// SetAccountColor writes an account's color into the config file's
+// [account_colors] table, leaving the rest of the file, comments included, as it is.
+func SetAccountColor(path, account, color string) error {
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	entry := strconv.Quote(account) + " = " + strconv.Quote(color)
+	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	if len(data) == 0 {
+		lines = nil
+	}
+	table, end := -1, len(lines) // the table's header line, and the line after its last entry
+	for i, l := range lines {
+		t := strings.TrimSpace(l)
+		if !strings.HasPrefix(t, "[") {
+			if table >= 0 && end == len(lines) && strings.HasPrefix(t, strconv.Quote(account)) {
+				lines[i] = entry
+				return writeLines(path, lines)
+			}
+			continue
+		}
+		if table >= 0 && end == len(lines) {
+			end = i
+		}
+		if t == "[account_colors]" {
+			table = i
+		}
+	}
+	if table < 0 && len(lines) == 0 {
+		return writeLines(path, []string{"[account_colors]", entry})
+	}
+	if table < 0 {
+		return writeLines(path, append(lines, "", "[account_colors]", entry))
+	}
+	for end > table+1 && strings.TrimSpace(lines[end-1]) == "" { // before the blank lines ending the table
+		end--
+	}
+	return writeLines(path, slices.Insert(lines, end, entry))
+}
+
+func writeLines(path string, lines []string) error {
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
