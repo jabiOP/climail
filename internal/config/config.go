@@ -57,6 +57,16 @@ func Load(path string) (Config, error) {
 		return Default(), nil
 	}
 	if err != nil {
+		var raw struct {
+			AccountColors map[string]any `toml:"account_colors"`
+		}
+		if _, rerr := toml.DecodeFile(path, &raw); rerr == nil {
+			for key := range raw.AccountColors {
+				if !strings.Contains(key, "@") {
+					return Config{}, fmt.Errorf("%s: %w", path, misplaced(key))
+				}
+			}
+		}
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
 	if und := md.Undecoded(); len(und) > 0 {
@@ -76,11 +86,20 @@ func (c Config) validate() error {
 		return fmt.Errorf("sync_threads must be at least 1, got %d", c.SyncThreads)
 	}
 	for account, color := range c.AccountColors {
+		if !strings.Contains(account, "@") {
+			return misplaced(account)
+		}
 		if ColorHex(color) == "" {
 			return fmt.Errorf("account_colors: %s: %q is neither #rrggbb nor one of %s", account, color, colorNames())
 		}
 	}
 	return nil
+}
+
+// misplaced is the error for a setting written below [account_colors]: TOML
+// puts every key after a table's header in that table.
+func misplaced(key string) error {
+	return fmt.Errorf("%s must go above [account_colors] (keys below it are account colors)", key)
 }
 
 // Color is one of Google Calendar's colors.
