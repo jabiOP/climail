@@ -41,10 +41,10 @@ Last updated: 2026-11-24
 ## Next
 
 - Manual check against real Gmail accounts (done: login, first and incremental sync, actions, sending with attachments,
-  daemon on macOS, All accounts and colors, "Send mail as"): Bcc, reply in the right conversation,
+  daemon on macOS, All accounts and colors, "Send mail as", `O` on mailboxes and conversations): Bcc, reply in the right conversation,
   forward with attachments, attachment open, Gmail search, drafts (save, continue one started on the web, send),
   recipients by name, formatted mail as it looks in Gmail, Read Together,
-  `O` opening the mailbox or search (list), the conversation (reader) and a draft's compose window in Gmail,
+  a draft's compose window opening in Gmail with `O`,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
   first-sync progress on a fresh login, framed panes and account colors on a light terminal
 
