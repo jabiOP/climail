@@ -184,6 +184,22 @@ func TestView_NarrowReader(t *testing.T) {
 	golden(t, "narrow_reader", f.view())
 }
 
+// Every line must fill the terminal exactly: a line one cell too wide shifts
+// the panes to its right and leaves stale cells behind (seen in iTerm2).
+func TestView_EveryLineFillsTheWidth(t *testing.T) {
+	for _, w := range []int{80, 100, 126, 127, 150, 200} {
+		for _, keys := range [][]string{nil, {"enter"}, {"]", "]"}} {
+			f := newFixture(t, w, 24)
+			f.keys(keys...)
+			for i, l := range strings.Split(f.view(), "\n") {
+				if got := lipgloss.Width(l); got != w {
+					t.Errorf("width %d, keys %v: line %d is %d cells wide: %q", w, keys, i, got, l)
+				}
+			}
+		}
+	}
+}
+
 func TestView_Help(t *testing.T) {
 	f := newFixture(t, 80, 24)
 

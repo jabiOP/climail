@@ -282,7 +282,7 @@ func (m Model) listRow(t model.Thread, isCursor bool, w, dateW int, now time.Tim
 		count = fmt.Sprintf(" %d", n)
 	}
 	fromW := max(min(w/4, 24), 10)
-	restW := w - 1 - 2 - 2 - fromW - 2 - 3 - dateW - 1 // bar, mark, star, from, gap, clip+gap, date, edge
+	restW := w - 1 - 2 - 2 - fromW - 2 - 4 - dateW - 1 // bar, mark, star, from, gap, gap+clip+gap, date, edge
 	subject := output.Subject(t.Subject())
 	subjW := min(width(subject), max(restW, 0))
 	snippet := ""
