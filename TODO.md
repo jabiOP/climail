@@ -31,6 +31,7 @@ Last updated: 2026-11-23
 - TUI shows how a sync's download goes (`⟳ you@work.example: downloading 120/300`; on an empty first list, in its middle)
 - Log of what Gmail rejected (as in clindar): `climail log`, `L` in the TUI, and a count in the status bar; label changes refused or on mail deleted in Gmail, mail it won't send or save
 - Sidebar: `J`/`K` go to the next/previous account
+- Status bar: questions, messages and the sync state wrap onto more lines (up to a third of the screen) instead of being cut; only the key hints are cut
 - Background sync daemon (systemd/launchd, from clindar); the TUI retries pushing every 3s while the daemon holds the lock
 - All accounts in one list (TUI): `All accounts` in the sidebar and in `[`/`]`; system mailboxes merged newest first, unread counts added up; actions, replies, attachments and undo in each conversation's own account; Gmail search asks every account
 - Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it

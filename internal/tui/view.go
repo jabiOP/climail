@@ -49,7 +49,8 @@ func (m Model) readerWidth() int {
 }
 
 func (m Model) View() string {
-	h := max(m.height-1, 1) // the status bar takes the last line
+	status := m.statusLines()
+	h := max(m.height-len(status), 1) // the status bar takes the last lines
 	if m.help {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(helpText()),
 			lipgloss.WithWhitespaceChars(" "))
@@ -82,7 +83,7 @@ func (m Model) View() string {
 			lines[i] += col[i]
 		}
 	}
-	return strings.Join(append(lines, m.statusBar()), "\n")
+	return strings.Join(append(lines, status...), "\n")
 }
 
 func (m Model) paneLines(p pane, w, h int) []string {
@@ -611,36 +612,69 @@ func (m Model) pickText() string {
 
 // --- status bar ---
 
-func (m Model) statusBar() string {
-	right := m.syncText()
-	leftW := max(m.width-width(right)-3, 0)
-	var left seg
+// statusLeft is what the status bar says on its left: a question, a message,
+// or (when there's nothing to say) the keys to try, which alone may be cut.
+func (m Model) statusLeft() (text string, st lipgloss.Style, cut bool) {
 	switch {
 	case m.composing != nil && m.composing.asked:
 		text, isErr := m.composePrompt()
-		st := accentFg
 		if isErr {
-			st = errStyle
+			return text, errStyle.Bold(true), false
 		}
-		left = s(fit(text, leftW), st.Bold(true))
+		return text, accentFg.Bold(true), false
 	case m.choosing != nil:
-		left = s(fit(m.choosePrompt(), leftW), accentFg.Bold(true))
+		return m.choosePrompt(), accentFg.Bold(true), false
 	case m.askDraft != nil:
-		left = s(fit("Fonts, colours → Gmail default · e edit · O open in Gmail · esc", leftW), accentFg.Bold(true))
+		return "Fonts, colours → Gmail default · e edit · O open in Gmail · esc", accentFg.Bold(true), false
 	case m.message != "" && m.isError:
-		left = s(fit(m.message, leftW), errStyle)
+		return m.message, errStyle, false
 	case m.message != "":
-		left = s(fit(m.message, leftW), accentFg)
+		return m.message, accentFg, false
 	case m.pending != "":
-		left = s(fit(m.pending+"…", leftW), accentFg)
-	default:
-		left = s(fit(m.hints(), leftW), dim)
+		return m.pending + "…", accentFg, false
 	}
-	rightStyle := dim
+	return m.hints(), dim, true
+}
+
+// statusLines draws the status bar: one line, or more when a message or the
+// sync state doesn't fit, so nothing that matters is cut (up to a third of
+// the screen).
+func (m Model) statusLines() []string {
+	text, st, cut := m.statusLeft()
+	right, rightSt := m.syncText(), dim
 	if m.syncError != "" || m.rejected > 0 {
-		rightStyle = errStyle
+		rightSt = errStyle
 	}
-	return row(plain, s(" ", plain), left, s(" "+right+" ", rightStyle))
+	w, rw := m.width, width(right)
+	switch {
+	case width(text)+rw+3 <= w, cut && rw+3 <= w-10: // one line; hints may be cut
+		return []string{row(plain, s(" ", plain), s(fit(text, max(w-rw-3, 0)), st), s(" "+right+" ", rightSt))}
+	case cut: // the sync state needs the room: one line of hints above it
+		text = fit(text, w-2)
+	}
+	lefts := strings.Split(ansi.Wrap(text, max(w-2, 1), ""), "\n")
+	var out []string
+	for _, l := range lefts[:len(lefts)-1] {
+		out = append(out, row(plain, s(" ", plain), s(fit(l, w-2), st), s(" ", plain)))
+	}
+	last := lefts[len(lefts)-1]
+	if width(last)+rw+3 <= w { // the sync state fits beside the end of the message
+		return m.mostStatus(append(out, row(plain, s(" ", plain), s(fit(last, w-rw-3), st), s(" "+right+" ", rightSt))))
+	}
+	out = append(out, row(plain, s(" ", plain), s(fit(last, w-2), st), s(" ", plain)))
+	for _, l := range strings.Split(ansi.Wrap(right, max(w-2, 1), ""), "\n") {
+		out = append(out, row(plain, s(fitRight(l, w-1), rightSt), s(" ", plain)))
+	}
+	return m.mostStatus(out)
+}
+
+// mostStatus keeps the status bar to a third of the screen: its last lines,
+// which say what to do.
+func (m Model) mostStatus(out []string) []string {
+	if most := max(m.height/3, 1); len(out) > most {
+		out = out[len(out)-most:] // the end says what to do
+	}
+	return out
 }
 
 func (m Model) hints() string {

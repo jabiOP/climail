@@ -200,6 +200,36 @@ func TestView_EveryLineFillsTheWidth(t *testing.T) {
 	}
 }
 
+// A message too long for the status bar wraps onto more lines, which the
+// panes give up, instead of being cut.
+func TestStatusBar_LongMessageWraps(t *testing.T) {
+	for _, w := range []int{80, 130} {
+		f := newFixture(t, w, 24)
+		long := "not sent: Gmail says the recipient address is invalid, check the To line and try again " +
+			"(this message is long on purpose, to need more than one line of the status bar)"
+		m := f.model()
+		m.message, m.isError = long, true
+		f.m = m
+
+		lines := strings.Split(f.view(), "\n")
+		if len(lines) != 24 {
+			t.Errorf("width %d: %d lines, want 24", w, len(lines))
+		}
+		for i, l := range lines {
+			if lipgloss.Width(l) != w {
+				t.Errorf("width %d: line %d is %d wide", w, i, lipgloss.Width(l))
+			}
+		}
+		var text string
+		for _, l := range lines[len(lines)-3:] {
+			text += strings.TrimSpace(l) + " "
+		}
+		if !strings.Contains(strings.Join(strings.Fields(text), " "), "to need more than one line of the status bar)") {
+			t.Errorf("width %d: message cut:\n%s", w, f.view())
+		}
+	}
+}
+
 func TestView_Help(t *testing.T) {
 	f := newFixture(t, 80, 24)
 
