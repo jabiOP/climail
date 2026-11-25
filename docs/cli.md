@@ -1,0 +1,106 @@
+# climail reference
+
+Every TUI key, how writing mail works, every command, and the configuration.
+
+## TUI
+
+`climail` opens it. On a terminal at least 120 columns wide it shows mailboxes, the conversation list and a reader
+side by side, each in a frame (the reader previews the conversation under the cursor without marking it read, once
+you move to one; `preview_at_launch` shows the first at once); the pane
+you are in has a double frame, its title and cursor in the account's color. Narrower, one pane at a
+time. `?` lists every key.
+
+With several accounts, each has its own color (Google Calendar's, as in clindar), on its dot in the sidebar and its
+name above the list; `C` on an account in the sidebar chooses another (on `All accounts`, its frame's color), saved in `config.toml`. `All accounts`, first in the sidebar and in the `[`/`]` round, shows every account's mail in one
+list, newest first, each conversation with a stripe in its account's color: Inbox, Starred, Sent, Drafts, All Mail,
+Spam and Trash, their unread counts added up. Actions, replies and attachments use the conversation's own account;
+`c` writes from the default account (the first added), which the draft's `From:` line can change.
+
+| Keys | Action |
+|---|---|
+| `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls; when it can't scroll further, `j`/`k` move `▶` like `tab`/`shift+tab`; in the reader `J`/`K` read the next/previous message: `▶` moves to it, opens it and brings it to the top; in the mailboxes they go to the next/previous account) |
+| `h`/`l`, `enter`, `esc` | move between panes; open (in Drafts: continue the draft; in the reader: open or close the `▶` message); back (also clears a selection or search; in the list, with neither, closes the conversation in the reader) |
+| `n`/`p`, `tab`/`shift+tab` | next/previous conversation, from the reader; next/previous message, which `▶` marks (read together: on into the next/previous conversation) |
+| `a`, `dd`, `I` | archive, move to Trash, move to Inbox |
+| `N`, `*` | mark read/unread, star/unstar |
+| `x`, `u` | select (actions then apply to every selected conversation), undo the last change (again: the ones before, up to 50) |
+| `T` | read together: the selected conversations, else every unread one listed, on one page, marked read. The one at the top is current: `▶` on its subject, a bar down its left edge, and its subject in the title (`Together 2/4 · …`): `a`, `dd`, `r`… act on it alone, and the next one moves up (`u` puts it back); `n`/`p` jump between them, `esc` goes back |
+| `o`, `O` | expand/collapse all messages; open in Gmail on the web: from the list, the mailbox (or search) shown; from the reader, the conversation |
+| `/` | search mail as you type (local cache); `enter` then searches all of Gmail, with its syntax (`from:maya has:attachment`); `esc` cancels |
+| `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
+| `c`, `r`, `R`, `f` | write a new mail, reply all, reply (to the sender only), forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
+| `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
+| `L` | what Gmail rejected lately (changes it refused, mail it wouldn't send); the status bar counts those since climail opened |
+| `[`/`]`, `b`, `s`, `ZZ` | previous/next account (or all accounts at once), hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
+
+## Writing mail
+
+Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `From:`, `To:`, `Cc:`, `Bcc:`, `Subject:` and
+`Attach:` lines (one file per `Attach:` line), a blank line, then the body, in Markdown (`**bold**`, `_italic_`,
+`[text](https://…)`, `- lists`, `> quotes`). Mail is sent as Gmail sends it: formatted, in Gmail's default font, with
+the text as typed for mail apps that show plain text; line breaks stay where you put them. In `To:`, `Cc:` and `Bcc:` you can type part of a
+name or address (`maya, tom`): each becomes the one person in your mail it matches (when several do, the one whose
+name or address before the @ is exactly what you typed); otherwise climail lists who it could be and lets you edit. Replies quote the message and stay in its
+conversation; they, and drafts continued, open the editor on the message's first line (vi, vim, nvim, nano, emacs,
+micro, kak, mg, helix; other editors open at the top). `From:` is the address the mail goes from, as in Gmail's "Send mail as"
+settings: new mail and forwards from your default one, a reply from the one the message was sent to (else the default).
+Change it to any address you send as, or another of your accounts (its address or its start, `home`), on new mail and
+forwards; a reply, or a draft continued, stays in its conversation's account (any of its addresses). When the editor
+closes, climail asks, naming that address first (`From you@work.example: send …?`): `y` send, `e` edit again, `q` save it in Gmail's Drafts (a file
+climail can't read as a mail stays on disk instead, and its path is shown), `d` discard it (neither sent nor saved; a
+draft continued from Drafts stays there as it was). In Drafts (`gd`), `enter` continues a draft,
+its attachments included; sending it takes it out of Drafts. A draft written in Gmail opens with its formatting as
+Markdown; when it has formatting Markdown can't keep (fonts, colours, sizes, images), climail asks first: `e` edit it
+anyway (that formatting becomes Gmail's default), `O` open it in Gmail instead.
+A new mail left unchanged is dropped; a draft continued from Drafts is asked about even unchanged, so it can be sent as it is. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
+stays in `climail outbox`.
+
+## CLI
+
+Commands (`climail COMMAND --help` for details):
+
+```text
+climail auth setup FILE | login | status | logout ACCOUNT
+climail sync [--full] [-a ACCOUNT]          sync every account, or one
+climail daemon [install|uninstall|restart]  sync in the background
+climail labels [-a ACCOUNT]                 mailboxes and labels, with unread counts
+climail list [LABEL] [-q WORDS] [-n N]      conversations, newest first (default: Inbox)
+climail show ID                             a conversation as plain text
+climail search QUERY... [--offline]         search all of Gmail, with Gmail's syntax
+climail compose [--to A] [-s SUBJECT]       write a new mail in your editor
+climail reply ID [--all] | forward ID       reply or forward in your editor
+climail send --to A [-s S] [--from F] [--attach F] [--plain] < BODY   send without an editor (--plain: not from Markdown)
+climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
+climail log [-n 20]                         changes and mail Gmail rejected, newest first
+climail contacts [QUERY...]                 people in your mail, those you write to most first
+climail attachments ID                      a conversation's attachments, numbered
+climail download ID [N...] [-o DIR] [--open]   save attachments (all, or by number); prints the paths
+climail archive|trash|inbox ID... | -       move conversations
+climail read|unread|star|unstar ID... | -   mark conversations
+```
+
+- `-a ACCOUNT` takes an address or its start (`-a work`); the default is the first account added.
+- Output is human-readable on a terminal and TSV in a pipe (`id date unread from subject messages`); `--json`
+  prints JSON Lines. With `-`, actions read IDs from stdin, so `climail list -q newsletter | climail archive -` works.
+- Reads sync first when the cache is older than 2 minutes; `--offline` skips that. Changes are made locally at once
+  and sent to Gmail right after (or with the next sync when offline).
+
+## Configuration
+
+All optional, in `~/.config/climail/config.toml`:
+
+```toml
+sync_interval = "30s"  # how often the TUI and the daemon sync
+stale_after = "2m"     # CLI reads sync first when the last sync is older
+sync_timeout = "10s"   # how long a CLI command waits for that sync
+sync_threads = 300     # conversations a first (or --full) sync downloads per account
+download_dir = "~/Downloads"  # where attachments are saved
+preview_at_launch = false  # the TUI's reader shows the first conversation as soon as it opens
+sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
+account_at_launch = ""     # the account the TUI opens on: an address, its start ("work"), or "all"; "": the default account
+
+[account_colors]  # last: every key below it is an account's color. By address ("all": All accounts): one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
+"you@work.example" = "tomato"   # flamingo, tomato, tangerine, mango, pumpkin, citron, banana, avocado,
+# pistachio, sage, basil, eucalyptus, lavender, cobalt, blueberry, peacock, wisteria, amethyst, grape,
+# cherry blossom, radicchio, cocoa, birch, graphite
+```
