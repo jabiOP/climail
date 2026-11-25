@@ -16,3 +16,7 @@
 *.db-wal
 client.json
 token.json
+
+# Local working notes
+AGENTS.md
+TODO.md
