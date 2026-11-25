@@ -6,6 +6,10 @@ A fast terminal client for Gmail: a keyboard-driven TUI for reading and triaging
 accounts, and a Unix-friendly CLI for scripts. Mail is cached locally, so reading is instant and works offline;
 changes sync in the background.
 
+![Accounts, inbox and conversation side by side](docs/img/tui-inbox.png)
+
+![Reading a conversation](docs/img/tui-reader.png)
+
 ## Usage
 
 First run:
