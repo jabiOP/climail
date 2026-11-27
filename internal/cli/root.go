@@ -156,6 +156,7 @@ func tuiDeps(app *App, svc *service.Service) tui.Deps {
 		DraftDir:          app.Paths.DraftDir(),
 		Editor:            compose.EditorCmd,
 		Download:          app.Download,
+		ViewHTML:          app.ViewHTML,
 		DownloadDir:       app.Config.DownloadDir,
 		OpenDir:           app.Paths.OpenDir(),
 		Search:            app.Search,

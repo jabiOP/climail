@@ -1,6 +1,6 @@
 # climail privacy policy
 
-Effective 25 November 2026.
+Effective 27 November 2026.
 
 climail is a terminal client for Gmail. It runs entirely on your own
 computer. There is no climail server, and the developer never receives, sees
@@ -25,6 +25,11 @@ and trash messages.
   the app is fast and works offline.
 - **Attachments** are saved to disk only when you ask climail to save or open
   them.
+- **Viewing a message in your browser** (`V`), climail writes it to a file
+  readable only by you and opens it there, with its scripts blocked. Your
+  browser then loads the pictures the message links to from wherever the
+  sender put them, as any mail app showing pictures does, so the sender can
+  tell the message was opened.
 - **Login token.** Your OAuth token is stored in your system keychain (macOS
   Keychain, or the Secret Service on Linux). If no keychain is available, it
   is kept in a file readable only by you

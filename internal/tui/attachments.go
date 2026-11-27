@@ -193,3 +193,40 @@ func (m Model) composeWith(t model.Thread, messageID, dirPrefix string, draft fu
 		return composeMsg{draft: draft(paths), err: err}
 	}
 }
+
+// viewedMsg is a message's HTML written as a page, to open in the browser.
+type viewedMsg struct {
+	path string
+	err  error
+}
+
+// viewHTML opens the ▶ message in the browser as it was sent: its HTML is
+// fetched from Gmail (the cache keeps only its text).
+func (m Model) viewHTML() (tea.Model, tea.Cmd) {
+	t, ok := m.current()
+	msg, _ := m.pointed()
+	if !ok || m.deps.ViewHTML == nil {
+		return m, nil
+	}
+	m.message = "Fetching the message from Gmail…"
+	view, ctx, account, id := m.deps.ViewHTML, m.ctx, t.Account, msg.ID
+	return m, func() tea.Msg {
+		path, err := view(ctx, account, id)
+		return viewedMsg{path, err}
+	}
+}
+
+func (m Model) viewed(msg viewedMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case msg.err != nil:
+		m.message, m.isError = msg.err.Error(), true
+	case m.deps.OpenURL == nil:
+		m.message = "Saved as " + tilde(msg.path)
+	default:
+		m.message = "Opened in your browser"
+		if err := m.deps.OpenURL(msg.path); err != nil {
+			m.message, m.isError = "couldn't open it: "+err.Error(), true
+		}
+	}
+	return m, nil
+}

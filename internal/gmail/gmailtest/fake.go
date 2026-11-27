@@ -452,3 +452,16 @@ func (f *Fake) AttachmentData(ctx context.Context, messageID string, index int) 
 	}
 	return []byte("contents of " + m.Attachments[index].Filename), nil
 }
+
+func (f *Fake) MessageHTML(ctx context.Context, messageID string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.begin("MessageHTML"); err != nil {
+		return "", err
+	}
+	m, ok := f.msgs[messageID]
+	if !ok {
+		return "", gmail.ErrNotFound
+	}
+	return m.HTML, nil
+}

@@ -298,6 +298,8 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.openAttachment()
 	case key.Matches(msg, keys.Links):
 		return m.showLinks()
+	case key.Matches(msg, keys.View):
+		return m.viewHTML()
 	}
 	return m, nil
 }

@@ -1725,3 +1725,35 @@ func TestSpam_InSpamItMeansNotSpam(t *testing.T) {
 		t.Errorf("labels %v: want it back in the Inbox", l)
 	}
 }
+
+func TestViewHTML_OpensThePointedMessageInTheBrowser(t *testing.T) {
+	var opened []string
+	var asked string
+	f := newFixtureWith(t, 100, 24, Deps{
+		OpenURL: func(u string) error { opened = append(opened, u); return nil },
+		ViewHTML: func(_ context.Context, account, id string) (string, error) {
+			asked = account + "/" + id
+			return "/tmp/page.html", nil
+		},
+	})
+	f.keys("enter")
+	p, _ := f.model().pointed()
+
+	f.keys("V")
+
+	if asked != workAcct+"/"+p.ID || !slices.Equal(opened, []string{"/tmp/page.html"}) {
+		t.Errorf("asked %q, opened %q", asked, opened)
+	}
+}
+
+func TestViewHTML_SaysWhyNot(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{
+		OpenURL:  func(string) error { return nil },
+		ViewHTML: func(context.Context, string, string) (string, error) { return "", fmt.Errorf("plain text") },
+	})
+	f.keys("enter", "V")
+
+	if !strings.Contains(f.view(), "plain text") {
+		t.Errorf("no reason shown:\n%s", f.view())
+	}
+}

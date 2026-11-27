@@ -325,3 +325,27 @@ func TestSpam_ReportsToGmail(t *testing.T) {
 		t.Errorf("Gmail's labels: %v, want SPAM and no INBOX", m.Labels)
 	}
 }
+
+func TestViewHTML_WritesAPrivatePageWithoutScripts(t *testing.T) {
+	h := newHarness(t, work)
+	news := msg("n1", "n", "News", 30, "INBOX")
+	news.HTML = `<p>Big <b>news</b></p><script>alert(1)</script>`
+	h.gmail[work].Deliver(news, msg("p1", "p", "Plain", 20, "INBOX"))
+	h.mustRun("sync")
+
+	path, err := h.app.ViewHTML(context.Background(), work, "n1")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ := os.ReadFile(path)
+	if !strings.Contains(string(page), "Big <b>news</b>") || !strings.Contains(string(page), "script-src 'none'") {
+		t.Errorf("page:\n%s", page)
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v, want 0600", fi.Mode().Perm())
+	}
+	if _, err := h.app.ViewHTML(context.Background(), work, "p1"); err == nil || !strings.Contains(err.Error(), "plain text") {
+		t.Errorf("plain-text message: err = %v", err)
+	}
+}

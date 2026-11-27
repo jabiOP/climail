@@ -40,6 +40,7 @@ Last updated: 2026-11-27
 - `climail count` (unread, for status bars) and docs/scripting.md (status bars, notifications, cleanups, fzf, jq)
 - Links: `U` opens a link in the `▶` message (from a list when there are several, by number as in the text's `[n]`); only http(s)
 - Spam: `!` reports spam (in Spam: not spam), `climail spam`; undoable like the other actions
+- `V` views the `▶` message in the browser as sent: its HTML fetched from Gmail, written privately with scripts blocked
 - TUI mouse (`mouse = true`): clicks select a mailbox, conversation or message and open it when already selected; the wheel moves the list and scrolls the reader
 - Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts; chosen from Google Calendar's 24 (clindar's palette, in a grid by family) with `C` in the sidebar, or `[account_colors]` in config.toml
 
@@ -51,7 +52,7 @@ Last updated: 2026-11-27
   forward with attachments, Gmail search, drafts (save, continue one started on the web, send),
   formatted mail as it looks in Gmail, a draft's compose window opening in Gmail with `O`,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
-  framed panes and account colors on a light terminal, the mouse (clicks and wheel, in iTerm2 and macOS Terminal)
+  framed panes and account colors on a light terminal, `V` on a real newsletter (and a message with inline images), the mouse (clicks and wheel, in iTerm2 and macOS Terminal)
 
 ## Later
 
@@ -93,4 +94,5 @@ Last updated: 2026-11-27
 - Gmail requests start at most 20 a second. Real accounts can get far less quota than Gmail documents (one hit it after ~60 threads), so a rate limit pauses every request of the client for the quota's minute (retrying sooner only spends it again) and halves the pace. A first sync saves every 25 threads, so one cut short (even killed) keeps what it fetched, then fetches only the rest. The CLI's progress line is written past the cleaning of mail text (which drops its \r) and says when the quota holds it up.
 - Gmail web links name the account with `?authuser=<address>`: Gmail answers `/mail/u/<address>/` with a 404.
 - The mouse is off unless `mouse = true` (as in clindar): while it's on, selecting text needs a modifier key. Unlike clindar, the wheel works: scrolling a list or a mail is what it's for, and a trackpad's flood of events just scrolls faster.
+- `V` fetches a message's HTML from Gmail when asked instead of caching every message's HTML (only drafts keep theirs): the cache stays small. The page blocks scripts, forms and frames by a Content-Security-Policy; pictures load, or newsletters are unreadable.
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

@@ -34,6 +34,7 @@ type Remote interface {
 	SaveDraft(ctx context.Context, replaces string, raw []byte, threadID string) error // replaces: a draft's message ID, or ""
 	DeleteDraft(ctx context.Context, messageID string) error                           // nil if it's already gone
 	AttachmentData(ctx context.Context, messageID string, index int) ([]byte, error)
+	MessageHTML(ctx context.Context, messageID string) (string, error) // "": plain text only
 }
 
 // ErrPush and ErrPull tell which half of Sync failed: after a pull error,

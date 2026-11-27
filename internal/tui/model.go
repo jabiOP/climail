@@ -37,6 +37,8 @@ type Deps struct {
 	Download    func(ctx context.Context, account string, refs []model.AttachmentRef, dir string) ([]string, error)
 	DownloadDir string // where D saves
 	OpenDir     string // where attachments opened or forwarded are fetched to
+	// ViewHTML writes a message's HTML as a page for the browser; nil: V does nothing.
+	ViewHTML func(ctx context.Context, account, messageID string) (string, error)
 	// Search asks Gmail and returns matching conversation IDs, fetched into
 	// the cache; nil: local search only.
 	Search func(ctx context.Context, account, query string) ([]string, error)
@@ -439,6 +441,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.cursor, m.offset = 0, 0
 		return m, m.load()
+	case viewedMsg:
+		return m.viewed(msg)
 	case downloadedMsg:
 		return m.downloaded(msg)
 	case composeMsg:
