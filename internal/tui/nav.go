@@ -48,6 +48,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.choosing != nil {
 		return m.chooseKey(msg)
 	}
+	if m.links != nil {
+		return m.linksKey(msg)
+	}
 	if m.askDraft != nil {
 		return m.askDraftKey(msg)
 	}
@@ -289,6 +292,8 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.saveAll()
 	case key.Matches(msg, keys.OpenFile):
 		return m.openAttachment()
+	case key.Matches(msg, keys.Links):
+		return m.showLinks()
 	}
 	return m, nil
 }

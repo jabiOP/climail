@@ -17,7 +17,7 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		m.help, m.log = false, nil
 		return m, nil
 	}
-	if m.searching || m.composing != nil || m.choosing != nil || m.askDraft != nil || m.picking != "" {
+	if m.searching || m.composing != nil || m.choosing != nil || m.links != nil || m.askDraft != nil || m.picking != "" {
 		return m, nil // questions and the search are answered with keys
 	}
 	p, ok := m.paneAt(msg.X)

@@ -119,6 +119,9 @@ type Model struct {
 	help      bool
 	composing *composing            // a mail being written
 	choosing  []model.AttachmentRef // A: which attachment to open
+	links     []string              // U: the ▶ message's links, while the list of them shows
+	linkAt    int                   // the link under the cursor
+	linkNum   string                // the digits typed so far, going to a link by its number
 	askDraft  *model.Message        // a draft whose formatting Markdown can't hold: edit it anyway?
 	started   time.Time             // when the TUI opened: rejections since are announced
 	rejected  int                   // changes and mail Gmail rejected since then

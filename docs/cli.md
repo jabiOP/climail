@@ -30,6 +30,7 @@ Spam and Trash, their unread counts added up. Actions, replies and attachments u
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
 | `c`, `r`, `R`, `f` | write a new mail, reply all, reply (to the sender only), forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
 | `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
+| `U` | open a link in the `▶` message in your browser: the only one at once, else from a list (`j`/`k` or its number, as in the text's `[3]`, then `enter`) |
 | `L` | what Gmail rejected lately (changes it refused, mail it wouldn't send); the status bar counts those since climail opened |
 | `[`/`]`, `b`, `s`, `ZZ` | previous/next account (or all accounts at once), hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
 
