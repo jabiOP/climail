@@ -33,6 +33,10 @@ Spam and Trash, their unread counts added up. Actions, replies and attachments u
 | `L` | what Gmail rejected lately (changes it refused, mail it wouldn't send); the status bar counts those since climail opened |
 | `[`/`]`, `b`, `s`, `ZZ` | previous/next account (or all accounts at once), hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
 
+**Mouse** (`mouse = true` in `config.toml`): click a mailbox or account to show it; click a conversation to move to
+it, again to open it; click the reader to open the conversation it shows, and a message's first line to open or close
+that message. The wheel moves through the list and scrolls the reader. Any click closes help and the log.
+
 ## Writing mail
 
 Writing mail opens `$VISUAL` (or `$EDITOR`, else `vi`) on a draft: `From:`, `To:`, `Cc:`, `Bcc:`, `Subject:` and
@@ -98,6 +102,7 @@ download_dir = "~/Downloads"  # where attachments are saved
 preview_at_launch = false  # the TUI's reader shows the first conversation as soon as it opens
 sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
 account_at_launch = ""     # the account the TUI opens on: an address, its start ("work"), or "all"; "": the default account
+mouse = false              # clicks and the wheel in the TUI (select text with Option-drag in iTerm2, fn-drag in macOS Terminal, Shift-drag elsewhere)
 
 [account_colors]  # last: every key below it is an account's color. By address ("all": All accounts): one of Google Calendar's 24 colors (as in clindar) or "#rrggbb"
 "you@work.example" = "tomato"   # flamingo, tomato, tangerine, mango, pumpkin, citron, banana, avocado,

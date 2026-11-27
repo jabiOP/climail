@@ -32,12 +32,12 @@ func TestLoad_MissingFileGivesDefaults(t *testing.T) {
 }
 
 func TestLoad_OverridesDefaults(t *testing.T) {
-	c, err := config.Load(writeConfig(t, "sync_interval = \"1m\"\nsync_threads = 50\n"))
+	c, err := config.Load(writeConfig(t, "sync_interval = \"1m\"\nsync_threads = 50\nmouse = true\n"))
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.SyncInterval.Duration != time.Minute || c.SyncThreads != 50 {
+	if c.SyncInterval.Duration != time.Minute || c.SyncThreads != 50 || !c.Mouse {
 		t.Errorf("Load = %+v", c)
 	}
 	if c.StaleAfter != config.Default().StaleAfter {
