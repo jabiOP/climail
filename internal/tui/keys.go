@@ -110,8 +110,7 @@ func helpText() string {
 		"Conversations", []helpRow{
 			pair(keys.ReplyAll, keys.Reply, "reply all / reply"), one(keys.Forward, "forward"),
 			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"), one(keys.Links, "open a link"),
-			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
-			one(keys.Spam, "spam (in Spam: not spam)"),
+			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), pair(keys.Inbox, keys.Spam, "to Inbox / spam"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),
 			pair(keys.Select, keys.Together, "select / read together"), one(keys.Undo, "undo (again: earlier)"),
 			one(keys.Expand, "expand / collapse all"), one(keys.Browser, "open here in Gmail (web)"),
