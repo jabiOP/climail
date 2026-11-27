@@ -46,6 +46,7 @@ type Deps struct {
 	HideSidebar       bool   // the mailboxes start hidden (b shows them)
 	AccountAtLaunch   string // the account shown at launch; "": the first one
 	AllAtLaunch       bool   // every account at once at launch
+	Mouse             bool   // clicks and the wheel (config mouse)
 	// SaveAccountColor writes a color chosen with C into config.toml; nil: not saved.
 	SaveAccountColor func(account, color string) error
 }
@@ -376,6 +377,8 @@ func syncErrorText(err error) string {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.MouseMsg:
+		return m.handleMouse(msg)
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.clampOffset()
@@ -652,7 +655,11 @@ func (m *Model) readBy(n int) {
 
 // Run starts the TUI full-screen and blocks until the user quits.
 func Run(ctx context.Context, d Deps) error {
-	_, err := tea.NewProgram(New(ctx, d), tea.WithAltScreen(), tea.WithContext(ctx)).Run()
+	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithContext(ctx)}
+	if d.Mouse {
+		opts = append(opts, tea.WithMouseCellMotion())
+	}
+	_, err := tea.NewProgram(New(ctx, d), opts...).Run()
 	if errors.Is(err, tea.ErrProgramKilled) && ctx.Err() != nil {
 		return nil // Ctrl-C via the context
 	}

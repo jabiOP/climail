@@ -37,6 +37,9 @@ type Config struct {
 	// AccountAtLaunch is the account the TUI opens on: an address or its start,
 	// or "all" for every account at once; "": the first account added.
 	AccountAtLaunch string `toml:"account_at_launch"`
+	// Mouse turns on clicks and the wheel in the TUI. Off by default: while
+	// it's on, the terminal leaves text selection to a modifier key.
+	Mouse bool `toml:"mouse"`
 	// AccountColors gives accounts a color, by address (AllColorKey: all
 	// accounts at once): a Colors name or "#rrggbb".
 	AccountColors map[string]string `toml:"account_colors"`

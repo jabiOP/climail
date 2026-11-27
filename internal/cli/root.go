@@ -162,6 +162,7 @@ func tuiDeps(app *App, svc *service.Service) tui.Deps {
 		AccountColors:     app.Config.AccountColors,
 		NoPreviewAtLaunch: !app.Config.PreviewAtLaunch,
 		HideSidebar:       !app.Config.SidebarAtLaunch,
+		Mouse:             app.Config.Mouse,
 		SaveAccountColor: func(account, color string) error {
 			return config.SetAccountColor(app.Paths.ConfigFile(), account, color)
 		},
