@@ -49,6 +49,7 @@ It writes a systemd user service (Linux) or a launchd agent (macOS) and prints t
 ## Documentation
 
 - [docs/cli.md](docs/cli.md): every TUI key, writing mail, every command and the configuration.
+- [docs/scripting.md](docs/scripting.md): recipes for status bars, new-mail notifications, cleanups, fzf and jq.
 - [docs/privacy.md](docs/privacy.md): the privacy policy.
 
 ## Privacy

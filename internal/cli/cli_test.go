@@ -289,3 +289,24 @@ func TestSync_ProgressRedrawsOneLine(t *testing.T) {
 		t.Errorf("exit %d, stderr %q", code, errOut)
 	}
 }
+
+func TestCount_UnreadInEveryAccountOrOne(t *testing.T) {
+	h := newHarness(t, work, personal)
+	h.gmail[work].Deliver(msg("w1", "w", "Boss", 30, "INBOX", "UNREAD"), msg("w2", "w2", "Old", 40, "INBOX"),
+		msg("w3", "w3", "Client", 50, "Label_1", "UNREAD"))
+	h.gmail[personal].Deliver(msg("p1", "p", "Family", 30, "INBOX", "UNREAD"))
+
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"count"}, "2\n"},
+		{[]string{"count", "-a", "work"}, "1\n"},
+		{[]string{"count", "-a", "work", "work/clients"}, "1\n"},
+		{[]string{"count", "starred"}, "0\n"},
+	} {
+		if got := h.mustRun(c.args...); got != c.want {
+			t.Errorf("climail %s = %q, want %q", strings.Join(c.args, " "), got, c.want)
+		}
+	}
+}

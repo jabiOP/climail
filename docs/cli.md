@@ -77,6 +77,7 @@ climail send --to A [-s S] [--from F] [--attach F] [--plain] < BODY   send witho
 climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
 climail log [-n 20]                         changes and mail Gmail rejected, newest first
 climail contacts [QUERY...]                 people in your mail, those you write to most first
+climail count [LABEL] [-a ACCOUNT]          unread conversations (default: Inbox, every account added up)
 climail attachments ID                      a conversation's attachments, numbered
 climail download ID [N...] [-o DIR] [--open]   save attachments (all, or by number); prints the paths
 climail archive|trash|inbox ID... | -       move conversations

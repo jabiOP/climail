@@ -146,3 +146,60 @@ func newShowCmd(app *App) *cobra.Command {
 	addOfflineFlag(cmd, &offline)
 	return cmd
 }
+
+func newCountCmd(app *App) *cobra.Command {
+	var account string
+	var offline bool
+	cmd := &cobra.Command{
+		Use:   "count [LABEL]",
+		Short: "Print how many conversations are unread (default: Inbox, every account), for status bars",
+		Long: `Print how many conversations are unread in a mailbox or label (default: Inbox), added up over
+every account, or in one with -a. Without -a, LABEL is a system mailbox (inbox, starred, spam…);
+with it, any label as ` + "`climail labels`" + ` shows it.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return usageError{errors.New("give at most one label")}
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			acct := service.AllAccounts
+			var svc *service.Service
+			var err error
+			if account != "" {
+				acct, svc, err = app.reader(ctx, account, offline)
+			} else {
+				svc, err = app.readAll(ctx, offline)
+			}
+			if err != nil {
+				return err
+			}
+			label := "inbox"
+			if len(args) == 1 {
+				label = args[0]
+			}
+			box, err := svc.ResolveLabel(ctx, acct, label)
+			if err != nil {
+				return usageError{err}
+			}
+			fmt.Fprintln(app.Stdout, box.Unread)
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&account, "account", "a", "", "only this account (its address, or the start of it)")
+	addOfflineFlag(cmd, &offline)
+	return cmd
+}
+
+// readAll syncs every account whose cache is stale.
+func (a *App) readAll(ctx context.Context, offline bool) (*service.Service, error) {
+	accounts, err := a.Accounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, acct := range accounts {
+		a.RefreshIfStale(ctx, acct, offline)
+	}
+	return a.Service()
+}

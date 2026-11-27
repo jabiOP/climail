@@ -37,6 +37,7 @@ Last updated: 2026-11-27
 - Mail says which account it goes from: a `From:` line in every draft (another account by address or its start, for new mail and forwards; replies and continued drafts stay in their account), and the send question starts with it
 - `O` opens Gmail on the web where you are: the mailbox or search shown from the list, the conversation from the reader
 - TUI launch: the reader stays empty until you move to or open a conversation (`preview_at_launch = true` previews the first); `sidebar_at_launch = false` opens with the mailboxes hidden; `account_at_launch` opens on an account or `"all"`; `esc` in the list (nothing selected or searched) closes the conversation in the reader
+- `climail count` (unread, for status bars) and docs/scripting.md (status bars, notifications, cleanups, fzf, jq)
 - TUI mouse (`mouse = true`): clicks select a mailbox, conversation or message and open it when already selected; the wheel moves the list and scrolls the reader
 - Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts; chosen from Google Calendar's 24 (clindar's palette, in a grid by family) with `C` in the sidebar, or `[account_colors]` in config.toml
 
