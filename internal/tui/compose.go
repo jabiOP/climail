@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jabiOP/climail/internal/compose"
+	"github.com/jabiOP/climail/internal/service"
 )
 
 // composing is a mail being written: in the editor, or back from it and
@@ -18,6 +19,22 @@ type composing struct {
 	asked bool          // back from the editor: the question is showing
 
 	unreadable bool // the file couldn't be read as a mail: it stays on disk
+	undone     bool // a mail taken back from sending: asked about even if left unchanged
+}
+
+// heldMail is a mail sent but held back for SendDelay: u takes it back to the editor.
+type heldMail struct {
+	unsend service.Unsend
+	draft  compose.Draft
+}
+
+// sendDueMsg: a held mail's delay is over.
+type sendDueMsg struct{}
+
+// unsentMsg reports u on a held mail.
+type unsentMsg struct {
+	draft compose.Draft
+	err   error
 }
 
 type editedMsg struct{ err error }
@@ -27,7 +44,8 @@ type sentMsg struct {
 	summary string
 	from    string // the account it goes from
 	saving  bool
-	path    string // the draft file, kept when saving failed
+	path    string    // the draft file, kept when saving failed
+	held    *heldMail // sent with a delay: u can take it back
 	err     error
 }
 
@@ -64,7 +82,7 @@ func (m Model) edited(msg editedMsg) (tea.Model, tea.Cmd) {
 		m.message, m.isError = err.Error(), true
 		return m, nil
 	}
-	if string(text) == c.base.Text() && c.base.DraftID == "" { // a draft continued is ready as it is
+	if string(text) == c.base.Text() && c.base.DraftID == "" && !c.undone { // a draft continued (or taken back) is ready as it is
 		os.Remove(c.path)
 		m.composing = nil
 		m.message = "Not sent: the draft wasn't changed"
@@ -94,13 +112,17 @@ func (m Model) composeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.composing = nil
-		svc, ctx, now, d, path := m.deps.Service, m.ctx, m.deps.Now(), c.draft, c.path
+		svc, ctx, now, d, path, delay := m.deps.Service, m.ctx, m.deps.Now(), c.draft, c.path, m.deps.SendDelay
 		return m, func() tea.Msg {
-			err := svc.Send(ctx, d, now)
+			u, err := svc.SendAfter(ctx, d, now, delay)
 			if err == nil {
 				os.Remove(path)
 			}
-			return sentMsg{summary: d.Summary(), from: d.Sender(), err: err}
+			msg := sentMsg{summary: d.Summary(), from: d.Sender(), err: err}
+			if err == nil && delay > 0 {
+				msg.held = &heldMail{u, d}
+			}
+			return msg
 		}
 	case "e":
 		return m, m.editCmd()

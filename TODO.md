@@ -41,6 +41,7 @@ Last updated: 2026-11-27
 - Links: `U` opens a link in the `▶` message (from a list when there are several, by number as in the text's `[n]`); only http(s)
 - Spam: `!` reports spam (in Spam: not spam), `climail spam`; undoable like the other actions
 - `V` views the `▶` message in the browser as sent: its HTML fetched from Gmail, written privately with scripts blocked
+- Undo send: the TUI holds mail `send_delay` (5s) after `y`; `u` takes it back to the editor (a continued draft goes back to Drafts); the CLI sends at once
 - TUI mouse (`mouse = true`): clicks select a mailbox, conversation or message and open it when already selected; the wheel moves the list and scrolls the reader
 - Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts; chosen from Google Calendar's 24 (clindar's palette, in a grid by family) with `C` in the sidebar, or `[account_colors]` in config.toml
 
@@ -52,7 +53,7 @@ Last updated: 2026-11-27
   forward with attachments, Gmail search, drafts (save, continue one started on the web, send),
   formatted mail as it looks in Gmail, a draft's compose window opening in Gmail with `O`,
   macOS asking before opening a risky attachment (e.g. a `.terminal` file) with `A`,
-  framed panes and account colors on a light terminal, `V` on a real newsletter (and a message with inline images), the mouse (clicks and wheel, in iTerm2 and macOS Terminal)
+  framed panes and account colors on a light terminal, undo send (with and without the daemon), `V` on a real newsletter (and a message with inline images), the mouse (clicks and wheel, in iTerm2 and macOS Terminal)
 
 ## Later
 
@@ -95,4 +96,5 @@ Last updated: 2026-11-27
 - Gmail web links name the account with `?authuser=<address>`: Gmail answers `/mail/u/<address>/` with a 404.
 - The mouse is off unless `mouse = true` (as in clindar): while it's on, selecting text needs a modifier key. Unlike clindar, the wheel works: scrolling a list or a mail is what it's for, and a trackpad's flood of events just scrolls faster.
 - `V` fetches a message's HTML from Gmail when asked instead of caching every message's HTML (only drafts keep theirs): the cache stays small. The page blocks scripts, forms and frames by a Content-Security-Policy; pictures load, or newsletters are unreadable.
+- Undo send holds mail in the outbox (`not_before`), so the push (TUI or daemon) skips it until it's due, and taking it back can't race a send: it's only cancelled while not yet due. The CLI doesn't hold mail: without a daemon it would wait for the next sync.
 - Vulnerabilities are checked with `make vuln` (govulncheck v1.10.0, run with `go run`, so not a module dependency), separate from `make lint` because it needs the network.

@@ -18,12 +18,19 @@ type Outgoing struct {
 	Attempts int
 	Failed   string
 	Created  time.Time
+	// NotBefore holds a mail back until then, so it can still be taken back
+	// (undo send); zero: send at once.
+	NotBefore time.Time
 }
 
 // QueueSend adds a mail to send with the next sync.
 func (s *Store) QueueSend(ctx context.Context, o Outgoing) (int64, error) {
-	res, err := s.q.ExecContext(ctx, `INSERT INTO outgoing (account_id, thread_id, summary, raw, draft, save, created)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, o.Account, o.ThreadID, o.Summary, o.Raw, o.Draft, o.Save, o.Created.Unix())
+	notBefore := int64(0)
+	if !o.NotBefore.IsZero() {
+		notBefore = o.NotBefore.Unix()
+	}
+	res, err := s.q.ExecContext(ctx, `INSERT INTO outgoing (account_id, thread_id, summary, raw, draft, save, created, not_before)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, o.Account, o.ThreadID, o.Summary, o.Raw, o.Draft, o.Save, o.Created.Unix(), notBefore)
 	if err != nil {
 		return 0, err
 	}
@@ -32,8 +39,8 @@ func (s *Store) QueueSend(ctx context.Context, o Outgoing) (int64, error) {
 
 // Outgoing lists the account's mail waiting to be sent and refused, oldest first.
 func (s *Store) Outgoing(ctx context.Context, account string) ([]Outgoing, error) {
-	rows, err := s.q.QueryContext(ctx, `SELECT id, account_id, thread_id, summary, raw, draft, save, attempts, failed, created
-		FROM outgoing WHERE account_id = ? ORDER BY id`, account)
+	rows, err := s.q.QueryContext(ctx, `SELECT id, account_id, thread_id, summary, raw, draft, save, attempts, failed, created,
+		not_before FROM outgoing WHERE account_id = ? ORDER BY id`, account)
 	if err != nil {
 		return nil, err
 	}
@@ -41,11 +48,15 @@ func (s *Store) Outgoing(ctx context.Context, account string) ([]Outgoing, error
 	var out []Outgoing
 	for rows.Next() {
 		var o Outgoing
-		var created int64
-		if err := rows.Scan(&o.ID, &o.Account, &o.ThreadID, &o.Summary, &o.Raw, &o.Draft, &o.Save, &o.Attempts, &o.Failed, &created); err != nil {
+		var created, notBefore int64
+		if err := rows.Scan(&o.ID, &o.Account, &o.ThreadID, &o.Summary, &o.Raw, &o.Draft, &o.Save, &o.Attempts, &o.Failed, &created,
+			&notBefore); err != nil {
 			return nil, err
 		}
 		o.Created = time.Unix(created, 0)
+		if notBefore > 0 {
+			o.NotBefore = time.Unix(notBefore, 0)
+		}
 		out = append(out, o)
 	}
 	return out, rows.Err()
@@ -70,6 +81,18 @@ func (s *Store) RetrySend(ctx context.Context, account string, id int64) error {
 // DeleteSend forgets a mail: sent, or discarded by the user.
 func (s *Store) DeleteSend(ctx context.Context, account string, id int64) error {
 	return s.changeOne(ctx, `DELETE FROM outgoing WHERE account_id = ? AND id = ?`, account, id)
+}
+
+// CancelSend takes a mail back while it's held (before its NotBefore);
+// ErrNotFound when it's too late: it may be going already.
+func (s *Store) CancelSend(ctx context.Context, account string, id int64, now time.Time) error {
+	return s.changeOne(ctx, `DELETE FROM outgoing WHERE account_id = ? AND id = ? AND not_before > ?`, account, id, now.Unix())
+}
+
+// ReleaseSend stops holding a mail: it goes with the next push.
+func (s *Store) ReleaseSend(ctx context.Context, account string, id int64) error {
+	_, err := s.q.ExecContext(ctx, `UPDATE outgoing SET not_before = 0 WHERE account_id = ? AND id = ?`, account, id)
+	return err
 }
 
 // changeOne runs a statement that must change exactly one row.

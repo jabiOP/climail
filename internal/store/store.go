@@ -190,6 +190,8 @@ CREATE TABLE send_as (                -- Gmail's "Send mail as" addresses
 	is_default INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY (account_id, email)
 );
+`, `
+ALTER TABLE outgoing ADD COLUMN not_before INTEGER NOT NULL DEFAULT 0;  -- unix seconds: not sent before (undo send)
 `}
 
 // notFound turns sql.ErrNoRows into ErrNotFound.

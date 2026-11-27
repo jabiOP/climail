@@ -59,7 +59,8 @@ its attachments included; sending it takes it out of Drafts. A draft written in 
 Markdown; when it has formatting Markdown can't keep (fonts, colours, sizes, images), climail asks first: `e` edit it
 anyway (that formatting becomes Gmail's default), `O` open it in Gmail instead.
 A new mail left unchanged is dropped; a draft continued from Drafts is asked about even unchanged, so it can be sent as it is. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
-stays in `climail outbox`.
+stays in `climail outbox`. In the TUI, mail waits `send_delay` (5s) after `y` before it goes: `u` meanwhile takes it
+back to the editor (Gmail's "Undo send"); quitting sends what's held at once. The CLI sends at once.
 
 ## CLI
 
@@ -102,6 +103,7 @@ stale_after = "2m"     # CLI reads sync first when the last sync is older
 sync_timeout = "10s"   # how long a CLI command waits for that sync
 sync_threads = 300     # conversations a first (or --full) sync downloads per account
 download_dir = "~/Downloads"  # where attachments are saved
+send_delay = "5s"      # the TUI holds mail this long after y, so u can take it back ("0s": off; at most "30s")
 preview_at_launch = false  # the TUI's reader shows the first conversation as soon as it opens
 sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
 account_at_launch = ""     # the account the TUI opens on: an address, its start ("work"), or "all"; "": the default account

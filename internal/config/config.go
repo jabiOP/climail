@@ -31,6 +31,7 @@ type Config struct {
 	SyncTimeout  Duration `toml:"sync_timeout"`  // max time a CLI command waits for that sync
 	SyncThreads  int      `toml:"sync_threads"`  // conversations a full sync fetches per account, newest first
 	DownloadDir  string   `toml:"download_dir"`  // where attachments are saved
+	SendDelay    Duration `toml:"send_delay"`    // the TUI holds mail this long after y, so u can take it back
 	// PreviewAtLaunch shows the first conversation in the reader when the TUI opens.
 	PreviewAtLaunch bool `toml:"preview_at_launch"`
 	SidebarAtLaunch bool `toml:"sidebar_at_launch"` // the mailboxes are shown when the TUI opens
@@ -52,6 +53,7 @@ func Default() Config {
 		SyncTimeout:     Duration{10 * time.Second},
 		SyncThreads:     300,
 		DownloadDir:     "~/Downloads",
+		SendDelay:       Duration{5 * time.Second},
 		SidebarAtLaunch: true,
 	}
 }
@@ -88,6 +90,9 @@ func Load(path string) (Config, error) {
 func (c Config) validate() error {
 	if c.SyncInterval.Duration < 10*time.Second {
 		return fmt.Errorf("sync_interval must be at least 10s (Google rate limits), got %v", c.SyncInterval)
+	}
+	if d := c.SendDelay.Duration; d < 0 || d > 30*time.Second {
+		return fmt.Errorf("send_delay must be between 0 (off) and 30s, as in Gmail, got %v", c.SendDelay)
 	}
 	if c.SyncThreads < 1 {
 		return fmt.Errorf("sync_threads must be at least 1, got %d", c.SyncThreads)

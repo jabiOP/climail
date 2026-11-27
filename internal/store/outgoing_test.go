@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jabiOP/climail/internal/store"
 )
@@ -37,5 +38,24 @@ func TestOutgoing_Lifecycle(t *testing.T) {
 	}
 	if err := s.DeleteSend(ctx, acct, id); err != store.ErrNotFound {
 		t.Errorf("deleting twice: err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestOutgoing_CancelOnlyBeforeItsTime(t *testing.T) {
+	s := openStore(t)
+	due := base.Add(5 * time.Second)
+	id, _ := s.QueueSend(ctx, store.Outgoing{Account: acct, Summary: "hi", Raw: []byte("raw"), Created: base, NotBefore: due})
+	if out, _ := s.Outgoing(ctx, acct); len(out) != 1 || !out[0].NotBefore.Equal(due) {
+		t.Fatalf("Outgoing = %+v", out)
+	}
+
+	if err := s.CancelSend(ctx, acct, id, due); err != store.ErrNotFound {
+		t.Errorf("cancel at its time: err = %v, want ErrNotFound (it may be going)", err)
+	}
+	if err := s.CancelSend(ctx, acct, id, due.Add(-time.Second)); err != nil {
+		t.Errorf("cancel before its time: %v", err)
+	}
+	if out, _ := s.Outgoing(ctx, acct); len(out) != 0 {
+		t.Errorf("still queued: %+v", out)
 	}
 }

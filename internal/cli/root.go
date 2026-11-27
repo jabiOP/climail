@@ -152,6 +152,7 @@ func tuiDeps(app *App, svc *service.Service) tui.Deps {
 		},
 		Now:               app.Now,
 		SyncInterval:      app.Config.SyncInterval.Duration,
+		SendDelay:         app.Config.SendDelay.Duration,
 		OpenURL:           app.OpenURL,
 		DraftDir:          app.Paths.DraftDir(),
 		Editor:            compose.EditorCmd,
