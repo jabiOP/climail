@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
+	"github.com/jabiOP/climail/internal/browser"
 	"github.com/jabiOP/climail/internal/download"
 	"github.com/jabiOP/climail/internal/model"
 	"github.com/jabiOP/climail/internal/output"
@@ -30,6 +33,28 @@ func (a *App) Download(ctx context.Context, account string, refs []model.Attachm
 		dir = a.Config.DownloadDir
 	}
 	return download.All(ctx, a.fetcher(ctx, account), refs, dir)
+}
+
+// ViewHTML fetches a message's HTML from Gmail and writes it as a private
+// page, with scripts blocked, for the browser; it returns the page's path.
+func (a *App) ViewHTML(ctx context.Context, account, messageID string) (string, error) {
+	remote, err := a.Remote(ctx, account)
+	if err != nil {
+		return "", err
+	}
+	html, err := remote.MessageHTML(ctx, messageID)
+	if err != nil {
+		return "", err
+	}
+	if html == "" {
+		return "", errors.New("this message is plain text: it reads the same here")
+	}
+	dir := a.Paths.OpenDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, "message-"+filepath.Base(messageID)+".html")
+	return path, os.WriteFile(path, []byte(browser.Page(html)), 0o600)
 }
 
 // forwardFiles downloads a message's attachments to send along with a

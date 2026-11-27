@@ -7,6 +7,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"os/exec"
 	"slices"
@@ -30,6 +31,7 @@ type Deps struct {
 	Sync         func(ctx context.Context, progress func(account string, done, total int)) error
 	Now          func() time.Time
 	SyncInterval time.Duration                         // 0 disables periodic sync (tests)
+	SendDelay    time.Duration                         // mail is held this long after y, for u to take it back
 	OpenURL      func(string) error                    // opens a link in the browser; nil when there's none
 	DraftDir     string                                // where drafts are written for the editor
 	Editor       func(path string, line int) *exec.Cmd // line: where to start (0: the top)
@@ -37,6 +39,8 @@ type Deps struct {
 	Download    func(ctx context.Context, account string, refs []model.AttachmentRef, dir string) ([]string, error)
 	DownloadDir string // where D saves
 	OpenDir     string // where attachments opened or forwarded are fetched to
+	// ViewHTML writes a message's HTML as a page for the browser; nil: V does nothing.
+	ViewHTML func(ctx context.Context, account, messageID string) (string, error)
 	// Search asks Gmail and returns matching conversation IDs, fetched into
 	// the cache; nil: local search only.
 	Search func(ctx context.Context, account, query string) ([]string, error)
@@ -119,6 +123,9 @@ type Model struct {
 	help      bool
 	composing *composing            // a mail being written
 	choosing  []model.AttachmentRef // A: which attachment to open
+	links     []string              // U: the ▶ message's links, while the list of them shows
+	linkAt    int                   // the link under the cursor
+	linkNum   string                // the digits typed so far, going to a link by its number
 	askDraft  *model.Message        // a draft whose formatting Markdown can't hold: edit it anyway?
 	started   time.Time             // when the TUI opened: rejections since are announced
 	rejected  int                   // changes and mail Gmail rejected since then
@@ -176,10 +183,12 @@ type page struct {
 	thread string   // the one changed
 }
 
-// undoEntry is one change u can undo.
+// undoEntry is one change u can undo: label changes, or a mail held back
+// (send), which undoing takes back to the editor.
 type undoEntry struct {
 	undo service.Undo
 	page page
+	send *heldMail
 }
 
 // undoneMsg reports an undo.
@@ -358,6 +367,10 @@ func (m Model) apply(threads []model.Thread, a service.Action, record bool) tea.
 
 func (m Model) undoCmd(e undoEntry) tea.Cmd {
 	svc, ctx := m.deps.Service, m.ctx
+	if h := e.send; h != nil {
+		now := m.deps.Now()
+		return func() tea.Msg { return unsentMsg{draft: h.draft, err: svc.Unsend(ctx, h.unsend, now)} }
+	}
 	return func() tea.Msg {
 		return undoneMsg{page: e.page, err: svc.Undo(ctx, e.undo)}
 	}
@@ -415,7 +428,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.load()
 		}
 		if msg.record && !msg.undo.Empty() {
-			m.undos = append(m.undos, undoEntry{msg.undo, msg.page})
+			m.undos = append(m.undos, undoEntry{undo: msg.undo, page: msg.page})
 			m.undos = m.undos[max(len(m.undos)-maxUndos, 0):]
 			m.message, m.isError = msg.undo.Done+" · u to undo", false
 		}
@@ -436,6 +449,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.cursor, m.offset = 0, 0
 		return m, m.load()
+	case viewedMsg:
+		return m.viewed(msg)
 	case downloadedMsg:
 		return m.downloaded(msg)
 	case composeMsg:
@@ -462,11 +477,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case msg.saving:
 			m.message, m.isError = "Saved in Drafts", false
+		case msg.held != nil:
+			m.message, m.isError = fmt.Sprintf("From %s: sending %s in %s · u to undo", msg.from, msg.summary, m.deps.SendDelay), false
+			m.undos = append(m.undos, undoEntry{send: msg.held})
+			m.undos = m.undos[max(len(m.undos)-maxUndos, 0):]
+			if m.deps.Sync == nil {
+				return m, m.load()
+			}
+			return m, tea.Batch(m.load(), tea.Tick(m.deps.SendDelay, func(time.Time) tea.Msg { return sendDueMsg{} }))
 		default:
 			m.message, m.isError = "From "+msg.from+": sending "+msg.summary, false
 		}
 		m.syncing = m.deps.Sync != nil
 		return m, tea.Batch(m.load(), m.syncCmd())
+	case sendDueMsg: // a mail held back is due: send it now, not at the next tick
+		m.syncing = true
+		return m, m.syncCmd()
+	case unsentMsg:
+		switch {
+		case errors.Is(msg.err, service.ErrAlreadySent):
+			m.message, m.isError = "Too late: already sent", true
+			return m, nil
+		case msg.err != nil:
+			m.message, m.isError = "undo failed: "+msg.err.Error(), true
+			return m, nil
+		}
+		next, cmd := m.startCompose(msg.draft)
+		if c := next.(Model).composing; c != nil {
+			c.undone = true
+		}
+		return next, tea.Batch(cmd, m.load())
 	case undoneMsg:
 		m.message, m.isError = "Undone", false
 		if msg.err != nil {
@@ -659,9 +699,33 @@ func Run(ctx context.Context, d Deps) error {
 	if d.Mouse {
 		opts = append(opts, tea.WithMouseCellMotion())
 	}
-	_, err := tea.NewProgram(New(ctx, d), opts...).Run()
+	final, err := tea.NewProgram(New(ctx, d), opts...).Run()
 	if errors.Is(err, tea.ErrProgramKilled) && ctx.Err() != nil {
 		return nil // Ctrl-C via the context
 	}
+	if m, ok := final.(Model); ok && err == nil && m.hasHeld() { // mail held for undo goes now, not at some later sync
+		if err := m.releaseHeld(ctx); err != nil {
+			return err
+		}
+		if d.Sync != nil {
+			return d.Sync(ctx, nil)
+		}
+	}
 	return err
+}
+
+func (m Model) hasHeld() bool {
+	return slices.ContainsFunc(m.undos, func(e undoEntry) bool { return e.send != nil })
+}
+
+// releaseHeld stops holding the mail sent from this TUI.
+func (m Model) releaseHeld(ctx context.Context) error {
+	for _, e := range m.undos {
+		if e.send != nil {
+			if err := m.deps.Service.SendNow(ctx, e.send.unsend); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

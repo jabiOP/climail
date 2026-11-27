@@ -21,6 +21,7 @@ func newActionCmds(app *App) []*cobra.Command {
 		{"archive", "Archive conversations (remove them from the Inbox)", service.Archive},
 		{"trash", "Move conversations to the Trash", service.Trash},
 		{"inbox", "Move conversations back to the Inbox (from the Trash, Spam or archive)", service.MoveToInbox},
+		{"spam", "Report conversations as spam (they move to Spam; `inbox` takes them out)", service.ReportSpam},
 		{"read", "Mark conversations as read", service.MarkRead},
 		{"unread", "Mark conversations as unread", service.MarkUnread},
 		{"star", "Star conversations (their latest message, as Gmail does)", service.Star},

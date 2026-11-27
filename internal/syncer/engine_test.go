@@ -503,3 +503,20 @@ func TestSync_FirstSyncSavesAsItGoes(t *testing.T) {
 		t.Errorf("cached when each thread came: %v, want the ones before already saved", cachedAt)
 	}
 }
+
+func TestSync_MailWaitsUntilItsTime(t *testing.T) {
+	w := newWorld(t)
+	w.store.QueueSend(ctx, store.Outgoing{Account: acct, Raw: []byte("To: b@x.com\r\nSubject: Hi\r\n\r\nhi"),
+		NotBefore: base.Add(5 * time.Second)})
+
+	w.sync(t)
+	if len(w.fake.Sent()) != 0 {
+		t.Fatal("sent before its time")
+	}
+	w.engine.Now = func() time.Time { return base.Add(5 * time.Second) }
+	w.sync(t)
+
+	if len(w.fake.Sent()) != 1 {
+		t.Errorf("sent %d, want 1 once it's time", len(w.fake.Sent()))
+	}
+}

@@ -289,3 +289,63 @@ func TestSync_ProgressRedrawsOneLine(t *testing.T) {
 		t.Errorf("exit %d, stderr %q", code, errOut)
 	}
 }
+
+func TestCount_UnreadInEveryAccountOrOne(t *testing.T) {
+	h := newHarness(t, work, personal)
+	h.gmail[work].Deliver(msg("w1", "w", "Boss", 30, "INBOX", "UNREAD"), msg("w2", "w2", "Old", 40, "INBOX"),
+		msg("w3", "w3", "Client", 50, "Label_1", "UNREAD"))
+	h.gmail[personal].Deliver(msg("p1", "p", "Family", 30, "INBOX", "UNREAD"))
+
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"count"}, "2\n"},
+		{[]string{"count", "-a", "work"}, "1\n"},
+		{[]string{"count", "-a", "work", "work/clients"}, "1\n"},
+		{[]string{"count", "starred"}, "0\n"},
+	} {
+		if got := h.mustRun(c.args...); got != c.want {
+			t.Errorf("climail %s = %q, want %q", strings.Join(c.args, " "), got, c.want)
+		}
+	}
+}
+
+func TestSpam_ReportsToGmail(t *testing.T) {
+	h := newHarness(t, work)
+	h.gmail[work].Deliver(msg("a1", "a", "Cheap pills", 30, "INBOX"))
+	h.mustRun("sync")
+
+	_, errOut, code := h.run("spam", "a")
+
+	if code != 0 || !strings.Contains(errOut, "Reported as spam 1 conversation.") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+	if m, _ := h.gmail[work].Get("a1"); m.Has(model.Inbox) || !m.Has(model.Spam) {
+		t.Errorf("Gmail's labels: %v, want SPAM and no INBOX", m.Labels)
+	}
+}
+
+func TestViewHTML_WritesAPrivatePageWithoutScripts(t *testing.T) {
+	h := newHarness(t, work)
+	news := msg("n1", "n", "News", 30, "INBOX")
+	news.HTML = `<p>Big <b>news</b></p><script>alert(1)</script>`
+	h.gmail[work].Deliver(news, msg("p1", "p", "Plain", 20, "INBOX"))
+	h.mustRun("sync")
+
+	path, err := h.app.ViewHTML(context.Background(), work, "n1")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ := os.ReadFile(path)
+	if !strings.Contains(string(page), "Big <b>news</b>") || !strings.Contains(string(page), "script-src 'none'") {
+		t.Errorf("page:\n%s", page)
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v, want 0600", fi.Mode().Perm())
+	}
+	if _, err := h.app.ViewHTML(context.Background(), work, "p1"); err == nil || !strings.Contains(err.Error(), "plain text") {
+		t.Errorf("plain-text message: err = %v", err)
+	}
+}

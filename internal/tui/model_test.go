@@ -1692,3 +1692,151 @@ func TestLaunch_Account(t *testing.T) {
 		t.Errorf("all %v, account %s; want %s", m.all, m.account, other)
 	}
 }
+
+func TestSpam_ReportThenUndo(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("!")
+
+	if l := f.labels("t-launch-01"); has(l, model.Inbox) || !has(l, model.Spam) || slices.Contains(f.listed(), "t-launch") {
+		t.Fatalf("labels %v: want it in Spam, out of the Inbox", l)
+	}
+	if !strings.Contains(f.view(), "Reported as spam · u to undo") {
+		t.Errorf("no undo hint:\n%s", f.view())
+	}
+
+	f.keys("u")
+
+	if l := f.labels("t-launch-01"); !has(l, model.Inbox) || has(l, model.Spam) {
+		t.Errorf("labels %v after undo: want it back in the Inbox", l)
+	}
+}
+
+func TestSpam_InSpamItMeansNotSpam(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.keys("!", "g", "!")
+	if f.currentID() != "t-launch" {
+		t.Fatalf("Spam shows %s first, want t-launch", f.currentID())
+	}
+
+	f.keys("!")
+
+	if l := f.labels("t-launch-01"); !has(l, model.Inbox) || has(l, model.Spam) {
+		t.Errorf("labels %v: want it back in the Inbox", l)
+	}
+}
+
+func TestViewHTML_OpensThePointedMessageInTheBrowser(t *testing.T) {
+	var opened []string
+	var asked string
+	f := newFixtureWith(t, 100, 24, Deps{
+		OpenURL: func(u string) error { opened = append(opened, u); return nil },
+		ViewHTML: func(_ context.Context, account, id string) (string, error) {
+			asked = account + "/" + id
+			return "/tmp/page.html", nil
+		},
+	})
+	f.keys("enter")
+	p, _ := f.model().pointed()
+
+	f.keys("V")
+
+	if asked != workAcct+"/"+p.ID || !slices.Equal(opened, []string{"/tmp/page.html"}) {
+		t.Errorf("asked %q, opened %q", asked, opened)
+	}
+}
+
+func TestViewHTML_SaysWhyNot(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{
+		OpenURL:  func(string) error { return nil },
+		ViewHTML: func(context.Context, string, string) (string, error) { return "", fmt.Errorf("plain text") },
+	})
+	f.keys("enter", "V")
+
+	if !strings.Contains(f.view(), "plain text") {
+		t.Errorf("no reason shown:\n%s", f.view())
+	}
+}
+
+func TestSendDelay_UndoBringsTheMailBackToTheEditor(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{SendDelay: 5 * time.Second})
+	f.keys("R")
+	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
+
+	f.keys("y")
+	if !strings.HasSuffix(f.model().message, "in 5s · u to undo") || len(f.outbox()) != 1 {
+		t.Fatalf("outbox %v:\n%s", f.outbox(), f.view())
+	}
+	f.keys("u")
+
+	if len(f.outbox()) != 0 {
+		t.Errorf("outbox = %v, want the mail taken back", f.outbox())
+	}
+	c := f.model().composing
+	if c == nil {
+		t.Fatalf("not back in the editor:\n%s", f.view())
+	}
+	if text, _ := os.ReadFile(c.path); !strings.Contains(string(text), "Will do!") ||
+		!strings.Contains(string(text), "Subject: Re: Launch plan") {
+		t.Errorf("the draft reopened lost what was written:\n%s", text)
+	}
+}
+
+func TestSendDelay_TooLateToUndo(t *testing.T) {
+	clock := now
+	f := newFixtureWith(t, 100, 24, Deps{SendDelay: 5 * time.Second})
+	m := f.model()
+	m.deps.Now = func() time.Time { return clock }
+	f.m = m
+	f.keys("R")
+	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
+	f.keys("y")
+
+	clock = clock.Add(5 * time.Second)
+	f.keys("u")
+
+	if len(f.outbox()) != 1 || f.model().composing != nil || !strings.Contains(f.view(), "already sent") {
+		t.Errorf("outbox %v, composing %v:\n%s", f.outbox(), f.model().composing != nil, f.view())
+	}
+}
+
+func TestSendDelay_CancelsAContinuedDraftsSendingAndKeepsIt(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{SendDelay: 5 * time.Second})
+	f.keys("g", "d")
+	t0, _ := f.model().current()
+	draftID := t0.Latest().ID
+	f.keys("enter") // continue it
+	if f.model().askDraft != nil {
+		f.keys("e")
+	}
+	f.editDraft(func(old string) string { return old + "\nP.S." })
+	f.keys("y")
+	if _, err := f.st.Message(context.Background(), workAcct, draftID); err == nil {
+		t.Fatal("the draft sent is still in Drafts")
+	}
+
+	f.keys("u")
+
+	if f.model().composing == nil {
+		t.Fatal("not back in the editor")
+	}
+	if _, err := f.st.Message(context.Background(), workAcct, draftID); err != nil {
+		t.Errorf("the draft isn't back: %v", err)
+	}
+}
+
+func TestSendDelay_QuittingSendsHeldMailNow(t *testing.T) {
+	f := newFixtureWith(t, 100, 24, Deps{SendDelay: 5 * time.Second})
+	f.keys("R")
+	f.editDraft(func(old string) string { return strings.Replace(old, "\n\n", "\n\nWill do!", 1) })
+	f.keys("y")
+
+	if err := f.model().releaseHeld(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	out, _ := f.st.Outgoing(context.Background(), workAcct)
+	if len(out) != 1 || !out[0].NotBefore.IsZero() {
+		t.Errorf("outbox %+v: want the mail no longer held", out)
+	}
+}

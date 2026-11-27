@@ -137,7 +137,7 @@ func NewRootCmd(app *App) *cobra.Command {
 	root.AddCommand(newAuthCmd(app), newSyncCmd(app), newLabelsCmd(app), newListCmd(app), newShowCmd(app),
 		newDemoCmd(app), newDaemonCmd(app), newComposeCmd(app), newReplyCmd(app), newForwardCmd(app),
 		newSendCmd(app), newContactsCmd(app), newOutboxCmd(app), newAttachmentsCmd(app), newDownloadCmd(app),
-		newSearchCmd(app), newLogCmd(app))
+		newSearchCmd(app), newLogCmd(app), newCountCmd(app))
 	root.AddCommand(newActionCmds(app)...)
 	return root
 }
@@ -152,10 +152,12 @@ func tuiDeps(app *App, svc *service.Service) tui.Deps {
 		},
 		Now:               app.Now,
 		SyncInterval:      app.Config.SyncInterval.Duration,
+		SendDelay:         app.Config.SendDelay.Duration,
 		OpenURL:           app.OpenURL,
 		DraftDir:          app.Paths.DraftDir(),
 		Editor:            compose.EditorCmd,
 		Download:          app.Download,
+		ViewHTML:          app.ViewHTML,
 		DownloadDir:       app.Config.DownloadDir,
 		OpenDir:           app.Paths.OpenDir(),
 		Search:            app.Search,

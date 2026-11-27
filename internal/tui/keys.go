@@ -15,7 +15,7 @@ func bind(help, desc string, keys ...string) key.Binding {
 // and the help screen lists them.
 var keys = struct {
 	Up, Down, PageUp, PageDown, HalfUp, HalfDown, Top, Bottom, Left, Right, Open, Back, Next, Prev, NextMessage, PrevMessage, ReadNext, ReadPrev,
-	Archive, Trash, Inbox, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile,
+	Archive, Trash, Inbox, Spam, Read, Star, Select, Together, Undo, Expand, Browser, Compose, Reply, ReplyAll, Forward, SaveFiles, OpenFile, Links, View,
 	Search, Sync, PrevAccount, NextAccount, Sidebar, PickColor, Log, Help, Quit, ForceQuit key.Binding
 }{
 	Up:          bind("k", "up", "k", "up"),
@@ -39,6 +39,7 @@ var keys = struct {
 	Archive:     bind("a", "archive", "a"),
 	Trash:       bind("dd", "move to Trash", "d"),
 	Inbox:       bind("I", "move to Inbox", "I"),
+	Spam:        bind("!", "report spam (in Spam: not spam)", "!"),
 	Read:        bind("N", "mark read / unread", "N"),
 	Star:        bind("*", "star / unstar", "*"),
 	Select:      bind("x", "select (then act on all selected)", "x"),
@@ -52,6 +53,8 @@ var keys = struct {
 	Forward:     bind("f", "forward", "f"),
 	SaveFiles:   bind("D", "save the attachments", "D"),
 	OpenFile:    bind("A", "open an attachment", "A"),
+	Links:       bind("U", "open a link in the message", "U"),
+	View:        bind("V", "view the message in the browser, as sent", "V"),
 	Search:      bind("/", "search all mail", "/"),
 	Sync:        bind("s", "sync now", "s"),
 	PrevAccount: bind("[", "previous account", "["),
@@ -107,8 +110,8 @@ func helpText() string {
 	right := helpColumn(
 		"Conversations", []helpRow{
 			pair(keys.ReplyAll, keys.Reply, "reply all / reply"), one(keys.Forward, "forward"),
-			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"),
-			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), one(keys.Inbox, "move to Inbox"),
+			pair(keys.OpenFile, keys.SaveFiles, "open / save attachments"), pair(keys.Links, keys.View, "link / view in browser"),
+			one(keys.Archive, "archive"), one(keys.Trash, "move to Trash"), pair(keys.Inbox, keys.Spam, "to Inbox / spam"),
 			one(keys.Read, "mark read / unread"), one(keys.Star, "star / unstar"),
 			pair(keys.Select, keys.Together, "select / read together"), one(keys.Undo, "undo (again: earlier)"),
 			one(keys.Expand, "expand / collapse all"), one(keys.Browser, "open here in Gmail (web)"),

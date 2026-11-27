@@ -48,6 +48,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.choosing != nil {
 		return m.chooseKey(msg)
 	}
+	if m.links != nil {
+		return m.linksKey(msg)
+	}
 	if m.askDraft != nil {
 		return m.askDraftKey(msg)
 	}
@@ -263,6 +266,10 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.act(service.Archive)
 	case key.Matches(msg, keys.Inbox):
 		return m.act(service.MoveToInbox)
+	case key.Matches(msg, keys.Spam) && m.box.ID == model.Spam && m.search == "":
+		return m.act(service.MoveToInbox)
+	case key.Matches(msg, keys.Spam):
+		return m.act(service.ReportSpam)
 	case key.Matches(msg, keys.Read):
 		if slices.ContainsFunc(targets, model.Thread.Unread) {
 			return m.act(service.MarkRead)
@@ -289,6 +296,10 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.saveAll()
 	case key.Matches(msg, keys.OpenFile):
 		return m.openAttachment()
+	case key.Matches(msg, keys.Links):
+		return m.showLinks()
+	case key.Matches(msg, keys.View):
+		return m.viewHTML()
 	}
 	return m, nil
 }

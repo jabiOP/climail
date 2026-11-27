@@ -3,22 +3,22 @@
    │ j/k       down / up                 r/R       reply all / reply        │   
    │ J/K       page; sidebar: account    f         forward                  │   
    │ ^d/^u     half page down / up       A/D       open / save attachments  │   
-   │ gg/G      top / bottom              a         archive                  │   
-   │ h/l       pane left / right         dd        move to Trash            │   
-   │ enter/esc open / back               I         move to Inbox            │   
-   │ n/p       next / prev (reader)      N         mark read / unread       │   
-   │ tab/⇧tab  next / prev message       *         star / unstar            │   
-   │                                     x/T       select / read together   │   
-   │ Everywhere                          u         undo (again: earlier)    │   
-   │ c         write a new mail          o         expand / collapse all    │   
-   │ /         search all mail           O         open here in Gmail (web) │   
-   │ s         sync now                                                     │   
-   │ [/]       previous / next account   Go to                              │   
-   │ b         show / hide mailboxes     gi/gs     Inbox / Starred          │   
-   │ C         account color (sidebar)   gt/gd     Sent / Drafts            │   
-   │ L         what Gmail rejected       ga/g#     All Mail / Trash         │   
-   │ ?         this help                 g!        Spam                     │   
-   │ ZZ        quit (q: in the list)                                        │   
+   │ gg/G      top / bottom              U/V       link / view in browser   │   
+   │ h/l       pane left / right         a         archive                  │   
+   │ enter/esc open / back               dd        move to Trash            │   
+   │ n/p       next / prev (reader)      I/!       to Inbox / spam          │   
+   │ tab/⇧tab  next / prev message       N         mark read / unread       │   
+   │                                     *         star / unstar            │   
+   │ Everywhere                          x/T       select / read together   │   
+   │ c         write a new mail          u         undo (again: earlier)    │   
+   │ /         search all mail           o         expand / collapse all    │   
+   │ s         sync now                  O         open here in Gmail (web) │   
+   │ [/]       previous / next account                                      │   
+   │ b         show / hide mailboxes     Go to                              │   
+   │ C         account color (sidebar)   gi/gs     Inbox / Starred          │   
+   │ L         what Gmail rejected       gt/gd     Sent / Drafts            │   
+   │ ?         this help                 ga/g#     All Mail / Trash         │   
+   │ ZZ        quit (q: in the list)     g!        Spam                     │   
    │                                                                        │   
    │ Press any key to close.                                                │   
    ╰────────────────────────────────────────────────────────────────────────╯   

@@ -21,7 +21,7 @@ Spam and Trash, their unread counts added up. Actions, replies and attachments u
 | `j`/`k`, `J`/`K`, `ctrl-d`/`ctrl-u`, `gg`/`G` | move; page; half page; top/bottom (the reader scrolls; when it can't scroll further, `j`/`k` move `▶` like `tab`/`shift+tab`; in the reader `J`/`K` read the next/previous message: `▶` moves to it, opens it and brings it to the top; in the mailboxes they go to the next/previous account) |
 | `h`/`l`, `enter`, `esc` | move between panes; open (in Drafts: continue the draft; in the reader: open or close the `▶` message); back (also clears a selection or search; in the list, with neither, closes the conversation in the reader) |
 | `n`/`p`, `tab`/`shift+tab` | next/previous conversation, from the reader; next/previous message, which `▶` marks (read together: on into the next/previous conversation) |
-| `a`, `dd`, `I` | archive, move to Trash, move to Inbox |
+| `a`, `dd`, `I`, `!` | archive, move to Trash, move to Inbox, report spam (in Spam: not spam, back to the Inbox) |
 | `N`, `*` | mark read/unread, star/unstar |
 | `x`, `u` | select (actions then apply to every selected conversation), undo the last change (again: the ones before, up to 50) |
 | `T` | read together: the selected conversations, else every unread one listed, on one page, marked read. The one at the top is current: `▶` on its subject, a bar down its left edge, and its subject in the title (`Together 2/4 · …`): `a`, `dd`, `r`… act on it alone, and the next one moves up (`u` puts it back); `n`/`p` jump between them, `esc` goes back |
@@ -30,6 +30,8 @@ Spam and Trash, their unread counts added up. Actions, replies and attachments u
 | `gi` `gs` `gt` `gd` `ga` `g#` `g!` | go to Inbox, Starred, Sent, Drafts, All Mail, Trash, Spam |
 | `c`, `r`, `R`, `f` | write a new mail, reply all, reply (to the sender only), forward with attachments (in your editor); in a conversation of several messages, they act on the message marked with `▶` and a bar: the one a reply answers (the latest from someone else) until `tab`/`shift+tab` move it |
 | `A`, `D` | open an attachment (choose by number when there are several), save them all in `download_dir`: the `▶` message's |
+| `V` | view the `▶` message in your browser as it was sent (fetched from Gmail; scripts blocked, but its pictures load from the sender's servers) |
+| `U` | open a link in the `▶` message in your browser: the only one at once, else from a list (`j`/`k` or its number, as in the text's `[3]`, then `enter`) |
 | `L` | what Gmail rejected lately (changes it refused, mail it wouldn't send); the status bar counts those since climail opened |
 | `[`/`]`, `b`, `s`, `ZZ` | previous/next account (or all accounts at once), hide mailboxes, sync now, quit (as in vim; `q` also quits from the list, not from the reader) |
 
@@ -57,7 +59,8 @@ its attachments included; sending it takes it out of Drafts. A draft written in 
 Markdown; when it has formatting Markdown can't keep (fonts, colours, sizes, images), climail asks first: `e` edit it
 anyway (that formatting becomes Gmail's default), `O` open it in Gmail instead.
 A new mail left unchanged is dropped; a draft continued from Drafts is asked about even unchanged, so it can be sent as it is. Mail is queued and sent with the next sync, so writing works offline; mail Gmail refuses
-stays in `climail outbox`.
+stays in `climail outbox`. In the TUI, mail waits `send_delay` (5s) after `y` before it goes: `u` meanwhile takes it
+back to the editor (Gmail's "Undo send"); quitting sends what's held at once. The CLI sends at once.
 
 ## CLI
 
@@ -77,9 +80,10 @@ climail send --to A [-s S] [--from F] [--attach F] [--plain] < BODY   send witho
 climail outbox [retry ID | discard ID]      mail waiting to be sent, or refused by Gmail
 climail log [-n 20]                         changes and mail Gmail rejected, newest first
 climail contacts [QUERY...]                 people in your mail, those you write to most first
+climail count [LABEL] [-a ACCOUNT]          unread conversations (default: Inbox, every account added up)
 climail attachments ID                      a conversation's attachments, numbered
 climail download ID [N...] [-o DIR] [--open]   save attachments (all, or by number); prints the paths
-climail archive|trash|inbox ID... | -       move conversations
+climail archive|trash|inbox|spam ID... | -  move conversations (inbox: out of Trash or Spam too)
 climail read|unread|star|unstar ID... | -   mark conversations
 ```
 
@@ -99,6 +103,7 @@ stale_after = "2m"     # CLI reads sync first when the last sync is older
 sync_timeout = "10s"   # how long a CLI command waits for that sync
 sync_threads = 300     # conversations a first (or --full) sync downloads per account
 download_dir = "~/Downloads"  # where attachments are saved
+send_delay = "5s"      # the TUI holds mail this long after y, so u can take it back ("0s": off; at most "30s")
 preview_at_launch = false  # the TUI's reader shows the first conversation as soon as it opens
 sidebar_at_launch = true   # the TUI opens with the mailboxes shown (b shows or hides them)
 account_at_launch = ""     # the account the TUI opens on: an address, its start ("work"), or "all"; "": the default account

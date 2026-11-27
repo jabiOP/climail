@@ -5,6 +5,7 @@ package service
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -65,6 +66,7 @@ type Action struct {
 var (
 	Archive     = Action{Done: "Archived", Remove: []string{model.Inbox}, Leaves: true}
 	Trash       = Action{Done: "Moved to Trash", Add: []string{model.Trash}, Remove: []string{model.Inbox}, Leaves: true}
+	ReportSpam  = Action{Done: "Reported as spam", Add: []string{model.Spam}, Remove: []string{model.Inbox}, Leaves: true}
 	MoveToInbox = Action{Done: "Moved to Inbox", Add: []string{model.Inbox}, Remove: []string{model.Trash, model.Spam}}
 	MarkRead    = Action{Done: "Marked as read", Remove: []string{model.Unread}}
 	MarkUnread  = Action{Done: "Marked as unread", Add: []string{model.Unread}}
@@ -282,27 +284,75 @@ func (s *Service) allStatus(ctx context.Context) (Status, error) {
 
 // Send queues a draft; it goes with the next sync.
 func (s *Service) Send(ctx context.Context, d compose.Draft, now time.Time) error {
+	_, err := s.SendAfter(ctx, d, now, 0)
+	return err
+}
+
+// SendAfter queues a draft held back for delay, during which Unsend can
+// take it back.
+func (s *Service) SendAfter(ctx context.Context, d compose.Draft, now time.Time, delay time.Duration) (Unsend, error) {
 	raw, err := d.Build(now)
 	if err != nil {
-		return err
+		return Unsend{}, err
 	}
-	return s.queue(ctx, d, raw, store.Outgoing{Summary: d.Summary(), Created: now})
+	o := store.Outgoing{Summary: d.Summary(), Created: now}
+	if delay > 0 {
+		o.NotBefore = now.Add(delay)
+	}
+	return s.queue(ctx, d, raw, o)
+}
+
+// Unsend is what Unsend needs to take a mail back.
+type Unsend struct {
+	account string
+	id      int64
+	draft   *model.Message // the draft it continued, taken out of the cache
+}
+
+// ErrAlreadySent: the mail's delay is over, so it went (or is going).
+var ErrAlreadySent = errors.New("already sent")
+
+// Unsend takes a held mail back out of the queue, and puts the draft it
+// continued back in Drafts.
+func (s *Service) Unsend(ctx context.Context, u Unsend, now time.Time) error {
+	return s.store.InTx(ctx, func(tx *store.Store) error {
+		err := tx.CancelSend(ctx, u.account, u.id, now)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			return ErrAlreadySent
+		case err != nil || u.draft == nil:
+			return err
+		}
+		return tx.UpsertMessages(ctx, []model.Message{*u.draft})
+	})
+}
+
+// SendNow stops holding a mail, so the next sync sends it (when the TUI
+// quits before its delay is over). Nothing happens if it's gone already.
+func (s *Service) SendNow(ctx context.Context, u Unsend) error {
+	return s.store.ReleaseSend(ctx, u.account, u.id)
 }
 
 // queue queues raw, taking the draft it continues out of the cached Drafts
 // at once (Gmail's change comes with the next sync), so it can't be
 // continued twice.
-func (s *Service) queue(ctx context.Context, d compose.Draft, raw []byte, o store.Outgoing) error {
+func (s *Service) queue(ctx context.Context, d compose.Draft, raw []byte, o store.Outgoing) (Unsend, error) {
 	o.Account, o.ThreadID, o.Raw, o.Draft = d.Account, d.ThreadID, raw, d.DraftID
-	return s.store.InTx(ctx, func(tx *store.Store) error {
+	u := Unsend{account: d.Account}
+	err := s.store.InTx(ctx, func(tx *store.Store) error {
 		if d.DraftID != "" {
+			if m, err := tx.Message(ctx, d.Account, d.DraftID); err == nil {
+				u.draft = &m
+			}
 			if err := tx.DeleteMessages(ctx, d.Account, []string{d.DraftID}); err != nil {
 				return err
 			}
 		}
-		_, err := tx.QueueSend(ctx, o)
+		var err error
+		u.id, err = tx.QueueSend(ctx, o)
 		return err
 	})
+	return u, err
 }
 
 // SaveDraft queues the draft to be saved in Gmail's Drafts, replacing the
@@ -320,7 +370,8 @@ func (s *Service) SaveDraft(ctx context.Context, d compose.Draft, now time.Time)
 	if err != nil {
 		return err
 	}
-	return s.queue(ctx, d, raw, store.Outgoing{Summary: "draft " + d.Summary(), Save: true, Created: now})
+	_, err = s.queue(ctx, d, raw, store.Outgoing{Summary: "draft " + d.Summary(), Save: true, Created: now})
+	return err
 }
 
 // Contacts lists the people in the account's mail whose name or address

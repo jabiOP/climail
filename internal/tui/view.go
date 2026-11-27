@@ -59,6 +59,10 @@ func (m Model) View() string {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(m.logText()),
 			lipgloss.WithWhitespaceChars(" "))
 	}
+	if m.links != nil {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(m.linksText()),
+			lipgloss.WithWhitespaceChars(" "))
+	}
 	if m.picking != "" {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpBox.Render(m.pickText()),
 			lipgloss.WithWhitespaceChars(" "))

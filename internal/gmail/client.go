@@ -308,6 +308,17 @@ func (c *Client) AttachmentData(ctx context.Context, messageID string, index int
 	return decodeBase64(a.Data)
 }
 
+// MessageHTML fetches a message's HTML body ("" when it's plain text only).
+// The cache keeps only the text, so viewing the mail as sent asks Gmail.
+func (c *Client) MessageHTML(ctx context.Context, messageID string) (string, error) {
+	m, err := do(c, ctx, c.svc.Users.Messages.Get("me", messageID).Format("full").Context(ctx).Do)
+	if err != nil {
+		return "", mapErr(err)
+	}
+	_, html, _ := body(m.Payload)
+	return html, nil
+}
+
 // do makes a Gmail call in its turn, retrying it while Gmail says too many requests.
 func do[T any](c *Client, ctx context.Context, call func(...googleapi.CallOption) (T, error)) (T, error) {
 	var out T
