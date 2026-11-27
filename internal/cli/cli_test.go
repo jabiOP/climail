@@ -310,3 +310,18 @@ func TestCount_UnreadInEveryAccountOrOne(t *testing.T) {
 		}
 	}
 }
+
+func TestSpam_ReportsToGmail(t *testing.T) {
+	h := newHarness(t, work)
+	h.gmail[work].Deliver(msg("a1", "a", "Cheap pills", 30, "INBOX"))
+	h.mustRun("sync")
+
+	_, errOut, code := h.run("spam", "a")
+
+	if code != 0 || !strings.Contains(errOut, "Reported as spam 1 conversation.") {
+		t.Errorf("exit %d, stderr %q", code, errOut)
+	}
+	if m, _ := h.gmail[work].Get("a1"); m.Has(model.Inbox) || !m.Has(model.Spam) {
+		t.Errorf("Gmail's labels: %v, want SPAM and no INBOX", m.Labels)
+	}
+}

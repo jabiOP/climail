@@ -39,6 +39,7 @@ Last updated: 2026-11-27
 - TUI launch: the reader stays empty until you move to or open a conversation (`preview_at_launch = true` previews the first); `sidebar_at_launch = false` opens with the mailboxes hidden; `account_at_launch` opens on an account or `"all"`; `esc` in the list (nothing selected or searched) closes the conversation in the reader
 - `climail count` (unread, for status bars) and docs/scripting.md (status bars, notifications, cleanups, fzf, jq)
 - Links: `U` opens a link in the `▶` message (from a list when there are several, by number as in the text's `[n]`); only http(s)
+- Spam: `!` reports spam (in Spam: not spam), `climail spam`; undoable like the other actions
 - TUI mouse (`mouse = true`): clicks select a mailbox, conversation or message and open it when already selected; the wheel moves the list and scrolls the reader
 - Each account has a color (Google Calendar's event colors, as in clindar): sidebar dot, list title, a stripe on each conversation in All accounts; chosen from Google Calendar's 24 (clindar's palette, in a grid by family) with `C` in the sidebar, or `[account_colors]` in config.toml
 

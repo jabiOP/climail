@@ -7,18 +7,19 @@
    │ h/l       pane left / right         a         archive                  │   
    │ enter/esc open / back               dd        move to Trash            │   
    │ n/p       next / prev (reader)      I         move to Inbox            │   
-   │ tab/⇧tab  next / prev message       N         mark read / unread       │   
-   │                                     *         star / unstar            │   
-   │ Everywhere                          x/T       select / read together   │   
-   │ c         write a new mail          u         undo (again: earlier)    │   
-   │ /         search all mail           o         expand / collapse all    │   
-   │ s         sync now                  O         open here in Gmail (web) │   
-   │ [/]       previous / next account                                      │   
-   │ b         show / hide mailboxes     Go to                              │   
-   │ C         account color (sidebar)   gi/gs     Inbox / Starred          │   
-   │ L         what Gmail rejected       gt/gd     Sent / Drafts            │   
-   │ ?         this help                 ga/g#     All Mail / Trash         │   
-   │ ZZ        quit (q: in the list)     g!        Spam                     │   
+   │ tab/⇧tab  next / prev message       !         spam (in Spam: not spam) │   
+   │                                     N         mark read / unread       │   
+   │ Everywhere                          *         star / unstar            │   
+   │ c         write a new mail          x/T       select / read together   │   
+   │ /         search all mail           u         undo (again: earlier)    │   
+   │ s         sync now                  o         expand / collapse all    │   
+   │ [/]       previous / next account   O         open here in Gmail (web) │   
+   │ b         show / hide mailboxes                                        │   
+   │ C         account color (sidebar)   Go to                              │   
+   │ L         what Gmail rejected       gi/gs     Inbox / Starred          │   
+   │ ?         this help                 gt/gd     Sent / Drafts            │   
+   │ ZZ        quit (q: in the list)     ga/g#     All Mail / Trash         │   
+   │                                     g!        Spam                     │   
    │                                                                        │   
    │ Press any key to close.                                                │   
    ╰────────────────────────────────────────────────────────────────────────╯   

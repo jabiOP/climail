@@ -266,6 +266,10 @@ func (m Model) threadKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.act(service.Archive)
 	case key.Matches(msg, keys.Inbox):
 		return m.act(service.MoveToInbox)
+	case key.Matches(msg, keys.Spam) && m.box.ID == model.Spam && m.search == "":
+		return m.act(service.MoveToInbox)
+	case key.Matches(msg, keys.Spam):
+		return m.act(service.ReportSpam)
 	case key.Matches(msg, keys.Read):
 		if slices.ContainsFunc(targets, model.Thread.Unread) {
 			return m.act(service.MarkRead)

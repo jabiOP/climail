@@ -1692,3 +1692,36 @@ func TestLaunch_Account(t *testing.T) {
 		t.Errorf("all %v, account %s; want %s", m.all, m.account, other)
 	}
 }
+
+func TestSpam_ReportThenUndo(t *testing.T) {
+	f := newFixture(t, 100, 24)
+
+	f.keys("!")
+
+	if l := f.labels("t-launch-01"); has(l, model.Inbox) || !has(l, model.Spam) || slices.Contains(f.listed(), "t-launch") {
+		t.Fatalf("labels %v: want it in Spam, out of the Inbox", l)
+	}
+	if !strings.Contains(f.view(), "Reported as spam · u to undo") {
+		t.Errorf("no undo hint:\n%s", f.view())
+	}
+
+	f.keys("u")
+
+	if l := f.labels("t-launch-01"); !has(l, model.Inbox) || has(l, model.Spam) {
+		t.Errorf("labels %v after undo: want it back in the Inbox", l)
+	}
+}
+
+func TestSpam_InSpamItMeansNotSpam(t *testing.T) {
+	f := newFixture(t, 100, 24)
+	f.keys("!", "g", "!")
+	if f.currentID() != "t-launch" {
+		t.Fatalf("Spam shows %s first, want t-launch", f.currentID())
+	}
+
+	f.keys("!")
+
+	if l := f.labels("t-launch-01"); !has(l, model.Inbox) || has(l, model.Spam) {
+		t.Errorf("labels %v: want it back in the Inbox", l)
+	}
+}
